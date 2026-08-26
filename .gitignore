@@ -1,0 +1,16 @@
+# Virtual environment (1.3GB+, platform-specific — never commit)
+drone-sim-today/venv/
+
+# Third-party library clone (installed via `pip install -e`, not our code —
+# see README.md setup steps to reproduce)
+drone-sim-today/gpd_src/
+
+# Python
+__pycache__/
+*.pyc
+
+# Regenerable raw capture frames (intermediate, not deliverables)
+drone-sim-today/captures/
+
+# gym-pybullet-drones default log output dir
+drone-sim-today/results/
