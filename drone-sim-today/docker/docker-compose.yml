@@ -1,0 +1,33 @@
+name: drone-inspection-memory
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: drone_inspection_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inspection
+      POSTGRES_PASSWORD: inspection_dev_only
+      POSTGRES_DB: inspection
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init_pg.sql:/docker-entrypoint-initdb.d/init_pg.sql:ro
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: drone_inspection_neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/inspection_dev_only
+      NEO4J_PLUGINS: '[]'
+    ports:
+      - "7474:7474"  # browser UI
+      - "7687:7687"  # bolt
+    volumes:
+      - neo4j_data:/data
+
+volumes:
+  pg_data:
+  neo4j_data:

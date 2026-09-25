@@ -12,5 +12,28 @@ __pycache__/
 # Regenerable raw capture frames (intermediate, not deliverables)
 drone-sim-today/captures/
 
-# gym-pybullet-drones default log output dir
-drone-sim-today/results/
+# gym-pybullet-drones default log output dir -- but keep our own
+# experiments/evaluate.py deliverables (comparison.csv/.png) inside it
+drone-sim-today/results/*
+!drone-sim-today/results/comparison.csv
+!drone-sim-today/results/comparison.png
+
+# MBDD2025 dataset download + extracted/split copies (2.5GB+, real data --
+# see README.md "Getting a trained model" for the download/prepare steps)
+drone-sim-today/datasets/
+
+# Base pretrained checkpoint auto-downloaded by ultralytics, and its own
+# validation-run cache dir -- both regenerable, not our artifacts
+drone-sim-today/yolov8n.pt
+drone-sim-today/runs/
+
+# Redundant duplicate of best.pt from the last training epoch
+drone-sim-today/weights/*/weights/last.pt
+
+# Scratch dev-preview images from each module's own __main__ self-test
+drone-sim-today/**/_*_preview/
+drone-sim-today/**/_*_preview.png
+
+# Local run logs (raw stdout captures kept for provenance during
+# development; the distilled results are in RESULTS.md)
+drone-sim-today/logs/

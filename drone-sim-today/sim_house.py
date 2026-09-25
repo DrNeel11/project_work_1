@@ -15,6 +15,7 @@ import pybullet as p
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 
+from scene.environment import add_decorative_props
 from sim_gpd import VisionCtrlAviary
 
 SCENE_DIR = os.path.join(os.path.dirname(__file__), "scene")
@@ -125,6 +126,7 @@ def build_house(client):
         tex_id = p.loadTexture(os.path.join(SCENE_DIR, wall["texture"]), physicsClientId=client)
         p.changeVisualShape(body, -1, textureUniqueId=tex_id, physicsClientId=client)
         infos[wall["name"]] = body
+    add_decorative_props(client)  # pipe rack / support pylons outside the flight envelope
     return infos
 
 
