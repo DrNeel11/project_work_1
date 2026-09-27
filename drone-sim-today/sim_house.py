@@ -1,9 +1,13 @@
-"""A small two-room house environment for the autonomous inspection drone,
+"""An open-air utility inspection yard for the autonomous inspection drone,
 built on the same gym-pybullet-drones physics/PID flight stack as
-sim_gpd.py. Room A (4x4m) connects to the smaller Room B (2.6x2.6m)
-through a 1m doorway gap in the shared wall. The drone autonomously
-patrols both rooms, station-keeping and yawing to face each wall panel
-in turn for its onboard camera to inspect.
+sim_gpd.py: two freestanding equipment buildings (Building A 4x4m, Building
+B 2.6x2.6m) with real open sky between them, plus a real inspection panel
+mounted on each of the decorative pipe rack and lattice tower structures
+(scene/environment.py). Unlike an enclosed house, the sky and surrounding
+yard are visible for the whole flight, not just a one-off establishing
+shot -- see scene/environment.py's sky backdrop. The drone autonomously
+patrols all panels, station-keeping and yawing to face each one in turn
+for its onboard camera to inspect.
 """
 import math
 import os
@@ -29,43 +33,49 @@ FLIGHT_Z = 1.2
 IMG_RES = np.array([320, 240])
 
 # Each wall segment: (center_x, center_y, yaw_deg, width, texture, label)
-# yaw_deg is the mesh's own facing direction (its face normal points into
-# whichever room it borders); see the yaw-to-normal derivation this was
-# built from: normal = (sin(yaw), -cos(yaw), 0).
+# yaw_deg is the mesh's own facing direction; see the yaw-to-normal
+# derivation this was built from: normal = (sin(yaw), -cos(yaw), 0).
+# Freestanding structures in open space (no shared walls/doorways -- see
+# scene/environment.py for the sky/yard dressing and the pipe
+# rack / lattice tower these two panel entries are mounted on):
 WALL_SEGMENTS = [
-    # --- Room A (4m x 4m), centered at origin ---
+    # --- Building A (4m x 4m equipment building), centered at origin ---
     dict(name="A-west", x=-2.0, y=0.0, yaw=90, width=4.0, texture="crack_wall_1.png", label="crack"),
     dict(name="A-east", x=2.0, y=0.0, yaw=-90, width=4.0, texture="rust_wall_1.png", label="rust"),
     dict(name="A-south", x=0.0, y=-2.0, yaw=180, width=4.0, texture="clean_wall_1.png", label="clean"),
-    # North wall of room A has a 1m doorway gap into room B, so it's built
-    # from two 1.5m segments flanking the gap instead of one 4m panel.
-    dict(name="A-north-west", x=-1.25, y=2.0, yaw=0, width=1.5, texture="leak_wall_1.png", label="leak"),
-    dict(name="A-north-east", x=1.25, y=2.0, yaw=0, width=1.5, texture="clean_wall_2.png", label="clean"),
-    # --- Room B (2.6m x 2.6m), north of room A, sharing the doorway ---
-    dict(name="B-west", x=-1.3, y=3.3, yaw=90, width=2.6, texture="clean_wall_3.png", label="clean"),
-    dict(name="B-east", x=1.3, y=3.3, yaw=-90, width=2.6, texture="crack_wall_2.png", label="crack"),
-    dict(name="B-north", x=0.0, y=4.6, yaw=180, width=2.6, texture="rust_wall_1.png", label="rust"),
+    dict(name="A-north", x=0.0, y=2.0, yaw=0, width=4.0, texture="clean_wall_2.png", label="clean"),
+    # --- Building B (2.6m x 2.6m), a standalone structure ~11m east of A,
+    # with real open sky/yard to fly through between them ---
+    dict(name="B-west", x=12.7, y=0.0, yaw=90, width=2.6, texture="clean_wall_3.png", label="clean"),
+    dict(name="B-east", x=15.3, y=0.0, yaw=-90, width=2.6, texture="crack_wall_2.png", label="crack"),
+    dict(name="B-north", x=14.0, y=1.3, yaw=0, width=2.6, texture="rust_wall_1.png", label="rust"),
+    # --- Real inspection panels mounted on the decorative structures
+    # (scene.environment.PIPE_RACK_POS / TOWER_POS -- kept in sync there) ---
+    dict(name="PipeRack-Panel", x=7.0, y=4.0, yaw=180, width=1.2, texture="leak_wall_1.png", label="leak"),
+    dict(name="Tower-Panel", x=-5.0, y=3.0, yaw=0, width=1.2, texture="clean_wall_1.png", label="clean"),
 ]
 
-# Patrol order: room A perimeter, transit through the doorway, room B
-# perimeter. Transit waypoints (capture=False) keep the straight-line
-# path between stations inside open floor space instead of clipping
-# through walls (no collision is modeled — this is a kinematic-visual sim).
+# Patrol order: visit every panel in a sensible spatial loop. No special
+# transit waypoints needed now that structures are freestanding in open
+# space (no collision is modeled -- this is a kinematic-visual sim -- but
+# there's nothing to clip through here anyway, unlike the old shared walls).
 PATROL = [
     {"wall": "A-west", "capture": True},
     {"wall": "A-south", "capture": True},
     {"wall": "A-east", "capture": True},
-    {"wall": "A-north-east", "capture": True},
-    {"wall": "A-north-west", "capture": True},
-    {"transit_pos": (0.0, 1.2, FLIGHT_Z), "transit_yaw": 90, "capture": False},
+    {"wall": "A-north", "capture": True},
+    {"wall": "Tower-Panel", "capture": True},
+    {"wall": "PipeRack-Panel", "capture": True},
     {"wall": "B-west", "capture": True},
-    {"wall": "B-east", "capture": True},
     {"wall": "B-north", "capture": True},
+    {"wall": "B-east", "capture": True},
 ]
 
-STANDOFF = {  # room A panels use a slightly bigger standoff than room B
+STANDOFF = {  # keyed by the wall name's first letter/token
     "A": 1.2,
     "B": 1.0,
+    "P": 0.9,  # PipeRack-Panel
+    "T": 0.9,  # Tower-Panel
 }
 
 

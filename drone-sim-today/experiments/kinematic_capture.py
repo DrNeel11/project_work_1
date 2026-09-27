@@ -12,15 +12,20 @@ import sys
 
 import numpy as np
 import pybullet as p
+import pybullet_data
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geometry as geo  # noqa: E402
+from scene.environment import retexture_ground  # noqa: E402
 from sim_house import IMG_RES, WALL_SEGMENTS, build_house  # noqa: E402
 
 
 class KinematicHouse:
     def __init__(self, gui=False):
         self.client = p.connect(p.GUI if gui else p.DIRECT)
+        p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client)
+        plane_id = p.loadURDF("plane.urdf", physicsClientId=self.client)
+        retexture_ground(self.client, plane_id)
         self.wall_bodies = build_house(self.client)  # {wall_name: body_id}
         self.wall_by_name = {w["name"]: w for w in WALL_SEGMENTS}
 

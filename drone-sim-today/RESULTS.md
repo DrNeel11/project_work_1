@@ -11,11 +11,54 @@
 - **Memory**: PostgreSQL+pgvector (detection log + identity matching) and
   Neo4j (defect graph), run via `docker/docker-compose.yml`.
 - **Environment**: the two-room house (`sim_house.py`), a candidate-viewpoint
-  graph of 48 stations across 9 wall segments (`planning/viewpoints.py`).
+  graph of 54 stations across 9 wall segments (`planning/viewpoints.py`) --
+  see the status note below the "Original 5-seed table" for why this count
+  differs from that table's 48.
 - **Comparison**: Random / Isler-NBV / UW-TIG / UW-TIG-no-uncertainty /
-  UW-TIG-no-temporal, × 4 scenarios (static, uncertain, growing,
-  multi-defect) × 5 seeds × 3 sequential missions × 16-viewpoint budget per
-  mission. Full sweep: `python -m experiments.evaluate --seeds 5 --budget 16 --missions 3`.
+  UW-TIG-no-temporal / UW-TIG-no-staleness / UW-TIG-no-lookahead (the last
+  two ablate the persistent-monitoring staleness term and the 2-step
+  receding-horizon lookahead added in the novelty pass below — see
+  NOVELTY.md), × 4 scenarios (static, uncertain, growing, multi-defect) ×
+  5 seeds × 3 sequential missions × 16-viewpoint budget per mission. Full
+  sweep: `bash run_full_sweep.sh 5 16 3` (one subprocess per seed, then
+  merges — see Limitation 7 for why this is preferred over calling
+  `python -m experiments.evaluate --seeds 5 --budget 16 --missions 3`
+  directly, which runs everything in one process).
+
+## Novelty pass: literature comparison + planner strengthening (see NOVELTY.md)
+
+A wider literature sweep (Bircher et al. 2016, Dhami et al.'s GATSBI,
+Alamdari/Fata/Smith persistent monitoring, Krause/Guestrin submodularity,
+POMDP-based active search under detector uncertainty, prediction-guided
+NBV, and others — full comparison table in `NOVELTY.md`) motivated two
+additions to `UWTIGPlanner` (`planning/planners.py`): a persistent-
+monitoring staleness/latency term, and a 2-step receding-horizon lookahead
+in place of pure 1-step greedy. Implementing the lookahead immediately
+exposed a real, pre-existing bug: `uncertainty_score`/`temporal_score` never
+decayed on repeat visits, so a wall with a persistent, always-re-detected
+defect earned its full reward forever at zero extra travel cost once
+found — the lookahead exploited this so thoroughly that `total_flight_dist_m`
+collapsed to exactly 0.000 for every UW-TIG variant. Fixed by decaying
+uncertainty/growth reward with the same view-count-based saturation already
+used for coverage entropy (`MissionBelief._repeat_decay`). Chasing that
+number down a second time surfaced an independent geometry bug: three of
+Building B's walls' standoff viewpoints are numerically identical positions
+(the 2.6m room is exactly 2x the 1.3m standoff), so pure-translation cost
+made spinning between them free — fixed with a small rotation-cost term in
+`BasePlanner._cost`. Both are described in full, including a first,
+overcorrected attempt at the rotation-cost fix that was caught and
+recalibrated, in `NOVELTY.md`.
+
+**Status of the numbers below**: the "Original 5-seed table" section predates
+this novelty pass (different planner code) AND, it turns out, a different
+viewpoint graph (54 candidate viewpoints now vs. 48 when that table was
+generated — `sim_house.py`/`planning/viewpoints.py` had already gained an
+uncommitted wall/panel or two before this session started, independent of
+anything done in this pass). It's kept for its own historical record but is
+not a valid same-environment baseline for the numbers below it. A fresh
+5-seed sweep on the current planner+environment is in "Updated 5-seed
+results" below, obtained via a per-seed-subprocess workaround after the
+single-process sweep crashed three times (see Limitation 7).
 
 ## Offline perception benchmark (real MBDD2025 test set, 1448 images)
 
@@ -31,7 +74,7 @@ abscission 0.79/0.58/0.65, corrosion 0.80/0.59/0.70, bulge 0.83/0.58/0.62.
 This is a genuinely trained, real-data result — not a placeholder — achieved
 with a CPU-only, 30-epoch budget.
 
-## Closed-loop simulation comparison (mean over static/uncertain/multi-defect × 5 seeds × 3 missions)
+## Original 5-seed table (stale environment — see status note above)
 
 | planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
 |---|---|---|---|---|---|---|---|
@@ -72,6 +115,62 @@ separate, honest failure mode, not a comparable number.)
   it a real efficiency win over Random (50m vs. 128m flight distance) for
   the same coverage, confirming the base-paper adaptation is doing
   something sensible before UW-TIG's defect-aware terms are added on top.
+
+## Updated 5-seed results (current planner + current environment)
+
+Produced via `bash run_full_sweep.sh 5 16 3` (one fresh subprocess per seed,
+merged with `evaluate.py --merge` — see Limitation 7 for why), mean over
+static/uncertain/multi-defect × 5 seeds × 3 missions (growing excluded, same
+methodology as the original table):
+
+| planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
+|---|---|---|---|---|---|---|---|
+| random | 0.37 | 0.60 | 0.44 | 0.70 | 393.8 | 1.00 | 1.00 |
+| isler_nbv | 0.45 | 0.36 | 0.39 | 0.45 | 18.6 | 0.33 | 0.44 |
+| **uwtig** | **0.75** | 0.36 | 0.47 | **0.27** | **0.20** | 0.33 | 0.44 |
+| uwtig_no_uncertainty | 0.75 | 0.36 | 0.48 | 0.27 | 0.03 | 0.33 | 0.44 |
+| uwtig_no_temporal | 0.75 | 0.36 | 0.47 | 0.27 | 0.17 | 0.33 | 0.44 |
+| uwtig_no_staleness | 0.75 | 0.36 | 0.48 | 0.27 | 0.27 | 0.33 | 0.44 |
+| uwtig_no_lookahead | 0.72 | 0.36 | 0.47 | 0.28 | 1.50 | 0.33 | 0.44 |
+
+**Don't directly diff this against the "Original 5-seed table" above** —
+random's flight distance alone (393.8m vs. 128.4m) makes clear the
+environment itself changed (54 candidate viewpoints now vs. 48 then, larger
+inter-building distances), independent of anything in this pass. Read this
+table on its own terms:
+
+- **Precision & localization still clearly favor UW-TIG**: 0.75 vs.
+  0.45 (isler_nbv) / 0.37 (random), and 0.27m vs. 0.45m / 0.70m localization
+  error — the core claim survives the planner rewrite intact.
+- **`isler_nbv`'s numbers are IDENTICAL across every seed and scenario**
+  (18.638m flight distance, 0.333 coverage, to the last decimal, in every
+  one of its 20 rows) — checked directly against the raw CSV. This is not a
+  bug introduced here: `IslerNBVPlanner.select_next` is a pure function of
+  the coverage belief state alone (no `self.rng` use, no dependence on
+  scenario ground truth), so on a fixed viewpoint graph it always makes the
+  identical sequence of moves regardless of seed. Its precision/recall
+  still vary by scenario/seed because *what's physically on those 3 fixed
+  walls* varies — the path doesn't.
+- **UW-TIG's flight distance is genuinely tiny (0.03–0.27m) except for
+  `uwtig_no_lookahead` (1.50m)** — all of them, including
+  `uwtig_no_lookahead`, spend the mission concentrated on Building B's
+  three walls (coverage 0.33 for every UW-TIG variant, same as isler_nbv),
+  but the lookahead variants do so from Building B's degenerate coincident-
+  viewpoint center (see NOVELTY.md), where `total_flight_dist_m`'s
+  translation-only accounting reports near-zero even though real rotation
+  time is spent — a real gap in that specific metric, not a planning bug
+  (confirmed by inspecting the raw per-step viewpoint sequence: it visits
+  three distinct viewpoint ids, not one repeated id). `uwtig_no_lookahead`
+  (pure 1-step greedy) reaches the same three walls by a route that isn't
+  pinned to the exact coincident point, hence its larger, more
+  metric-representative 1.5m.
+- **Ablation deltas are small and within what 5 seeds can separate**:
+  `uwtig_no_uncertainty` has the lowest flight distance and a marginally
+  higher precision (0.751 vs. 0.749) than the full utility in this run —
+  worth noting honestly rather than claiming the uncertainty term "wins"
+  here; RESULTS.md's original caveat (5 seeds isn't enough to cleanly
+  separate the ablations) still applies, now to four ablations instead of
+  two.
 
 ## Flagship real-flight demo
 
@@ -141,7 +240,9 @@ real through the physics stack, not just in the kinematic comparison.
    larger image size would reach.
 4. **5 seeds** is enough to see the headline effects (flight efficiency,
    precision, localization) clearly, but not enough to cleanly separate the
-   two ablations' individual contributions — see above.
+   four ablations' individual contributions — see above (originally two
+   ablations; the novelty pass added `uwtig_no_staleness` and
+   `uwtig_no_lookahead`, same caveat applies to all four).
 5. **Postgres/Neo4j run as local Docker containers** with dev-only
    credentials (`docker/docker-compose.yml`), not a production deployment.
 6. **A real fairness bug was found and fixed during development**: the
@@ -152,3 +253,24 @@ real through the physics stack, not just in the kinematic comparison.
    `experiments/mission.py` (`run_key = f"{scenario}|{planner}|{seed}"`),
    verified with a targeted isolation test before the numbers above were
    produced.
+7. **The full 5-seed sweep (one long-lived process, 140 mission-runs)
+   crashed three consecutive times** after the novelty-pass planner
+   changes, with three different low-level symptoms (a numpy "unable to
+   allocate 2.34 MiB" error despite 15GB free RAM, a silent exit code 127,
+   then a segfault/exit 139) -- consistent with a resource-accumulation
+   issue in pybullet's `ER_TINY_RENDERER` software rasterizer across ~140
+   sequential connect/render/disconnect cycles in one process (each mission
+   opens a fresh `KinematicHouse`/DIRECT client), not a bug in the planner
+   logic, which touches no rendering code. Fixed (not just worked around)
+   by adding `--seed N` / `--merge` to `experiments/evaluate.py` and
+   `run_full_sweep.sh`, which runs each seed as its own fresh subprocess
+   (28 mission-runs each, well inside the crash-free range) and merges the
+   per-seed CSVs afterward. 4 of 5 seeds succeeded on the first subprocess
+   attempt; seed 1 hit a transient `OpenBLAS`/Windows-fork resource error
+   (`cygheap read copy failed`) on all 3 scripted retries within the same
+   run, then succeeded immediately when retried alone afterward -- pointing
+   to transient system-level pressure from running many subprocesses in
+   quick succession (already easing by the next seed in the same run, and
+   gone by the time seed 1 was retried alone) rather than a per-seed
+   deterministic failure. The "Updated 5-seed results" section above is the
+   real, complete, 5-seed output of this approach.

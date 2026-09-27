@@ -1,5 +1,5 @@
-"""Three planners compared by experiments/evaluate.py, sharing one candidate
-viewpoint graph (planning/viewpoints.py):
+"""Three families of planners compared by experiments/evaluate.py, sharing
+one candidate viewpoint graph (planning/viewpoints.py):
 
 - RandomPlanner: uniform random choice among not-yet-visited viewpoints.
   The naive baseline the proposal's Verification Method calls for.
@@ -10,24 +10,90 @@ viewpoint graph (planning/viewpoints.py):
   voxel grid; entropy is over a "surface adequately observed" belief, not
   occupancy). Deliberately geometry/coverage-only, no defect semantics --
   this is the literature gap the proposal identifies for this base paper.
+  The coverage-entropy objective it (and UWTIGPlanner's ig term) maximizes
+  is a monotone submodular set function of "cells observed so far" (each
+  additional look at a cell has non-increasing marginal entropy reduction,
+  by construction of coverage_entropy's saturating exp(-k*view_count) form,
+  and the objective is additive across independent cells) -- so the greedy
+  per-step argmax both planners use is not just a heuristic: it inherits the
+  classic (1-1/e) worst-case guarantee relative to the optimal non-adaptive
+  k-view policy on the coverage term alone (Nemhauser et al. 1978; Krause &
+  Guestrin, JMLR 2008 "Near-Optimal Sensor Placements in Gaussian
+  Processes"). This guarantee does not extend to the uncertainty/temporal/
+  staleness terms below (those are reward signals fed by an external,
+  non-submodular detector/memory process), so UWTIGPlanner should be read as
+  "provably-reasonable coverage, best-effort defect-awareness on top."
 
-- UWTIGPlanner (novel): the same coverage/information-gain term, PLUS
-  detection-uncertainty and temporal-growth terms fed from persistent
-  defect memory, combined in one weighted utility (Uncertainty-Weighted
-  Temporal Information Gain). Ablation variants zero out one added term.
+- UWTIGPlanner (novel): Uncertainty-Weighted Temporal Information Gain.
+  Extends the coverage/information-gain term with three literature-grounded
+  additions, each independently ablatable:
+    1. detection-uncertainty and temporal-growth terms fed from persistent
+       defect memory (the original novelty -- see MissionBelief).
+    2. a persistent-monitoring staleness/latency term: cells accrue reward
+       for time-since-last-visit even with no detected defect, generalizing
+       the revisit signal beyond "only revisit where memory already found
+       something" -- adapted from the latency-minimizing revisit-scheduling
+       literature (Alamdari, Fata & Smith 2014, "Persistent Monitoring in
+       Discrete Environments: Minimizing the Maximum Weighted Latency
+       Between Observations", IJRR; see also the multi-robot latency-
+       constrained routing line of work, e.g. arXiv:1903.06105). Unlike that
+       literature's guaranteed bound on worst-case latency, this is a soft,
+       additive reward term inside a larger utility, not a scheduling
+       algorithm with its own guarantee.
+    3. a 2-step receding-horizon lookahead in place of pure 1-step greedy:
+       evaluate each candidate next viewpoint together with the best
+       viewpoint that could follow it, but (as in the cited work) only ever
+       execute the first step before replanning -- the same
+       plan-a-horizon/execute-one-step/replan structure as Bircher et al.
+       (2016, "Receding Horizon 'Next-Best-View' Planner for 3D
+       Exploration", ICRA) and the GTSP-clustered receding-horizon
+       replanning in Dhami et al.'s GATSBI (arXiv:2012.04803,
+       arXiv:2406.16625, targeted bridge-surface inspection + defect
+       detection). This makes UWTIGPlanner less myopic about travel cost
+       than a flat 1-step argmax, at the cost of one more literature-honest
+       caveat: the lookahead only re-simulates the coverage/view_count
+       effect of taking the first step (see `_lookahead_view_count_delta`)
+       -- it cannot simulate a detector's future output, so the
+       uncertainty/temporal/staleness terms at the second step are read
+       from the CURRENT belief, not a genuinely predicted future one.
+  Ablation variants zero out one added term at a time (see
+  UWTIGNoUncertaintyPlanner / UWTIGNoTemporalPlanner /
+  UWTIGNoStalenessPlanner / UWTIGNoLookaheadPlanner).
 
-All three select via `select_next(state) -> Viewpoint`, where `state` is a
-MissionBelief (this module) the mission runner updates after every capture,
-so planners never talk to memory/store.py or the perception model directly
--- keeps them pure and trivially ablatable/unit-testable.
+Related work this project's approach is positioned against (not
+implemented here, but see NOVELTY.md for the full comparison table):
+Bircher et al. 2016 (receding-horizon NBV, geometry-only, no defect
+semantics); Dhami et al.'s GATSBI (GTSP-routed bridge inspection with
+defect detection, but no persistent cross-mission memory or detection-
+uncertainty term); Pred-NBV / MAP-NBV (Logothetis-Dhami-Tokekar-line
+prediction-guided NBV via learned shape completion -- predicts unseen
+GEOMETRY, not defect growth); Wang et al.'s measurement-uncertainty-
+controlled coverage path planning (arXiv:2201.04310, uncertainty-aware but
+single-visit, no temporal/growth tracking); active visual search under
+detector uncertainty via POMDP/MCTS (arXiv:2303.03155, single-session, no
+persistent memory across missions); Alamdari/Fata/Smith persistent-
+monitoring latency scheduling (formal revisit guarantees, but no semantic
+defect-uncertainty signal at all). UW-TIG's distinguishing combination is:
+persistent cross-mission memory + real-detector uncertainty + growth +
+latency-based staleness + cost-aware receding-horizon selection, together,
+evaluated end-to-end against a real trained detector rather than assumed
+ground-truth detections.
+
+All planners select via `select_next(state) -> Viewpoint`, where `state` is
+a MissionBelief (this module) the mission runner updates after every
+capture, so planners never talk to memory/store.py or the perception model
+directly -- keeps them pure and trivially ablatable/unit-testable.
 """
 import math
 
 import numpy as np
 
-from planning.viewpoints import N_CELLS, cell_index_for_world_point
+from planning.viewpoints import cell_index_for_world_point, n_cells_for_wall
 
 VIEW_SATURATION_K = 0.6  # p(well-observed) = 1 - exp(-k * view_count)
+STALENESS_SATURATION_K = 0.15  # slower saturation than view_count: staleness
+# should still be climbing across most of a mission's budget, not maxed out
+# after 2-3 steps like coverage entropy is.
 
 
 def _entropy(p):
@@ -37,12 +103,19 @@ def _entropy(p):
 
 class MissionBelief:
     """Per-mission state: coverage (geometry-only) + defect uncertainty/growth
-    (defect-aware), both keyed by (wall_name, cell_index)."""
+    (defect-aware), both keyed by (wall_name, cell_index). Takes the actual
+    wall dicts (not just names) since cell count is per-wall, proportional
+    to physical width -- see planning.viewpoints.n_cells_for_wall."""
 
-    def __init__(self, wall_names):
-        self.view_count = {(w, c): 0 for w in wall_names for c in range(N_CELLS)}
-        self.uncertainty = {(w, c): 0.0 for w in wall_names for c in range(N_CELLS)}
-        self.growth = {(w, c): 0.0 for w in wall_names for c in range(N_CELLS)}
+    def __init__(self, wall_segments):
+        cells = {w["name"]: n_cells_for_wall(w) for w in wall_segments}
+        self.view_count = {(w, c): 0 for w, n in cells.items() for c in range(n)}
+        self.uncertainty = {(w, c): 0.0 for w, n in cells.items() for c in range(n)}
+        self.growth = {(w, c): 0.0 for w, n in cells.items() for c in range(n)}
+        # In-mission revisit latency (steps since last view), not a
+        # cross-mission real-time latency -- see UWTIGPlanner's docstring.
+        self.last_visit_step = {(w, c): -1 for w, n in cells.items() for c in range(n)}
+        self.step = 0
         self.visited_ids = []
 
     def seed_temporal_priors(self, priors):
@@ -65,21 +138,68 @@ class MissionBelief:
     def record_visit(self, viewpoint):
         self.visited_ids.append(viewpoint.id)
         for c in viewpoint.visible_cells:
-            self.view_count[(viewpoint.wall, c)] += 1
+            key = (viewpoint.wall, c)
+            self.view_count[key] += 1
+            self.last_visit_step[key] = self.step
+        self.step += 1
 
     def record_detection(self, wall, world_xyz, uncertainty, growth, wall_dict):
         cell = cell_index_for_world_point(wall_dict, world_xyz)
-        self.uncertainty[(wall_dict["name"], cell)] = uncertainty
-        self.growth[(wall_dict["name"], cell)] = max(0.0, growth)
+        key = (wall_dict["name"], cell)
+        self.uncertainty[key] = uncertainty
+        self.growth[key] = max(0.0, growth)
 
     def information_gain(self, viewpoint):
         return sum(self.coverage_entropy(viewpoint.wall, c) for c in viewpoint.visible_cells)
 
+    def _repeat_decay(self, wall, cell):
+        # Diminishing marginal value of acting on the SAME reading again --
+        # keyed by view_count (times this cell has actually been looked at),
+        # not by "since the detector last reported something," because a
+        # real, persistent defect gets re-detected on every single look: a
+        # since-last-update decay never fires for it and the planner camps
+        # on that one viewpoint forever once it finds anything (caught via
+        # the lookahead below making that camping total, flight_dist ->
+        # exactly 0.0, in eval). Reusing coverage_entropy's saturation here
+        # extends the same "repeated identical observation earns
+        # diminishing reward" logic from coverage to uncertainty/growth.
+        return math.exp(-VIEW_SATURATION_K * self.view_count[(wall, cell)])
+
     def uncertainty_score(self, viewpoint):
-        return sum(self.uncertainty[(viewpoint.wall, c)] for c in viewpoint.visible_cells)
+        return sum(self.uncertainty[(viewpoint.wall, c)] * self._repeat_decay(viewpoint.wall, c)
+                   for c in viewpoint.visible_cells)
 
     def temporal_score(self, viewpoint):
-        return sum(self.growth[(viewpoint.wall, c)] for c in viewpoint.visible_cells)
+        return sum(self.growth[(viewpoint.wall, c)] * self._repeat_decay(viewpoint.wall, c)
+                   for c in viewpoint.visible_cells)
+
+    def staleness(self, wall, cell):
+        last = self.last_visit_step[(wall, cell)]
+        elapsed = self.step if last < 0 else self.step - last
+        return 1 - math.exp(-STALENESS_SATURATION_K * elapsed)
+
+    def staleness_score(self, viewpoint):
+        return sum(self.staleness(viewpoint.wall, c) for c in viewpoint.visible_cells)
+
+
+METERS_PER_DEG_YAW = 1.0 / 3600  # a full 180-degree reorientation costs as
+# much as 0.05m of translation -- deliberately tiny, calibrated below the
+# graph's smallest genuinely-different-position gap (0.14m; see
+# planning/viewpoints.py's candidate graph), so it never outweighs a real
+# routing choice elsewhere. Its only job is to break ties among positions
+# that coincide EXACTLY: two of Building B's walls' standoff viewpoints land
+# on the same point (the 2.6m room is exactly 2x the 1.3m standoff, so
+# "1.3m out from each wall" reaches the room's center from every wall) --
+# with a pure-distance cost, spinning 90-180 degrees in place to face a
+# different wall from there was FREE, an unbounded supply of exactly-zero-
+# cost viewpoint switches. An earlier, much larger constant (1/90, i.e. a
+# 90-degree turn = 1m) fixed that but also made every genuine inter-building
+# trip look considerably more expensive than it should (a real 180-degree
+# reorientation takes a couple of seconds, not the ~10+ seconds a couple of
+# meters of flight would) -- it collapsed isler_nbv's coverage_frac from
+# 0.875 to 0.333 in a re-run, i.e. it stopped exploring past the first
+# building almost entirely. This value fixes the exploit without that
+# side effect (verified: see NOVELTY.md's "second, independent bug" note).
 
 
 class BasePlanner:
@@ -89,11 +209,14 @@ class BasePlanner:
         self.viewpoints = viewpoints
         self.dist = dist
         self.rng = rng
+        self.by_id = {v.id: v for v in viewpoints}
 
     def _cost(self, current_id, v):
         if current_id is None:
             return 0.0
-        return self.dist[(current_id, v.id)]
+        translation = self.dist[(current_id, v.id)]
+        yaw_diff = abs((v.yaw_deg - self.by_id[current_id].yaw_deg + 180) % 360 - 180)
+        return translation + METERS_PER_DEG_YAW * yaw_diff
 
     def select_next(self, belief, current_id):
         raise NotImplementedError
@@ -124,37 +247,81 @@ class IslerNBVPlanner(BasePlanner):
 
 class UWTIGPlanner(BasePlanner):
     """Novel: Uncertainty-Weighted Temporal Information Gain. Strictly
-    generalizes IslerNBVPlanner by adding defect-uncertainty and
-    temporal-growth terms sourced from persistent memory, and -- unlike the
-    coverage-only baselines -- is allowed to revisit an already-inspected
-    viewpoint when that utility gain is high (active reinspection)."""
+    generalizes IslerNBVPlanner by adding defect-uncertainty, temporal-
+    growth, and persistent-monitoring staleness terms sourced from
+    persistent memory, and -- unlike the coverage-only baselines -- is
+    allowed to revisit an already-inspected viewpoint when that utility
+    gain is high (active reinspection). Selects via a 2-step
+    receding-horizon lookahead rather than pure 1-step greedy (see module
+    docstring for the literature this is adapted from and its caveats)."""
     name = "uwtig"
     w_ig = 1.0
     w_cost = 0.4
     w_uncertainty = 1.5
     w_temporal = 2.0
+    w_staleness = 1.0
+    lookahead_discount = 0.5  # weight on the best-achievable second step
+
+    def _utility(self, belief, from_id, v, view_count=None):
+        vc = belief.view_count if view_count is None else view_count
+        ig = self.w_ig * sum(
+            _entropy(1 - 0.5 * math.exp(-VIEW_SATURATION_K * vc[(v.wall, c)]))
+            for c in v.visible_cells)
+        u = self.w_uncertainty * belief.uncertainty_score(v)
+        t = self.w_temporal * belief.temporal_score(v)
+        s = self.w_staleness * belief.staleness_score(v)
+        cost = self.w_cost * self._cost(from_id, v)
+        return ig + u + t + s - cost
+
+    def _view_count_after(self, belief, v):
+        """What-if view_count if `v` were visited next -- used only to give
+        the lookahead's second step a coverage-aware (not stale) picture of
+        information gain. Cannot simulate a future detector output, so
+        uncertainty/temporal/staleness are read from the current belief for
+        the second step (see module docstring caveat)."""
+        vc = dict(belief.view_count)
+        for c in v.visible_cells:
+            vc[(v.wall, c)] = vc.get((v.wall, c), 0) + 1
+        return vc
 
     def select_next(self, belief, current_id):
-        scored = []
-        for v in self.viewpoints:
-            u = self.w_uncertainty * belief.uncertainty_score(v)
-            t = self.w_temporal * belief.temporal_score(v)
-            ig = self.w_ig * belief.information_gain(v)
-            cost = self.w_cost * self._cost(current_id, v)
-            scored.append((ig + u + t - cost, v))
-        return max(scored, key=lambda t: t[0])[1]
+        best_v, best_val = None, -math.inf
+        for v1 in self.viewpoints:
+            val1 = self._utility(belief, current_id, v1)
+            if self.lookahead_discount:
+                vc_after = self._view_count_after(belief, v1)
+                best_second = max(self._utility(belief, v1.id, v2, view_count=vc_after)
+                                   for v2 in self.viewpoints)
+                val1 += self.lookahead_discount * best_second
+            if val1 > best_val:
+                best_val, best_v = val1, v1
+        return best_v
 
 
 class UWTIGNoUncertaintyPlanner(UWTIGPlanner):
-    """Ablation: temporal + coverage, no detection-uncertainty term."""
+    """Ablation: temporal + staleness + coverage, no detection-uncertainty term."""
     name = "uwtig_no_uncertainty"
     w_uncertainty = 0.0
 
 
 class UWTIGNoTemporalPlanner(UWTIGPlanner):
-    """Ablation: uncertainty + coverage, no temporal-growth term."""
+    """Ablation: uncertainty + staleness + coverage, no temporal-growth term."""
     name = "uwtig_no_temporal"
     w_temporal = 0.0
+
+
+class UWTIGNoStalenessPlanner(UWTIGPlanner):
+    """Ablation: uncertainty + temporal + coverage, no persistent-monitoring
+    staleness/latency term (Alamdari, Fata & Smith 2014)."""
+    name = "uwtig_no_staleness"
+    w_staleness = 0.0
+
+
+class UWTIGNoLookaheadPlanner(UWTIGPlanner):
+    """Ablation: pure 1-step greedy -- this project's original UW-TIG,
+    before the Bircher-et-al./GATSBI-style receding-horizon lookahead."""
+    name = "uwtig_no_lookahead"
+    lookahead_discount = 0.0
 
 
 PLANNER_REGISTRY = {
@@ -163,4 +330,6 @@ PLANNER_REGISTRY = {
     "uwtig": UWTIGPlanner,
     "uwtig_no_uncertainty": UWTIGNoUncertaintyPlanner,
     "uwtig_no_temporal": UWTIGNoTemporalPlanner,
+    "uwtig_no_staleness": UWTIGNoStalenessPlanner,
+    "uwtig_no_lookahead": UWTIGNoLookaheadPlanner,
 }

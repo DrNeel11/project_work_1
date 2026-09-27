@@ -1,29 +1,39 @@
-"""Non-inspectable environment dressing: a concrete ground texture and
-decorative pipe-rack/support-pylon geometry scattered outside the house
-footprint, so the scene reads as a utility inspection yard rather than a
-house tour. Purely visual -- static (mass=0) bodies with no bearing on
-wall geometry, planning, or detection, so this can't affect any of the
-localization/planning math the rest of the system depends on.
+"""Open-air utility yard dressing: sky backdrop, ground texture, and
+decorative pipe-rack/lattice-tower structures (each now carrying one real,
+inspectable panel -- see sim_house.WALL_SEGMENTS' "PipeRack-Panel" and
+"Tower-Panel" entries, positioned to match PIPE_RACK_POS/TOWER_POS below).
+Everything in this module except the two panel *mounting positions* is
+purely visual: static (mass=0) bodies with no bearing on wall geometry,
+planning, or detection.
 
-Placed well outside the flight envelope (all viewpoints stay within roughly
-x in [-3, 3], y in [-1, 6.5] -- see planning/viewpoints.py), so the props are
-visible in the wide third-person flythrough without ever entering an
-inspection camera's frame.
+Unlike the old enclosed-house dressing, the sky backdrop and yard are
+visible for the entire flight (freestanding structures, real open sky
+between them), not just a one-off establishing shot.
 """
 import math
 import os
 
 import numpy as np
-from PIL import Image, ImageDraw
-
 import pybullet as p
+from PIL import Image, ImageDraw
 
 SCENE_DIR = os.path.dirname(os.path.abspath(__file__))
 GROUND_TEXTURE_PATH = os.path.join(SCENE_DIR, "ground_concrete.png")
+SKY_TEXTURE_PATH = os.path.join(SCENE_DIR, "sky_backdrop.png")
 
 PIPE_COLOR = (0.55, 0.58, 0.6, 1.0)
 RUST_ACCENT = (0.45, 0.3, 0.22, 1.0)
 PYLON_COLOR = (0.35, 0.37, 0.4, 1.0)
+CRATE_COLOR = (0.5, 0.38, 0.22, 1.0)
+BARREL_COLOR = (0.15, 0.35, 0.2, 1.0)
+
+# Kept in sync with sim_house.WALL_SEGMENTS' "PipeRack-Panel"/"Tower-Panel"
+# (x, y) so the real inspection panel appears mounted on the decorative
+# structure rather than floating unrelated to it.
+PIPE_RACK_POS = (7.0, 4.0)
+TOWER_POS = (-5.0, 3.0)
+
+YARD_CENTER = (5.0, 1.5)  # roughly the centroid of the whole layout
 
 
 def ensure_ground_texture(size=512):
@@ -58,10 +68,68 @@ def ensure_ground_texture(size=512):
 
 def retexture_ground(client, plane_id):
     """Applies the concrete yard texture to an already-loaded plane.urdf
-    body (BaseAviary loads one on every reset() as self.PLANE_ID)."""
+    body (BaseAviary loads one on every reset() as self.PLANE_ID). The
+    plane itself is effectively infinite, so this covers the larger
+    open-yard layout with no other change needed."""
     tex_path = ensure_ground_texture()
     tex_id = p.loadTexture(tex_path, physicsClientId=client)
     p.changeVisualShape(plane_id, -1, textureUniqueId=tex_id, physicsClientId=client)
+
+
+def ensure_sky_texture(size=512):
+    """A vertical sky gradient (blue overhead fading to a pale horizon)
+    with a simple distant-skyline silhouette baked into the bottom band --
+    applied to 4 big cyclorama walls (add_sky_backdrop) so the horizon
+    reads as sky everywhere, not a flat white void, for the whole flight."""
+    if os.path.exists(SKY_TEXTURE_PATH):
+        return SKY_TEXTURE_PATH
+
+    top_color = np.array([118, 168, 224])
+    horizon_color = np.array([213, 223, 230])
+    grad = np.zeros((size, size, 3), dtype=np.uint8)
+    for y in range(size):
+        t = min(1.0, (y / size) / 0.78)
+        grad[y, :, :] = (top_color * (1 - t) + horizon_color * t).astype(np.uint8)
+    img = Image.fromarray(grad)
+
+    draw = ImageDraw.Draw(img)
+    rng = np.random.RandomState(42)
+    base_y = int(size * 0.80)
+    x = 0
+    while x < size:
+        w = rng.randint(18, 50)
+        h = rng.randint(15, 85)
+        shade = rng.randint(95, 145)
+        draw.rectangle([x, base_y - h, x + w, size], fill=(shade, shade, shade + 5))
+        x += w + rng.randint(2, 12)
+
+    img.save(SKY_TEXTURE_PATH)
+    return SKY_TEXTURE_PATH
+
+
+def add_sky_backdrop(client, center=YARD_CENTER, half_extent=45.0, wall_height=40.0):
+    """4 large textured cyclorama walls surrounding the whole yard, tall
+    enough to fill the background at every camera angle actually used
+    (station captures, transit, the orbiting establishing shot)."""
+    tex_id = p.loadTexture(ensure_sky_texture(), physicsClientId=client)
+    cx, cy = center
+    z = wall_height / 2
+    t = 0.5  # wall thickness
+    specs = [
+        ((cx, cy + half_extent, z), (half_extent, t, wall_height / 2)),
+        ((cx, cy - half_extent, z), (half_extent, t, wall_height / 2)),
+        ((cx + half_extent, cy, z), (t, half_extent, wall_height / 2)),
+        ((cx - half_extent, cy, z), (t, half_extent, wall_height / 2)),
+    ]
+    bodies = []
+    for pos, half_extents in specs:
+        vis = p.createVisualShape(p.GEOM_BOX, halfExtents=list(half_extents),
+                                   rgbaColor=[1, 1, 1, 1], physicsClientId=client)
+        body = p.createMultiBody(baseMass=0, baseVisualShapeIndex=vis,
+                                  basePosition=list(pos), physicsClientId=client)
+        p.changeVisualShape(body, -1, textureUniqueId=tex_id, physicsClientId=client)
+        bodies.append(body)
+    return bodies
 
 
 def _box(client, half_extents, pos, rgba, orn=None):
@@ -102,33 +170,61 @@ def _horizontal_pipe(client, p0, p1, radius=0.14, rgba=PIPE_COLOR):
     return _cylinder(client, radius, length, mid.tolist(), rgba, orn=orn)
 
 
-def add_decorative_props(client):
-    """Adds a small pipe-rack + support-pylon cluster on each side of the
-    house, outside the flight envelope. Called once per fresh scene by
-    sim_house.build_house(), shared by both the kinematic sim and the
-    real-physics flagship demo."""
-    bodies = []
-
-    # East yard: elevated pipe rack on 4 pylons, mimicking a utility corridor.
-    east_x = 6.5
-    pylon_ys = [-1.5, 1.5, 4.0]
+def _pipe_rack(client):
+    """Elevated pipe rack along y at PIPE_RACK_POS's x, centered on
+    PIPE_RACK_POS's y -- the middle pylon sits exactly where
+    sim_house.WALL_SEGMENTS' "PipeRack-Panel" is mounted."""
+    x, y_mid = PIPE_RACK_POS
+    pylon_ys = [y_mid - 2.0, y_mid, y_mid + 2.0]
     rack_h = 2.0
-    for y in pylon_ys:
-        bodies.append(_pylon(client, east_x, y, height=rack_h))
+    bodies = [_pylon(client, x, y, height=rack_h) for y in pylon_ys]
     for y0, y1 in zip(pylon_ys[:-1], pylon_ys[1:]):
-        bodies.append(_horizontal_pipe(client, (east_x, y0, rack_h), (east_x, y1, rack_h)))
-        bodies.append(_horizontal_pipe(client, (east_x, y0, rack_h - 0.4), (east_x, y1, rack_h - 0.4),
+        bodies.append(_horizontal_pipe(client, (x, y0, rack_h), (x, y1, rack_h)))
+        bodies.append(_horizontal_pipe(client, (x, y0, rack_h - 0.4), (x, y1, rack_h - 0.4),
                                         radius=0.10, rgba=RUST_ACCENT))
+    return bodies
 
-    # West yard: a small lattice/truss tower accent (two pylons + cross-braces).
-    west_x = -6.5
+
+def _lattice_tower(client):
+    """Two-pylon lattice tower accent at TOWER_POS -- the near pylon sits
+    exactly where sim_house.WALL_SEGMENTS' "Tower-Panel" is mounted."""
+    x, y = TOWER_POS
     tower_h = 3.2
-    bodies.append(_pylon(client, west_x, 0.0, height=tower_h, radius=0.10))
-    bodies.append(_pylon(client, west_x - 1.2, 0.0, height=tower_h, radius=0.10))
+    bodies = [_pylon(client, x, y, height=tower_h, radius=0.10),
+              _pylon(client, x - 1.2, y, height=tower_h, radius=0.10)]
     for h in (0.8, 1.8, 2.8):
-        bodies.append(_horizontal_pipe(client, (west_x, 0.0, h), (west_x - 1.2, 0.0, h), radius=0.06))
-        # diagonal cross-brace between consecutive rungs
+        bodies.append(_horizontal_pipe(client, (x, y, h), (x - 1.2, y, h), radius=0.06))
         if h < 2.8:
-            bodies.append(_horizontal_pipe(client, (west_x, 0.0, h), (west_x - 1.2, 0.0, h + 1.0), radius=0.045))
+            bodies.append(_horizontal_pipe(client, (x, y, h), (x - 1.2, y, h + 1.0), radius=0.045))
+    return bodies
 
+
+def _ground_clutter(client, rng_seed=7):
+    """A handful of crates/barrels scattered near the structures for
+    lived-in realism -- purely decorative, well clear of every flight
+    viewpoint (planning/viewpoints.py stays within ~3m of each wall)."""
+    rng = np.random.RandomState(rng_seed)
+    bodies = []
+    spots = [(-3.2, -3.5), (3.5, -3.3), (9.5, -2.5), (17.5, 2.0), (2.5, 5.5), (-6.5, -1.0)]
+    for x, y in spots:
+        if rng.random() < 0.5:
+            s = rng.uniform(0.22, 0.34)
+            bodies.append(_box(client, [s, s, s], [x, y, s], CRATE_COLOR,
+                                orn=p.getQuaternionFromEuler([0, 0, rng.uniform(0, math.pi)])))
+        else:
+            r = rng.uniform(0.18, 0.24)
+            h = rng.uniform(0.5, 0.7)
+            bodies.append(_cylinder(client, r, h, [x, y, h / 2], BARREL_COLOR))
+    return bodies
+
+
+def add_decorative_props(client):
+    """Adds the sky backdrop, pipe rack, lattice tower, and ground clutter.
+    Called once per fresh scene by sim_house.build_house(), shared by both
+    the kinematic sim and the real-physics flagship demo."""
+    bodies = []
+    bodies += add_sky_backdrop(client)
+    bodies += _pipe_rack(client)
+    bodies += _lattice_tower(client)
+    bodies += _ground_clutter(client)
     return bodies

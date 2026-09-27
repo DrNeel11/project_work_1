@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geometry as geo  # noqa: E402
 from experiments.kinematic_capture import KinematicHouse  # noqa: E402
 from planning.planners import PLANNER_REGISTRY, MissionBelief  # noqa: E402
-from planning.viewpoints import N_CELLS, build_viewpoints, cell_index_for_world_point  # noqa: E402
+from planning.viewpoints import build_viewpoints, cell_index_for_world_point, n_cells_for_wall  # noqa: E402
 from sim_house import WALL_SEGMENTS  # noqa: E402
 
 IMG_W, IMG_H = 320, 240
@@ -61,7 +61,7 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
     run_key = f"{scenario.name}|{planner_name}|{seed}"
     viewpoints, dist = build_viewpoints(WALL_SEGMENTS)
     planner = PLANNER_REGISTRY[planner_name](viewpoints, dist, rng)
-    belief = MissionBelief(wall_names)
+    belief = MissionBelief(WALL_SEGMENTS)
 
     mission_id = mem.create_mission(scenario.name, planner_name, seed, mission_index)
     if mission_index > 1:
@@ -116,8 +116,8 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
             steps.append(step_record)
             current_id = vp.id
 
-        mean_entropy = float(np.mean([belief.coverage_entropy(w, c)
-                                       for w in wall_names for c in range(N_CELLS)]))
+        mean_entropy = float(np.mean([belief.coverage_entropy(w["name"], c)
+                                       for w in WALL_SEGMENTS for c in range(n_cells_for_wall(w))]))
     house.close()
 
     return {

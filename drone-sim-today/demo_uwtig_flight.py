@@ -76,30 +76,29 @@ class ChaseCam:
         view = p.computeViewMatrix(cameraEyePosition=self.eye, cameraTargetPosition=self.target,
                                     cameraUpVector=[0, 0, 1])
         proj = p.computeProjectionMatrixFOV(fov=70, aspect=OVERVIEW_RES[0] / OVERVIEW_RES[1],
-                                             nearVal=0.05, farVal=30)
+                                             nearVal=0.05, farVal=90)
         _, _, rgba, _, _ = p.getCameraImage(OVERVIEW_RES[0], OVERVIEW_RES[1], view, proj, physicsClientId=client)
         return np.reshape(rgba, (OVERVIEW_RES[1], OVERVIEW_RES[0], 4))[:, :, :3].astype(np.uint8)
 
 
-def _establishing_shot(client, writer, frames=75):
-    """A slow orbiting wide shot of the whole yard (house + pipe rack +
-    truss tower) before the mission starts. The chase-cam that follows the
-    drone during flight stays close and wall-facing the entire time (the
-    house is a fully enclosed two-room structure, so the drone never gets
-    a clear line of sight to the surrounding yard once flying) -- this is
-    the only point in the video the environment dressing is actually
-    visible, so it earns its keep here rather than as invisible set
-    dressing during the flight itself."""
+def _establishing_shot(client, writer, frames=90):
+    """A slow orbiting wide shot of the whole open-air yard (two freestanding
+    buildings, pipe rack, lattice tower, sky backdrop) before the mission
+    starts. The yard is open (not an enclosed structure), so the chase-cam
+    keeps seeing sky and surrounding structures throughout the actual flight
+    too -- this orbit is a bonus full-yard overview, not the only time the
+    environment is visible."""
+    cx, cy = 5.0, 1.5  # scene.environment.YARD_CENTER
     for i in range(frames):
         t = i / frames
-        angle = math.radians(200 + 50 * t)
-        radius = 14 - 3 * t
-        height = 9 - 3 * t
-        eye = [radius * math.cos(angle), radius * math.sin(angle) + 1.5, height]
-        target = [0, 1.5, 1.0]
+        angle = math.radians(200 + 70 * t)
+        radius = 30 - 6 * t
+        height = 19 - 6 * t
+        eye = [cx + radius * math.cos(angle), cy + radius * math.sin(angle), height]
+        target = [cx, cy, 1.2]
         view = p.computeViewMatrix(cameraEyePosition=eye, cameraTargetPosition=target, cameraUpVector=[0, 0, 1])
         proj = p.computeProjectionMatrixFOV(fov=60, aspect=OVERVIEW_RES[0] / OVERVIEW_RES[1],
-                                             nearVal=0.1, farVal=60)
+                                             nearVal=0.1, farVal=100)
         _, _, rgba, _, _ = p.getCameraImage(OVERVIEW_RES[0], OVERVIEW_RES[1], view, proj,
                                              shadow=1, lightDirection=[0.6, -0.4, 1.0],
                                              renderer=p.ER_TINY_RENDERER, physicsClientId=client)
@@ -188,7 +187,7 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
     inspect_writer = None
     step_counter = 0
 
-    belief = MissionBelief(wall_names)
+    belief = MissionBelief(WALL_SEGMENTS)
     with MemoryStore() as mem, tempfile.TemporaryDirectory() as tmp_dir:
         for mission_index in range(1, n_missions + 1):
             gt = scenario.setup_mission(house, mission_index, tmp_dir)

@@ -18,6 +18,7 @@ from experiments.mission import run_mission  # noqa: E402
 from experiments.scenarios import SCENARIO_REGISTRY  # noqa: E402
 from memory.store import MemoryStore  # noqa: E402
 from planning.planners import PLANNER_REGISTRY  # noqa: E402
+from planning.viewpoints import n_cells_for_wall  # noqa: E402
 from sim_house import WALL_SEGMENTS  # noqa: E402
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
@@ -38,7 +39,7 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     defect_first_last = {}  # defect_id -> (first_uncertainty, last_uncertainty, first_size, last_size, n_obs)
     total_dist = sum(m["total_dist"] for m in mission_logs)
     total_viewpoints = sum(m["n_viewpoints"] for m in mission_logs)
-    n_cells_total = len(WALL_SEGMENTS) * 4  # planning.viewpoints.N_CELLS
+    n_cells_total = sum(n_cells_for_wall(w) for w in WALL_SEGMENTS)
     final_entropy = mission_logs[-1]["final_mean_entropy"] * n_cells_total
 
     for m in mission_logs:
@@ -161,24 +162,81 @@ def make_plots(rows, out_dir):
     print("wrote", path)
 
 
+def _seed_csv_path(seed):
+    return os.path.join(RESULTS_DIR, f"comparison_seed{seed}.csv")
+
+
+def merge_seed_csvs(seeds, out_path):
+    """Concatenates each seed's own CSV (written by a separate `--seed N`
+    subprocess -- see run_full_sweep.sh) into the final comparison.csv, then
+    prints/plots exactly as a single-process sweep would have. Exists
+    because a long-lived single process running the full ~140-mission sweep
+    (7 planners x 4 scenarios x 5 seeds) crashed repeatedly in this
+    environment (numpy allocation error, silent exit, segfault -- three
+    different symptoms across three attempts) with no failure inside the
+    planner logic itself, consistent with pybullet's ER_TINY_RENDERER
+    software rasterizer accumulating state across ~140 sequential
+    connect/render/disconnect cycles (see RESULTS.md Limitation 7 /
+    NOVELTY.md). Running one seed per fresh process sidesteps that
+    accumulation entirely instead of trying to fix pybullet's internals."""
+    rows = []
+    missing = []
+    for seed in seeds:
+        path = _seed_csv_path(seed)
+        if not os.path.exists(path):
+            missing.append(seed)
+            continue
+        with open(path, newline="") as f:
+            rows.extend(csv.DictReader(f))
+    if missing:
+        print(f"WARNING: missing seed CSVs for seeds {missing} -- merge is partial")
+    for r in rows:
+        for k, v in r.items():
+            if k in ("planner", "scenario"):
+                continue
+            r[k] = float(v) if v not in ("", "nan") else float("nan")
+        r["seed"] = int(r["seed"])
+    write_csv(rows, out_path)
+    print_summary_table(rows)
+    make_plots(rows, RESULTS_DIR)
+    return rows
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--budget", type=int, default=16)
     ap.add_argument("--missions", type=int, default=3)
     ap.add_argument("--quick", action="store_true", help="1 seed, small budget, for a smoke test")
+    ap.add_argument("--seed", type=int, default=None,
+                     help="Run ONLY this single seed, writing results/comparison_seed{N}.csv "
+                          "instead of the merged comparison.csv -- for running the sweep as "
+                          "several small subprocesses (see run_full_sweep.sh) instead of one "
+                          "long-lived process, to avoid a pybullet resource-accumulation crash "
+                          "seen across the full ~140-mission sweep (RESULTS.md Limitation 7).")
+    ap.add_argument("--merge", action="store_true",
+                     help="Merge results/comparison_seed{0..seeds-1}.csv (from prior --seed N "
+                          "runs) into results/comparison.csv and print/plot -- runs no missions.")
     args = ap.parse_args()
 
     if args.quick:
         args.seeds, args.budget, args.missions = 1, 8, 2
 
+    if args.merge:
+        merge_seed_csvs(list(range(args.seeds)), os.path.join(RESULTS_DIR, "comparison.csv"))
+        sys.exit(0)
+
     from perception.ml_detector import detect_with_uncertainty as detector
 
     planners = list(PLANNER_REGISTRY.keys())
     scenarios = list(SCENARIO_REGISTRY.keys())
-    seeds = list(range(args.seeds))
+    seeds = [args.seed] if args.seed is not None else list(range(args.seeds))
 
     rows = run_sweep(detector, planners, scenarios, seeds, args.missions, args.budget)
-    write_csv(rows, os.path.join(RESULTS_DIR, "comparison.csv"))
-    print_summary_table(rows)
-    make_plots(rows, RESULTS_DIR)
+    out_path = _seed_csv_path(args.seed) if args.seed is not None else os.path.join(RESULTS_DIR, "comparison.csv")
+    write_csv(rows, out_path)
+    if args.seed is None:
+        print_summary_table(rows)
+        make_plots(rows, RESULTS_DIR)
+    else:
+        print(f"wrote {out_path} ({len(rows)} rows) -- run with --merge once all seeds are done")
