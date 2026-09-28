@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geometry as geo  # noqa: E402
 from experiments.kinematic_capture import KinematicHouse  # noqa: E402
 from planning.planners import PLANNER_REGISTRY, MissionBelief  # noqa: E402
+from planning.deferral import DeferralPlanner, accept_region_evidence  # noqa: E402
 from planning.viewpoints import build_viewpoints, cell_index_for_world_point, n_cells_for_wall  # noqa: E402
 from sim_house import WALL_SEGMENTS  # noqa: E402
 
@@ -48,7 +49,8 @@ def _seed_priors_from_memory(mem, wall_names, run_key):
 
 
 def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
-                 budget=10, gui=False, seed=0):
+                 budget=10, gui=False, seed=0, deferrals=None,
+                 inspection_time=None, region_observer=None):
     """One mission: `scenario` must already have `assignment`/ground truth
     ready (see experiments/scenarios.py); ground truth for THIS mission
     index is scenario.ground_truth(mission_index). Returns a dict log.
@@ -56,14 +58,27 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
     `seed` identifies this scenario+planner+seed run for memory isolation
     (see _seed_priors_from_memory) -- pass the actual experiment seed, not
     a fresh random draw, so all mission_index calls in the same run share
-    one namespace and different (planner, seed) runs never collide."""
+    one namespace and different (planner, seed) runs never collide.
+
+    Optional deferrals is a scope-matched DeferralLedger. inspection_time is
+    mandatory when enabled and must use the ledger's physical time units.
+    region_observer(frame, viewpoint, time) may return calibrated per-cell
+    StabilityCertificates. Detector silence NEVER creates such evidence.
+    Keep separate ledgers for every scenario/planner/seed deployment."""
     wall_names = [w["name"] for w in WALL_SEGMENTS]
-    run_key = f"{scenario.name}|{planner_name}|{seed}"
+    logged_planner = planner_name + ("+stability" if deferrals is not None else "")
+    run_key = f"{scenario.name}|{logged_planner}|{seed}"
     viewpoints, dist = build_viewpoints(WALL_SEGMENTS)
     planner = PLANNER_REGISTRY[planner_name](viewpoints, dist, rng)
+    if deferrals is not None:
+        if inspection_time is None or deferrals.scope != run_key:
+            raise ValueError("Deferrals require explicit time and a ledger scoped to " + run_key)
+        planner = DeferralPlanner(planner, deferrals, inspection_time)
+    elif region_observer is not None:
+        raise ValueError("A region observer requires a deferral ledger")
     belief = MissionBelief(WALL_SEGMENTS)
 
-    mission_id = mem.create_mission(scenario.name, planner_name, seed, mission_index)
+    mission_id = mem.create_mission(scenario.name, logged_planner, seed, mission_index)
     if mission_index > 1:
         belief.seed_temporal_priors(_seed_priors_from_memory(mem, wall_names, run_key))
 
@@ -75,15 +90,22 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
         current_id = None
         total_dist = 0.0
         wall_detections = {w: [] for w in wall_names}
+        stopped_for_deferral = False
 
         for step_i in range(budget):
             vp = planner.select_next(belief, current_id)
+            if vp is None:
+                stopped_for_deferral = True
+                break
             cost = dist[(current_id, vp.id)] if current_id else 0.0
             total_dist += cost
 
             bgr, pos, quat = house.capture(vp)
             wall_dict = house.wall_by_name[vp.wall]
             dets = detector(bgr)
+            if region_observer is not None:
+                accept_region_evidence(deferrals, vp, inspection_time,
+                                       region_observer(bgr, vp, inspection_time))
 
             step_record = {"step": step_i, "viewpoint": vp.id, "wall": vp.wall,
                            "cost": cost, "cum_dist": total_dist, "detections": []}
@@ -121,8 +143,9 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
     house.close()
 
     return {
-        "planner": planner_name, "scenario": scenario.name, "mission_index": mission_index,
-        "steps": steps, "total_dist": total_dist, "n_viewpoints": budget,
+        "planner": logged_planner, "scenario": scenario.name, "mission_index": mission_index,
+        "steps": steps, "total_dist": total_dist, "n_viewpoints": len(steps),
+        "stopped_for_deferral": stopped_for_deferral,
         "wall_detections": wall_detections, "ground_truth": gt,
         "final_mean_entropy": mean_entropy,
     }

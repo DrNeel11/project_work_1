@@ -1,5 +1,7 @@
 # Autonomous Drone Utility Inspection — Closed-Loop Perception, Memory & Active Reinspection
 
+**Novelty development:** [stability-aware revisits and integration](drone-sim-today/STABILITY_NOVELTY.md), with an [offline multi-mission demo](drone-sim-today/research/stability/demo/index.html). This opt-in branch explores scanning stable regions less frequently using predictive uncertainty and revocable evidence. It does not infer a clean region from missing detector boxes.
+
 A simulated (PyBullet + gym-pybullet-drones) autonomous inspection drone that
 closes the loop the underlying research proposal is about: **detect → assess
 uncertainty → replan → reinspect**, with a persistent cross-mission defect
