@@ -67,3 +67,9 @@ The generated HTML is self-contained. The smoke check exercises controls with a 
 ## What must be established next
 
 The candidate contribution is the view-level renewal objective over shared, revocable stability evidence. Ordinary risk-based revisit scheduling is established. Compare against multi-region VoI/POMDP planning with the same observation model, and ablate reference sharing, covariance retention, renewal scoring, hazard floor, and audit cap. Use repeated real-image sequences to calibrate condition/rate likelihoods and acquisition quality before emitting real-region certificates. Evaluate unseen lighting, pose drift, rapid degradation, and hidden abrupt changes. Extend the 2D/flight candidate graph with actual reference-target visibility and return-budget constraints before claiming an integrated drone system.
+# Exact calculation and novelty boundary
+
+Stage 13 is a separate executable proof demo: `python -m research.stability.proof_demo`
+from the code root. [PROOF.md](PROOF.md) gives the exact scalar-observation
+duration theorem, risk assumptions, prior-art comparison, and integration limits.
+It does not replace the approximate scoring used by the interactive demo below.

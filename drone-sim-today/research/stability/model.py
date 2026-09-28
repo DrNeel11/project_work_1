@@ -149,6 +149,8 @@ class Memory:
         h, r, a = self.indices(i)
         age = self.day-self.last_direct[i]
         limit = max(0, s.max_gap-age)
+        if age > s.max_gap:
+            return dict(expires=self.day-1, days=0, reason="audit overdue", risk=1., calibration=1., version=self.version)
         if dependencies and not self.reference_valid:
             return dict(expires=self.day-1, days=0, reason="reference revoked", risk=1., calibration=1., version=self.version)
         sum_local = sum_calibration = 0.
