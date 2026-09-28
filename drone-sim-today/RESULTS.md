@@ -62,17 +62,68 @@ single-process sweep crashed three times (see Limitation 7).
 
 ## Offline perception benchmark (real MBDD2025 test set, 1448 images)
 
-| metric | value |
-|---|---|
-| mAP50 | 0.685 |
-| mAP50-95 | 0.347 |
-| precision (mean) | 0.804 |
-| recall (mean) | 0.612 |
+Two real, genuinely-trained checkpoints exist; the GPU one is the current
+default (`perception/ml_detector.py`'s `DEFAULT_WEIGHTS`) and everything
+below RESULTS.md's closed-loop simulation numbers still reflects the CPU
+checkpoint that was current when those simulation sweeps ran (re-running
+the full simulation sweep against the GPU detector is the natural next
+step, not yet done — see the note at the end of this section).
 
-Per class (P / R / mAP50): crack 0.75/0.45/0.53, leakage 0.85/0.86/0.93,
-abscission 0.79/0.58/0.65, corrosion 0.80/0.59/0.70, bulge 0.83/0.58/0.62.
-This is a genuinely trained, real-data result — not a placeholder — achieved
-with a CPU-only, 30-epoch budget.
+| metric | CPU (yolov8n, 320px, 30ep) | GPU (yolov8s, 640px, 100ep) |
+|---|---|---|
+| mAP50 | 0.685 | **0.884** |
+| mAP50-95 | 0.347 | **0.506** |
+| precision (mean) | 0.804 | 0.874 (per-class mean below) |
+| recall (mean) | 0.612 | 0.842 (per-class mean below) |
+
+Per class (P / R), CPU &rarr; GPU: crack 0.75/0.45 &rarr; **0.84/0.75**,
+leakage 0.85/0.86 &rarr; **0.90/0.92**, abscission 0.79/0.58 &rarr;
+**0.87/0.78**, corrosion 0.80/0.59 &rarr; **0.83/0.79**, bulge 0.83/0.58
+&rarr; **0.95/0.96**. Both are genuinely trained, real-data results, not
+placeholders.
+
+**What changed and why, concretely** (see `perception/train_yolo_gpu.py`,
+`datagen/oversample_bulge.py`, and NOVELTY.md's class-imbalance section):
+trained on an NVIDIA L4 GPU (rented, not this project's own hardware) since
+the original run was deliberately CPU-budget-limited (Limitation 3 below).
+Three changes, in order of apparent impact:
+1. **Resolution 320px &rarr; 640px** — the single biggest lever. Crack
+   recall nearly doubled (0.45 &rarr; 0.75); cracks are thin, low-contrast
+   features that lose most of their signal when downscaled to 320px, so
+   this was a resolution problem more than a data-quantity one, confirmed
+   by crack having the 2nd-most training instances (17,044) yet the worst
+   CPU-run mAP50 (0.53) of any class.
+2. **Bulge-instance oversampling** (`datagen/oversample_bulge.py`, ~4x via
+   symlinked duplicate images) — bulge was the rarest class by a wide
+   margin (2,018 instances vs. abscission's 22,702) and had the joint-worst
+   recall (0.58) on the CPU run; oversampling alone can't be cleanly
+   separated from the resolution/epoch/model-size changes in this single
+   run, but bulge recall reaching 0.96 (the best of any class) is a
+   plausible sign it helped.
+3. **yolov8s instead of yolov8n, 100 epochs instead of 30** — the original
+   CPU run's own results.csv showed mAP50 still climbing at epoch 30
+   (0.667 &rarr; 0.677 in the last 2 epochs, not yet plateaued); the GPU
+   run's larger capacity and epoch budget let it actually converge
+   (results.csv plateaus around epoch 85-90).
+
+**A real limitation the new model still has, found by directly testing
+it** (not assumed): re-running the exact same "does it hallucinate
+detections on a clean image" check from earlier in this project's
+development, the GPU model produced one low-confidence false positive
+(`leakage`, confidence 0.30) on the single genuine background-labeled
+MBDD2025 test image, where the CPU model had produced none. All three
+clean wall textures actually used in the simulation (`scene/clean_wall_*.png`)
+still come back with zero detections on both models. The GPU model is a
+large net improvement, not a strictly-dominant one on every single case —
+stated here rather than only reporting the aggregate numbers that look
+good.
+
+**Not yet done**: the closed-loop simulation sweep above and the flagship
+demo video were both generated against the CPU detector; they have not
+been re-run against the new GPU weights. Given how much precision/recall
+improved offline, the simulation-level precision/localization numbers
+would likely improve too, but this is a real, stated gap, not implied to
+already be reflected below.
 
 ## Original 5-seed table (stale environment — see status note above)
 
@@ -235,9 +286,16 @@ real through the physics stack, not just in the kinematic comparison.
 2. **Detection uncertainty is TTA ensemble variance, not literal MC-Dropout**
    — stock YOLOv8 has no dropout retained at inference; this is a standard,
    documented substitute, not a hidden shortcut.
-3. **The trained model is CPU-budget-limited**: 30 epochs, 320px, batch 8.
-   The mAP50=0.685 result is real but not the ceiling a longer GPU run or
-   larger image size would reach.
+3. ~~**The trained model is CPU-budget-limited**~~ **Resolved**: the
+   original CPU checkpoint (30 epochs, 320px, batch 8, mAP50=0.685) was
+   real but not the ceiling a longer GPU run or larger image size would
+   reach -- confirmed by actually running that longer GPU training
+   (yolov8s, 640px, 100 epochs) on a rented NVIDIA L4, reaching mAP50=0.884
+   on the same held-out test set. Both checkpoints are kept in `weights/`;
+   `perception/ml_detector.py` defaults to the GPU one. Still not the
+   absolute ceiling -- e.g. yolov8m/l or 1280px were not tried, and the
+   closed-loop simulation sweep hasn't been re-run against it yet (see the
+   perception section above).
 4. **5 seeds** is enough to see the headline effects (flight efficiency,
    precision, localization) clearly, but not enough to cleanly separate the
    four ablations' individual contributions — see above (originally two

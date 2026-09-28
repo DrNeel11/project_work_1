@@ -22,7 +22,7 @@ from datagen.prepare_mbdd import CLASS_NAMES
 DEFAULT_WEIGHTS = os.environ.get(
     "MBDD_WEIGHTS",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                 "weights", "mbdd_yolov8n", "weights", "best.pt"),
+                 "weights", "mbdd_yolov8s_gpu", "weights", "best.pt"),
 )
 CONF_THRESH = 0.25
 IOU_MATCH_THRESH = 0.3
