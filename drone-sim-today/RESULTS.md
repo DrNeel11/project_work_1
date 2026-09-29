@@ -126,6 +126,53 @@ have both been re-run against this GPU detector (see "Updated 5-seed
 results" further down) — simulation-level precision and localization error
 did improve further, as the offline numbers here suggested they would.
 
+### How this compares to numbers reported elsewhere in the literature (context, not a fair fight)
+
+Two of the cited detection-side papers report standard precision/recall/mAP
+on their own defect datasets, so this is the one place in this project where
+a real cross-paper number comparison is at least the same *kind* of metric
+(unlike the closed-loop planner table below, where no cited paper reports
+the same metric set at all — see the note above that table):
+
+| Source | Task | Dataset | Precision | Recall | mAP |
+|---|---|---|---|---|---|
+| **This project** (GPU checkpoint) | 5-class UAV building-defect detection | MBDD2025, 14,471 real photos, held-out 1,448-image test set | 0.874 (mean) | 0.842 (mean) | 0.884 (mAP50) |
+| Li, Shi & Sun 2026 (improved YOLOv11) | Utility-tunnel defect detection | Private, 5,000 images from their own inspection trolley (never released) | 0.932 | 0.924 | 0.926 |
+| Inam et al. 2023 (YOLOv5m, best variant) | Bridge **crack** detection only (1 class) | Own Pakistani field dataset + SDNET2018 | 0.977 | 0.967 | 0.993 |
+
+**This project's numbers are lower, and that's stated plainly rather than
+explained away — but the comparison is not apples-to-apples, for reasons
+that cut in both directions, not just favorably:**
+
+- **Task difficulty differs**: this project detects 5 visually distinct
+  defect classes (crack, leakage, abscission, corrosion, bulge) in one
+  model; Inam et al.'s headline numbers are for **crack only** (a
+  single-class problem is a strictly easier discrimination task — no
+  cross-class confusion possible), and Li et al.'s task, while also
+  multi-defect, is on a private dataset whose class definitions and visual
+  difficulty can't be independently checked.
+- **Dataset provenance differs**: Li et al.'s 5,000-image dataset is
+  private and never released (confirmed unobtainable during this project's
+  dataset audit — see the environment-realism plan notes); Inam et al. use
+  their own field-collected images plus SDNET2018. MBDD2025 (this project's
+  dataset) is the one fully public, independently downloadable dataset of
+  the three, so its numbers are the only ones a third party could actually
+  reproduce end-to-end from a public source.
+- **Reporting protocol differs**: Inam et al. report the best of three
+  YOLOv5 variants (s/m/l) chosen after seeing test results — a legitimate
+  thing to do in a methods paper, but it means their headline number is a
+  post-hoc best-of-3, not a single pre-registered configuration the way
+  this project reports one checkpoint's numbers.
+- **What this does and doesn't mean**: this project's detector is not
+  state-of-the-art against narrower single-class or private-dataset
+  systems, and it would be dishonest to imply otherwise by omission. The
+  meaningful, controlled comparison this project actually makes is the
+  same-testbed one in the table below (UW-TIG vs. a faithfully
+  reimplemented Isler-NBV vs. Random, same detector, same environment,
+  same eval protocol for all three) — that is the comparison this report's
+  novelty claims rest on, not a claim of leading the wider defect-detection
+  literature on raw detector numbers.
+
 ## Original 5-seed table (stale environment — see status note above)
 
 | planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
@@ -259,6 +306,24 @@ added):
 e.g. uwtig precision/recall 0.76/0.63 both times — confirming this re-run
 reproduces the same result, just with the two new columns added, not a
 different experiment.)
+
+**A note on what this table can and can't be compared against**: the only
+valid comparison for these numbers is the `isler_nbv` and `random` rows
+*in this same table* — same testbed, same detector, same environment, same
+eval protocol for all three. No cited paper in NOVELTY.md's literature
+sweep reports this metric set (precision/recall/coverage/reinspection-rate/
+ECE/uncertainty-gap) for a persistent-memory, active-reinspection planner,
+so there is no external number to hold this table up against. Isler et al.
+2016 itself is a volumetric-reconstruction paper with no precision/recall
+concept at all; GATSBI (Dhami et al. 2024) reports a "detection rate
+relative to a frontier-exploration baseline" (11.5x better), a different
+unit that isn't convertible to this table's columns. The one place a real
+cross-paper number comparison *is* meaningful is the detector itself (mAP/
+precision/recall in the "Offline perception benchmark" section above),
+since several cited papers report that same kind of metric — see "How this
+compares to numbers reported elsewhere in the literature" there for the
+honest version of that comparison, including where this project's numbers
+come out lower and why that's not a fully fair fight either way.
 
 ### Calibration check: is the uncertainty signal actually informative?
 

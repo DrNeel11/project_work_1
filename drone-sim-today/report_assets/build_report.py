@@ -529,6 +529,42 @@ body(
     "closed-loop numbers below now use (see Section 3.1 for what changed and why)."
 )
 
+h2("4.1.1 How This Compares to Numbers Reported Elsewhere (Context, Not a Fair Fight)")
+body(
+    "Two cited detection-side papers report the same <i>kind</i> of metric (precision/recall/mAP) "
+    "on their own defect datasets, making this the one place in this report where a real cross-paper "
+    "number comparison is at least meaningful in units &mdash; unlike Section 4.2's planner-level "
+    "table below, where no cited paper reports the same metric set at all:"
+)
+table(
+    ["Source", "Task", "Dataset", "Prec.", "Recall", "mAP"],
+    [
+        ["This project (GPU)", "5-class UAV defect detection", "MBDD2025, public, 14,471 photos", "0.874", "0.842", "0.884"],
+        ["Li, Shi &amp; Sun 2026", "Utility-tunnel defect detection", "Private, 5,000 images, never released", "0.932", "0.924", "0.926"],
+        ["Inam et al. 2023 (best variant)", "Bridge crack only (1 class)", "Own field data + SDNET2018", "0.977", "0.967", "0.993"],
+    ],
+    col_widths=[3.6 * cm, 4.3 * cm, 4.8 * cm, 1.4 * cm, 1.4 * cm, 1.4 * cm],
+    highlight_row=1,
+    left_align_cols=(0, 1, 2),
+)
+body(
+    "<b>This project's numbers are lower, stated plainly rather than explained away</b> &mdash; but "
+    "the comparison cuts in both directions, not just favorably: Inam et al.'s headline number is for "
+    "<b>crack only</b>, a strictly easier single-class discrimination problem with no cross-class "
+    "confusion possible, versus this project's 5 visually distinct classes in one model; Li et al.'s "
+    "5,000-image dataset is <b>private and was confirmed unobtainable</b> during this project's own "
+    "dataset audit, so its difficulty can't be independently checked, while MBDD2025 is the only fully "
+    "public, independently downloadable dataset of the three; and Inam et al. report the best of three "
+    "YOLOv5 variants (s/m/l) chosen after seeing test results, a legitimate methods-paper practice but "
+    "not the same as this project's single, pre-registered checkpoint. <b>What this does and doesn't "
+    "mean</b>: this project's detector is not state-of-the-art against narrower single-class or "
+    "private-dataset systems, and it would be dishonest to imply otherwise by omission. The controlled "
+    "comparison this report's novelty claims actually rest on is the same-testbed one in Section 4.2 "
+    "(UW-TIG vs. a faithfully reimplemented Isler-NBV vs. Random &mdash; same detector, same "
+    "environment, same protocol for all three), not a claim of leading the wider defect-detection "
+    "literature on raw detector numbers."
+)
+
 h2("4.2 Closed-Loop Simulation Comparison")
 body(
     "Mean over the static / uncertain / multi-defect scenarios &times; 5 seeds &times; 3 sequential "
@@ -556,6 +592,17 @@ table(
     col_widths=[3.6 * cm, 1.3 * cm, 1.3 * cm, 1.0 * cm, 1.6 * cm, 1.5 * cm, 1.3 * cm, 1.4 * cm, 1.3 * cm, 1.7 * cm],
     highlight_row=3,
     left_align_cols=(0,),
+)
+body(
+    "<i>A note on what this table can and can't be compared against:</i> the only valid comparison "
+    "for these numbers is the Isler-NBV and Random rows <i>in this same table</i> &mdash; same "
+    "testbed, same detector, same environment, same protocol for all three. No cited paper reports "
+    "this metric set (precision/recall/coverage/reinspection-rate/ECE/uncertainty-gap) for a "
+    "persistent-memory, active-reinspection planner: Isler et al. 2016 is a volumetric-reconstruction "
+    "paper with no precision/recall concept at all, and GATSBI reports a differently-defined "
+    "“detection rate vs. a frontier-exploration baseline” (11.5x better) that isn't "
+    "convertible to these columns. The one place a real cross-paper comparison is meaningful is the "
+    "detector itself (Section 4.1.1)."
 )
 body(
     "<b>UW-TIG is now the only planner ahead of both baselines on precision AND recall at once</b> "

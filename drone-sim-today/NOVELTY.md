@@ -232,6 +232,24 @@ analogous question here, "how many viewpoints does a planner need to reach
 a target recall," is already implicitly answered by the existing
 budget-fixed comparison across planners, not a new metric.
 
+**A related question worth answering explicitly: can any of this project's
+own numbers be checked against numbers actually reported in the cited
+papers, not just against the in-house Random/Isler-NBV reimplementation?**
+For the closed-loop planner table (precision/recall/coverage/reinspection-
+rate/ECE/uncertainty-gap), the honest answer is no -- no cited paper reports
+that metric set for this kind of persistent-memory active-reinspection
+planner (Isler et al. 2016 has no precision/recall concept at all; GATSBI
+reports a differently-defined "detection rate vs. frontier baseline," not
+convertible to these columns) -- see RESULTS.md's note directly above that
+table. For the *detector* alone, though, a real comparison is possible,
+since Li, Shi & Sun 2026 and Inam et al. 2023 report the same kind of
+metric (precision/recall/mAP) on their own defect datasets -- see
+RESULTS.md's "How this compares to numbers reported elsewhere in the
+literature" for the real numbers and the honest, non-flattering result
+(this project's detector's raw numbers are lower than both, for reasons
+that are partly about task difficulty and dataset provenance, not just
+model quality -- stated plainly rather than omitted).
+
 ## 4. What this does and doesn't claim
 
 - These are real, reproducible code changes, now backed by a real 5-seed

@@ -176,3 +176,12 @@ python demo_uwtig_flight.py --missions 3 --budget 8
 - Postgres/Neo4j run as local Docker containers with dev-only credentials.
 - The "growing defect" scenario is procedurally synthesized (severity scaled
   over missions with known ground truth) since MBDD2025 is single-timepoint.
+- The closed-loop planner comparison (precision/recall/coverage/ECE/etc.)
+  can only honestly be compared against the in-house Isler-NBV/Random
+  reimplementations in the same table -- no cited paper reports that metric
+  set for this kind of planner. The detector itself *is* comparable in kind
+  to other defect-detection papers, and on that comparison this project's
+  numbers are lower than two narrower/private-dataset papers -- see
+  RESULTS.md's "How this compares to numbers reported elsewhere in the
+  literature" for the real numbers and why that's not a fully fair fight
+  either way.
