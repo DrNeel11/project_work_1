@@ -139,8 +139,15 @@ plausibly break next (coverage elsewhere), not just the one it targeted.
   afterward. RESULTS.md's "Updated 5-seed results" section is the real
   output: no more exact-zero camping, `isler_nbv` and `uwtig` both settle on
   the same 3-wall subset (Building B) for reasons explained there, and
-  UW-TIG still clearly wins on precision (0.75 vs. 0.45/0.37) and
-  localization error (0.27m vs. 0.45m/0.70m) against isler_nbv/random.
+  UW-TIG still clearly wins on precision (0.86 vs. 0.64/0.58) and
+  localization error (0.19m vs. 0.49m/0.77m) against isler_nbv/random. That
+  sweep was later re-run a second time against a separately GPU-retrained
+  detector (perception's own novelty pass, see RESULTS.md's perception
+  section and Limitation 3) -- the numbers just quoted are from that final
+  run; every planner's precision improved with the better detector, but the
+  relative ranking and the planner-level findings in this document
+  (staleness/lookahead additions, the two bugs, the recalibration) are
+  unaffected, since they're about planning behavior, not detection quality.
 - The (1-1/e) guarantee is stated precisely: it covers the coverage
   sub-objective's greedy selection, not the combined uncertainty +
   temporal + staleness + cost utility, which has no known guarantee here or

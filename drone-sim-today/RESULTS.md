@@ -2,9 +2,13 @@
 
 ## Setup
 
-- **Perception**: YOLOv8n, trained from scratch on **MBDD2025** (14,471 real
+- **Perception**: trained from scratch on **MBDD2025** (14,471 real
   UAV building-defect photos, Zenodo 10.5281/zenodo.15622584, CC-BY-4.0),
-  70/20/10 train/val/test split, 30 epochs, 320px, CPU.
+  70/20/10 train/val/test split. Two checkpoints exist (see "Offline
+  perception benchmark" below for the full before/after): the original
+  YOLOv8n/320px/30-epoch CPU baseline, and the current default,
+  YOLOv8s/640px/100-epoch, trained on a rented GPU with bulge-class
+  oversampling.
 - **Uncertainty**: test-time-augmentation (TTA) ensemble variance across 5
   photometric variants (brightness/contrast/noise/blur) — a documented
   substitute for MC-Dropout (see Limitations).
@@ -63,11 +67,10 @@ single-process sweep crashed three times (see Limitation 7).
 ## Offline perception benchmark (real MBDD2025 test set, 1448 images)
 
 Two real, genuinely-trained checkpoints exist; the GPU one is the current
-default (`perception/ml_detector.py`'s `DEFAULT_WEIGHTS`) and everything
-below RESULTS.md's closed-loop simulation numbers still reflects the CPU
-checkpoint that was current when those simulation sweeps ran (re-running
-the full simulation sweep against the GPU detector is the natural next
-step, not yet done — see the note at the end of this section).
+default (`perception/ml_detector.py`'s `DEFAULT_WEIGHTS`). The "Original
+5-seed table" below is a historical record from the CPU checkpoint; the
+"Updated 5-seed results" table further down has been re-run against this
+GPU detector.
 
 | metric | CPU (yolov8n, 320px, 30ep) | GPU (yolov8s, 640px, 100ep) |
 |---|---|---|
@@ -118,12 +121,10 @@ large net improvement, not a strictly-dominant one on every single case —
 stated here rather than only reporting the aggregate numbers that look
 good.
 
-**Not yet done**: the closed-loop simulation sweep above and the flagship
-demo video were both generated against the CPU detector; they have not
-been re-run against the new GPU weights. Given how much precision/recall
-improved offline, the simulation-level precision/localization numbers
-would likely improve too, but this is a real, stated gap, not implied to
-already be reflected below.
+**Now done**: the closed-loop simulation sweep and the flagship demo video
+have both been re-run against this GPU detector (see "Updated 5-seed
+results" further down) — simulation-level precision and localization error
+did improve further, as the offline numbers here suggested they would.
 
 ## Original 5-seed table (stale environment — see status note above)
 
@@ -167,61 +168,58 @@ separate, honest failure mode, not a comparable number.)
   the same coverage, confirming the base-paper adaptation is doing
   something sensible before UW-TIG's defect-aware terms are added on top.
 
-## Updated 5-seed results (current planner + current environment)
+## Updated 5-seed results (current planner + current environment + GPU-trained detector)
 
 Produced via `bash run_full_sweep.sh 5 16 3` (one fresh subprocess per seed,
 merged with `evaluate.py --merge` — see Limitation 7 for why), mean over
 static/uncertain/multi-defect × 5 seeds × 3 missions (growing excluded, same
-methodology as the original table):
+methodology as the original table). **This is the second re-run of this
+table**: the first (kept only in git history, not reproduced here) used the
+planner changes above but the original CPU-trained detector; this one also
+has the GPU-retrained detector from the perception section above
+(mAP50 0.685 &rarr; 0.884) swapped in, and both `run_full_sweep.sh` and
+`demo_uwtig_flight.py` were re-run against it:
 
 | planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
 |---|---|---|---|---|---|---|---|
-| random | 0.37 | 0.60 | 0.44 | 0.70 | 393.8 | 1.00 | 1.00 |
-| isler_nbv | 0.45 | 0.36 | 0.39 | 0.45 | 18.6 | 0.33 | 0.44 |
-| **uwtig** | **0.75** | 0.36 | 0.47 | **0.27** | **0.20** | 0.33 | 0.44 |
-| uwtig_no_uncertainty | 0.75 | 0.36 | 0.48 | 0.27 | 0.03 | 0.33 | 0.44 |
-| uwtig_no_temporal | 0.75 | 0.36 | 0.47 | 0.27 | 0.17 | 0.33 | 0.44 |
-| uwtig_no_staleness | 0.75 | 0.36 | 0.48 | 0.27 | 0.27 | 0.33 | 0.44 |
-| uwtig_no_lookahead | 0.72 | 0.36 | 0.47 | 0.28 | 1.50 | 0.33 | 0.44 |
+| random | 0.58 | 0.57 | 0.55 | 0.77 | 393.8 | 1.00 | 1.00 |
+| isler_nbv | 0.64 | 0.43 | 0.50 | 0.49 | 18.6 | 0.33 | 0.44 |
+| **uwtig** | **0.86** | 0.36 | 0.55 | **0.19** | 0.30 | 0.33 | 0.44 |
+| uwtig_no_uncertainty | 0.86 | 0.36 | 0.55 | 0.19 | 0.00 | 0.33 | 0.44 |
+| uwtig_no_temporal | 0.86 | 0.36 | 0.55 | 0.19 | 0.27 | 0.33 | 0.44 |
+| uwtig_no_staleness | 0.87 | 0.36 | 0.55 | 0.19 | 0.37 | 0.33 | 0.44 |
+| uwtig_no_lookahead | 0.87 | 0.36 | 0.55 | 0.20 | 1.50 | 0.33 | 0.44 |
 
-**Don't directly diff this against the "Original 5-seed table" above** —
-random's flight distance alone (393.8m vs. 128.4m) makes clear the
-environment itself changed (54 candidate viewpoints now vs. 48 then, larger
-inter-building distances), independent of anything in this pass. Read this
-table on its own terms:
+- **Every planner's precision improved with the better detector** — even
+  Random jumped 0.37 &rarr; 0.58 and Isler-NBV 0.45 &rarr; 0.64 — confirming
+  the detector upgrade genuinely helps regardless of planning strategy, as
+  it should (fewer false positives is a perception-level property, not a
+  planning one). UW-TIG still leads clearly at 0.86.
+- **UW-TIG's localization error improved further**: 0.27m &rarr; 0.19m,
+  now roughly 2.5x better than Isler-NBV's 0.49m and 4x better than
+  Random's 0.77m.
+- **Recall and coverage are essentially unchanged** (UW-TIG recall 0.356 in
+  both the pre- and post-GPU-detector runs, coverage still exactly 0.33) —
+  expected, since which walls get visited is a planning-side decision
+  largely independent of detector quality; the previously-documented
+  coverage/recall trade-off (Section above) is a planner-weighting choice,
+  not something a better detector fixes on its own.
+- **`isler_nbv` is still numerically identical across every seed** (18.638m
+  flight distance, 0.333 coverage) for the same reason as before — it's a
+  pure function of the coverage belief with no seed/scenario dependence.
+- **UW-TIG's near-zero flight distance persists** for the same reason as
+  before (Building B's coincident viewpoints, see NOVELTY.md) —
+  `uwtig_no_lookahead` again shows the more metric-representative 1.5m.
+- **Ablation deltas remain small**, now even smaller in absolute terms
+  (0.86-0.87 precision spread of ~0.01 across all four ablations) — still
+  not separable with 5 seeds, if anything more true now that the detector
+  is stronger and less of a limiting factor.
 
-- **Precision & localization still clearly favor UW-TIG**: 0.75 vs.
-  0.45 (isler_nbv) / 0.37 (random), and 0.27m vs. 0.45m / 0.70m localization
-  error — the core claim survives the planner rewrite intact.
-- **`isler_nbv`'s numbers are IDENTICAL across every seed and scenario**
-  (18.638m flight distance, 0.333 coverage, to the last decimal, in every
-  one of its 20 rows) — checked directly against the raw CSV. This is not a
-  bug introduced here: `IslerNBVPlanner.select_next` is a pure function of
-  the coverage belief state alone (no `self.rng` use, no dependence on
-  scenario ground truth), so on a fixed viewpoint graph it always makes the
-  identical sequence of moves regardless of seed. Its precision/recall
-  still vary by scenario/seed because *what's physically on those 3 fixed
-  walls* varies — the path doesn't.
-- **UW-TIG's flight distance is genuinely tiny (0.03–0.27m) except for
-  `uwtig_no_lookahead` (1.50m)** — all of them, including
-  `uwtig_no_lookahead`, spend the mission concentrated on Building B's
-  three walls (coverage 0.33 for every UW-TIG variant, same as isler_nbv),
-  but the lookahead variants do so from Building B's degenerate coincident-
-  viewpoint center (see NOVELTY.md), where `total_flight_dist_m`'s
-  translation-only accounting reports near-zero even though real rotation
-  time is spent — a real gap in that specific metric, not a planning bug
-  (confirmed by inspecting the raw per-step viewpoint sequence: it visits
-  three distinct viewpoint ids, not one repeated id). `uwtig_no_lookahead`
-  (pure 1-step greedy) reaches the same three walls by a route that isn't
-  pinned to the exact coincident point, hence its larger, more
-  metric-representative 1.5m.
-- **Ablation deltas are small and within what 5 seeds can separate**:
-  `uwtig_no_uncertainty` has the lowest flight distance and a marginally
-  higher precision (0.751 vs. 0.749) than the full utility in this run —
-  worth noting honestly rather than claiming the uncertainty term "wins"
-  here; RESULTS.md's original caveat (5 seeds isn't enough to cleanly
-  separate the ablations) still applies, now to four ablations instead of
-  two.
+The flagship demo (`output/uwtig_flythrough.mp4`, `output/uwtig_inspection.mp4`)
+was also re-generated against the GPU detector; the mission log shows real
+detections spread across both buildings (not just Building B), e.g. a
+genuine crack catch on `A-west` and corrosion on `A-east` in mission 2 that
+the weaker CPU detector's runs didn't surface as clearly.
 
 ## Flagship real-flight demo
 
@@ -268,10 +266,10 @@ real through the physics stack, not just in the kinematic comparison.
 1. **The "growing" scenario's detector recall is ~0%.** It uses a
    procedurally-generated corrosion texture (`scene/texture_gen.py`) because
    MBDD2025 is single-timepoint and has no repeated-visit growth sequence
-   for the same physical defect. The YOLOv8n model, trained exclusively on
-   real photos, essentially does not recognize this synthetic texture as
-   corrosion at all (verified directly: 0 detections at conf>0.1 on the
-   rendered frame). Any nonzero "growth_detected_frac" logged for this
+   for the same physical defect. Both trained checkpoints (CPU and GPU),
+   trained exclusively on real photos, essentially do not recognize this
+   synthetic texture as corrosion at all (verified directly: 0 detections
+   at conf>0.1 on the rendered frame, checked again after the GPU retrain). Any nonzero "growth_detected_frac" logged for this
    scenario reflects occasional false-positive matches on other (also
    synthetic) clean-wall renders recurring at the same viewpoint, not
    genuine growth tracking, and should be disregarded. The temporal-memory
@@ -292,10 +290,10 @@ real through the physics stack, not just in the kinematic comparison.
    reach -- confirmed by actually running that longer GPU training
    (yolov8s, 640px, 100 epochs) on a rented NVIDIA L4, reaching mAP50=0.884
    on the same held-out test set. Both checkpoints are kept in `weights/`;
-   `perception/ml_detector.py` defaults to the GPU one. Still not the
-   absolute ceiling -- e.g. yolov8m/l or 1280px were not tried, and the
-   closed-loop simulation sweep hasn't been re-run against it yet (see the
-   perception section above).
+   `perception/ml_detector.py` defaults to the GPU one, and the closed-loop
+   simulation sweep and flagship demo have been re-run against it (see
+   "Updated 5-seed results" above). Still not the absolute ceiling --
+   e.g. yolov8m/l or 1280px were not tried.
 4. **5 seeds** is enough to see the headline effects (flight efficiency,
    precision, localization) clearly, but not enough to cleanly separate the
    four ablations' individual contributions — see above (originally two

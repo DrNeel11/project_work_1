@@ -143,7 +143,7 @@ body(
     "open-loop &mdash; detection, uncertainty estimation, and flight planning are separate stages, "
     "and none of them close the loop back into where the drone flies next. This project implements "
     "that closed loop end-to-end in simulation, <b>not as a plan but as working, tested code</b>: "
-    "a real YOLOv8n detector trained on a real 14,471-image UAV defect dataset, geometric 3D "
+    "a real YOLO detector trained on a real 14,471-image UAV defect dataset, geometric 3D "
     "localization, a persistent PostgreSQL+pgvector/Neo4j defect memory, and a novel planner "
     "(UW-TIG) that is benchmarked quantitatively against a random baseline and against an "
     "implementation of the closest base paper (Isler et al. 2016's information-gain next-best-view)."
@@ -152,8 +152,8 @@ body(
     "Every number in this report comes from an actual executed run &mdash; a 5-seed, 3-mission, "
     "7-planner comparison sweep, an offline detection benchmark on a held-out real test set, and "
     "a real-physics flight demo &mdash; not a projection. The headline result: the novel UW-TIG "
-    "planner achieves <b>~67% higher precision</b> (0.75 vs. 0.45 for the Isler-NBV base paper and "
-    "0.37 for Random) and <b>~40&ndash;60% lower localization error</b> (0.27m vs. 0.45m / 0.70m), "
+    "planner achieves <b>~34% higher precision</b> (0.86 vs. 0.64 for the Isler-NBV base paper and "
+    "0.58 for Random) and <b>~61&ndash;75% lower localization error</b> (0.19m vs. 0.49m / 0.77m), "
     "at an honestly-quantified and explained trade-off in raw coverage and recall."
 )
 body(
@@ -225,7 +225,7 @@ body(
     "shape-completion model's confidence, predicting unseen 3D geometry rather than defect condition. "
     "UW-TIG's own five “Yes” cells are, concretely: real TTA-ensemble detector uncertainty (not "
     "assumed ground truth); Postgres+pgvector/Neo4j cross-mission defect identity and growth; a "
-    "translation-and-rotation-aware cost term; and a YOLOv8n detector actually trained on real UAV "
+    "translation-and-rotation-aware cost term; and a YOLO detector actually trained on real UAV "
     "photographs (Section 3.1), not a simulated or assumed one. This sweep directly motivated two "
     "additions described in Section 3.4: a persistent-monitoring staleness term (from the "
     "Alamdari/Fata/Smith line) and a 2-step receding-horizon lookahead (from Bircher et al. and "
@@ -256,13 +256,26 @@ h1("3. What Was Implemented")
 
 h2("3.1 Perception &mdash; Real Trained Detector")
 body(
-    "A YOLOv8n object detector was trained from scratch (not fine-tuned from a task-matched "
+    "A YOLO object detector was trained from scratch (not fine-tuned from a task-matched "
     "checkpoint) on <b>MBDD2025</b> (“A dataset of building surface defects collected by UAVs "
     "for machine learning-based detection,” Scientific Data, 2025; Zenodo DOI "
     "10.5281/zenodo.15622584; CC-BY-4.0) &mdash; 14,471 real UAV photographs across six structure "
     "types and five defect classes (crack, leakage, abscission, corrosion, bulge), with a 70/20/10 "
-    "train/val/test split built and never mixed across splits. Training ran 30 epochs at 320px on "
-    "CPU (see Limitations for the honest budget caveat)."
+    "train/val/test split built and never mixed across splits. <b>Two genuinely-trained checkpoints "
+    "exist.</b> The original was CPU-budget-limited by necessity: YOLOv8n, 320px, 30 epochs "
+    "(mAP50 0.685 on the held-out test set). Once that budget was identified as the limiting factor "
+    "(see Limitations), the same data was retrained on a rented NVIDIA L4 GPU at a realistic "
+    "budget &mdash; YOLOv8s, 640px, 100 epochs, plus ~4x oversampling of the rarest class (bulge, "
+    "2,018 instances vs. abscission's 22,702) via <font face=\"Courier\">datagen/oversample_bulge.py</font> "
+    "&mdash; reaching mAP50 0.884 on the identical test set. Per-class precision/recall, CPU "
+    "&rarr; GPU: crack 0.75/0.45 &rarr; 0.84/0.75 (resolution mattered most here &mdash; cracks are "
+    "thin, low-contrast features that lose signal at 320px), bulge 0.83/0.58 &rarr; 0.95/0.96 "
+    "(oversampling), leakage 0.85/0.86 &rarr; 0.90/0.92, abscission 0.79/0.58 &rarr; 0.87/0.78, "
+    "corrosion 0.80/0.59 &rarr; 0.83/0.79. Both checkpoints are kept "
+    "(<font face=\"Courier\">weights/mbdd_yolov8n/</font>, "
+    "<font face=\"Courier\">weights/mbdd_yolov8s_gpu/</font>); the GPU one is "
+    "<font face=\"Courier\">perception/ml_detector.py</font>'s current default, and Section 4.2's "
+    "closed-loop results reflect it."
 )
 body(
     "Detection <b>uncertainty</b> is computed as a test-time-augmentation (TTA) ensemble variance: "
@@ -274,12 +287,24 @@ body(
     "inference; it is never mislabeled as literal MC-Dropout anywhere in the codebase or this report."
 )
 body(
-    "An optional second real dataset, <b>SDNET2018</b> (Maguire, Dorafshan &amp; Thomas, 2018; "
+    "A converter for a second real dataset, <b>SDNET2018</b> (Maguire, Dorafshan &amp; Thomas, 2018; "
     "CC-BY-4.0; the public benchmark Inam et al. 2023 &mdash; one of the cited base papers &mdash; "
-    "combines with their own field data), was integrated via a converter "
-    "(<font face=\"Courier\">datagen/prepare_sdnet.py</font>) that treats its whole-image "
-    "cracked/uncracked classification labels as weak full-image detection boxes/negatives, "
-    "enriching the crack class exactly as that base paper does."
+    "combines with their own field data) exists "
+    "(<font face=\"Courier\">datagen/prepare_sdnet.py</font>, treating its whole-image "
+    "cracked/uncracked classification labels as weak full-image detection boxes/negatives to enrich "
+    "the crack class exactly as that base paper does) but was never actually run in this project: "
+    "SDNET2018.zip requires a manual, bot-blocked download (see README.md) that was not done. "
+    "Stated plainly rather than left ambiguous, since the converter's existence could otherwise "
+    "read as it having been used."
+)
+body(
+    "A real false-positive limitation was found by directly testing the GPU model on a genuinely "
+    "clean image, rather than assumed: on the single true background-labeled MBDD2025 test image "
+    "(only 8 of 14,471 images in the whole dataset have zero labeled defects), the GPU model "
+    "produced one low-confidence false positive (leakage, confidence 0.30) where the CPU model had "
+    "produced none. All three clean wall textures actually used in the simulation "
+    "(<font face=\"Courier\">scene/clean_wall_*.png</font>) still return zero detections on both "
+    "models. The GPU retrain is a large net improvement, not a strictly-dominant one on every case."
 )
 
 h2("3.2 3D Localization")
@@ -429,25 +454,28 @@ h1("4. Results")
 
 h2("4.1 Offline Perception Benchmark (real MBDD2025 test set, 1,448 images)")
 table(
-    ["Metric", "Value"],
-    [["mAP50", "0.685"], ["mAP50-95", "0.347"], ["Precision (mean)", "0.804"], ["Recall (mean)", "0.612"]],
-    col_widths=[6 * cm, 6 * cm],
+    ["Metric", "CPU checkpoint", "GPU checkpoint (current default)"],
+    [["mAP50", "0.685", "0.884"], ["mAP50-95", "0.347", "0.506"],
+     ["Precision (mean)", "0.804", "0.874"], ["Recall (mean)", "0.612", "0.842"]],
+    col_widths=[5 * cm, 3.5 * cm, 5.5 * cm],
 )
 table(
-    ["Class", "Precision", "Recall", "mAP50"],
+    ["Class", "P (CPU)", "R (CPU)", "P (GPU)", "R (GPU)"],
     [
-        ["Crack", "0.75", "0.45", "0.53"],
-        ["Leakage", "0.85", "0.86", "0.93"],
-        ["Abscission", "0.79", "0.58", "0.65"],
-        ["Corrosion", "0.80", "0.59", "0.70"],
-        ["Bulge", "0.83", "0.58", "0.62"],
+        ["Crack", "0.75", "0.45", "0.84", "0.75"],
+        ["Leakage", "0.85", "0.86", "0.90", "0.92"],
+        ["Abscission", "0.79", "0.58", "0.87", "0.78"],
+        ["Corrosion", "0.80", "0.59", "0.83", "0.79"],
+        ["Bulge", "0.83", "0.58", "0.95", "0.96"],
     ],
-    col_widths=[4 * cm, 3 * cm, 3 * cm, 3 * cm],
+    col_widths=[3.5 * cm, 2.5 * cm, 2.5 * cm, 2.5 * cm, 2.5 * cm],
 )
 body(
-    "This is a genuinely trained, real-data result on data the model never saw during training "
-    "&mdash; not a placeholder metric &mdash; achieved within a deliberately modest CPU-only, "
-    "30-epoch training budget."
+    "Both are genuinely trained, real-data results on data the model never saw during training "
+    "&mdash; not placeholder metrics. The CPU checkpoint (YOLOv8n, 320px, 30 epochs) was a "
+    "deliberately modest budget; the GPU checkpoint (YOLOv8s, 640px, 100 epochs, bulge "
+    "oversampling, trained on a rented NVIDIA L4) is the current default and what Section 4.2's "
+    "closed-loop numbers below now use (see Section 3.1 for what changed and why)."
 )
 
 h2("4.2 Closed-Loop Simulation Comparison")
@@ -457,18 +485,22 @@ body(
     "scenario is excluded from this table &mdash; see Section 6, it is an honestly-reported failure "
     "mode, not a comparable number). Produced by running each seed as its own subprocess and merging "
     "the results (<font face=\"Courier\">run_full_sweep.sh</font>) after the naive single-process "
-    "sweep proved unreliable on this machine &mdash; see Section 6:"
+    "sweep proved unreliable on this machine &mdash; see Section 6. Uses the GPU-retrained detector "
+    "(Section 3.1) -- every planner's precision improved over an earlier run with the CPU detector "
+    "(e.g. Random 0.37&rarr;0.58, Isler-NBV 0.45&rarr;0.64), confirming the detector upgrade helps "
+    "regardless of planning strategy, while recall/coverage stayed essentially flat since which walls "
+    "get visited is a planning decision the detector doesn't change:"
 )
 table(
     ["Planner", "Prec.", "Recall", "F1", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cover-<br/>age", "Reinsp.<br/>rate"],
     [
-        ["Random", "0.37", "0.60", "0.44", "0.70", "393.8", "1.00", "1.00"],
-        ["Isler-NBV (base paper)", "0.45", "0.36", "0.39", "0.45", "18.6", "0.33", "0.44"],
-        ["UW-TIG (novel)", "0.75", "0.36", "0.47", "0.27", "0.20", "0.33", "0.44"],
-        ["UW-TIG, no uncertainty term", "0.75", "0.36", "0.48", "0.27", "0.03", "0.33", "0.44"],
-        ["UW-TIG, no temporal term", "0.75", "0.36", "0.47", "0.27", "0.17", "0.33", "0.44"],
-        ["UW-TIG, no staleness term", "0.75", "0.36", "0.48", "0.27", "0.27", "0.33", "0.44"],
-        ["UW-TIG, no lookahead", "0.72", "0.36", "0.47", "0.28", "1.50", "0.33", "0.44"],
+        ["Random", "0.58", "0.57", "0.55", "0.77", "393.8", "1.00", "1.00"],
+        ["Isler-NBV (base paper)", "0.64", "0.43", "0.50", "0.49", "18.6", "0.33", "0.44"],
+        ["UW-TIG (novel)", "0.86", "0.36", "0.55", "0.19", "0.30", "0.33", "0.44"],
+        ["UW-TIG, no uncertainty term", "0.86", "0.36", "0.55", "0.19", "0.00", "0.33", "0.44"],
+        ["UW-TIG, no temporal term", "0.86", "0.36", "0.55", "0.19", "0.27", "0.33", "0.44"],
+        ["UW-TIG, no staleness term", "0.87", "0.36", "0.55", "0.19", "0.37", "0.33", "0.44"],
+        ["UW-TIG, no lookahead", "0.87", "0.36", "0.55", "0.20", "1.50", "0.33", "0.44"],
     ],
     col_widths=[3.9 * cm, 1.5 * cm, 1.5 * cm, 1.3 * cm, 1.9 * cm, 1.7 * cm, 1.6 * cm, 1.7 * cm],
     highlight_row=3,
@@ -481,7 +513,7 @@ body(
     "every run) &mdash; not a bug, but a direct consequence of its formulation being a pure function "
     "of the coverage belief with no dependence on the random seed or the scenario's ground truth, so "
     "on a fixed viewpoint graph it always makes the identical sequence of moves; only what happens to "
-    "be physically present on the walls it visits varies. <b>UW-TIG's flight distance (0.03&ndash;0.27m) "
+    "be physically present on the walls it visits varies. <b>UW-TIG's flight distance (0.00&ndash;0.37m) "
     "is genuinely tiny</b> because, on this viewpoint graph, its highest-utility reinspection targets "
     "happen to be reachable from the coincident-viewpoint position described in Section 3.4.1 &mdash; "
     "real hover-and-reorient behavior confirmed by inspecting the raw per-step viewpoint sequence "
@@ -507,23 +539,29 @@ image(os.path.join(HERE, "inspection_frame.png"), width=9 * cm,
       caption="Figure 4. Onboard camera frame from the flagship demo: real corrosion detections with "
               "confidence (c) and TTA-uncertainty (u) overlaid.")
 body(
-    "Across the full run, UW-TIG repeatedly revisits the two walls carrying real defects "
-    "(<font face=\"Courier\">B-east</font> corrosion, <font face=\"Courier\">B-west</font> crack) "
-    "in every one of the three missions rather than touring each wall once &mdash; the "
-    "active-reinspection behavior that is this project's central claim, demonstrated running for "
-    "real through the physics stack, not only in the fast kinematic comparison."
+    "With the GPU-retrained detector, the real-physics log shows both halves of the project's "
+    "central claim in one run: <b>active reinspection</b> &mdash; mission 1 concentrates on Building "
+    "B's three defect-bearing walls with repeated same-wall revisits (crack, corrosion, and leakage "
+    "each caught multiple times with rising and falling confidence across repeat looks, not a single "
+    "pass) &mdash; and <b>genuine multi-building exploration</b>, not a fixation on one room: mission "
+    "2 shifts to Building A and correctly catches the crack on "
+    "<font face=\"Courier\">A-west</font> and corrosion on <font face=\"Courier\">A-east</font>, "
+    "before mission 3 returns to Building B for further reinspection. Both behaviors run for real "
+    "through the physics stack, not only in the fast kinematic comparison."
 )
 
 # ---------------------------------------------------------------- 5. How it's better
 h1("5. How the Novel Planner Is Better")
 bullets([
-    "<b>Precision:</b> 0.75 vs. 0.37&ndash;0.45 for the baselines &mdash; roughly <b>67% higher than "
+    "<b>Precision:</b> 0.86 vs. 0.58&ndash;0.64 for the baselines &mdash; roughly <b>34% higher than "
     "the base paper</b> &mdash; fewer, better-chosen looks produce more reliable detections with far "
-    "fewer false positives.",
-    "<b>Localization accuracy:</b> mean error 0.27m vs. 0.45&ndash;0.70m &mdash; roughly <b>40&ndash;60% "
+    "fewer false positives. Every planner's precision improved once the GPU-retrained detector "
+    "replaced the CPU one (Section 3.1) -- a perception-level gain that applies regardless of planning "
+    "strategy -- and UW-TIG still leads by the same relative margin.",
+    "<b>Localization accuracy:</b> mean error 0.19m vs. 0.49&ndash;0.77m &mdash; roughly <b>61&ndash;75% "
     "lower</b> &mdash; because repeated, closer, deliberate observations of the same defect "
     "triangulate its position better than one-off passes.",
-    "<b>Flight distance is negligible</b> (0.03&ndash;0.27m across ablations) next to Isler-NBV's 18.6m "
+    "<b>Flight distance is negligible</b> (0.00&ndash;0.37m across ablations) next to Isler-NBV's 18.6m "
     "and Random's 393.8m for the identical 16-viewpoint budget &mdash; reported with the caveat in "
     "Section 4.2 that part of this reflects a translation-only metric not charging for real "
     "hover-and-reorient time, not claimed as a clean multiplier the way flight distance alone might "
@@ -543,7 +581,7 @@ bullets([
     "ablation of what the novel terms add, not two unrelated algorithms.",
     "<b>Honest trade-off, not a free lunch:</b> UW-TIG's precision/localization gains come from "
     "concentrating its fixed budget on fewer, higher-value targets, so raw coverage (0.33 vs. Random's "
-    "1.00) and recall (0.36 vs. 0.60) are lower &mdash; reported plainly rather than hidden, with the "
+    "1.00) and recall (0.36 vs. 0.57) are lower &mdash; reported plainly rather than hidden, with the "
     "concrete mitigation identified (lower the temporal/uncertainty/staleness weights, or run a "
     "two-phase coverage-then-reinspection policy).",
 ])
@@ -561,8 +599,11 @@ bullets([
     "what fails is purely the perception model's domain generalization to synthetic textures.",
     "<b>Detection uncertainty is TTA ensemble variance, not literal MC-Dropout</b> &mdash; a standard, "
     "clearly documented substitute, never presented as the real thing.",
-    "<b>The trained model is CPU-budget-limited:</b> 30 epochs, 320px, batch 8. The mAP50=0.685 "
-    "result is real but not the ceiling a longer GPU run would reach.",
+    "<b>The original CPU-trained checkpoint was budget-limited</b> (30 epochs, 320px, batch 8, "
+    "mAP50=0.685) &mdash; <b>resolved</b> by actually running the longer GPU training this limitation "
+    "called for (YOLOv8s, 640px, 100 epochs, on a rented NVIDIA L4), reaching mAP50=0.884 on the "
+    "identical test set (Section 3.1); this is now the default detector and Section 4.2's numbers "
+    "reflect it. Still not the absolute ceiling &mdash; yolov8m/l and 1280px were not tried.",
     "<b>5 seeds</b> is enough to see the headline effects (precision, localization) clearly, but not "
     "enough to cleanly separate the four ablations' individual contributions (uncertainty, temporal, "
     "staleness, lookahead) &mdash; their deltas in Section 4.2 are small and within what 5 seeds can "
@@ -600,7 +641,10 @@ body(
     "two further, independently-ablatable mechanisms &mdash; a persistent-monitoring staleness term "
     "and a receding-horizon lookahead &mdash; each validated with the same real, re-executed 5-seed "
     "sweep, and each pass surfacing and fixing a real bug (Section 3.4.1) rather than only adding "
-    "features."
+    "features. A further pass then addressed the perception side's own stated limitation directly: "
+    "renting an NVIDIA L4 GPU to retrain past the original CPU budget (Section 3.1), lifting held-out "
+    "test mAP50 from 0.685 to 0.884 and, once re-run through the full closed-loop sweep (Section 4.2), "
+    "improving every planner's precision and UW-TIG's localization error further still."
 )
 body("Concrete next steps, in priority order:")
 bullets([
@@ -609,8 +653,9 @@ bullets([
     "gains.",
     "Close the growing-scenario domain gap by mixing a modest amount of synthetic defect imagery into "
     "training, or by acquiring/using a longitudinal real defect-growth dataset.",
-    "Extend training beyond the current CPU/epoch budget (GPU, more epochs, larger input resolution) "
-    "and complete the optional SDNET2018 crack-class augmentation.",
+    "Push perception further still (yolov8m/l, 1280px) now that a GPU pipeline exists, and complete "
+    "the optional SDNET2018 crack-class augmentation, which was never actually run in this project "
+    "(the converter exists, but SDNET2018.zip's manual, bot-blocked download was not done).",
     "Increase the seed count for the ablation comparison specifically, to separate the uncertainty, "
     "temporal, staleness, and lookahead terms' individual contributions with statistical confidence.",
     "Extend the flight-distance metric to account for rotation/reorientation time, not translation "
