@@ -52,14 +52,20 @@ graph (`planning/viewpoints.py`) over the house scene:
   staleness/latency term (adapted from Alamdari, Fata & Smith 2014), in one
   weighted utility selected via a 2-step receding-horizon lookahead
   (adapted from Bircher et al. 2016 and Dhami et al.'s GATSBI) rather than
-  pure 1-step greedy. Unlike the baselines, it can revisit an
-  already-inspected viewpoint when that's where the utility is (active
-  reinspection). Four ablations (`uwtig_no_uncertainty`, `uwtig_no_temporal`,
-  `uwtig_no_staleness`, `uwtig_no_lookahead`) isolate each added term's
-  effect. See [`NOVELTY.md`](drone-sim-today/NOVELTY.md) for the wider
-  literature comparison this was checked against, and for two real bugs
-  (a reward-decay bug, a viewpoint-geometry coincidence) found and fixed
-  while adding the lookahead.
+  pure 1-step greedy — plus a coverage-guarantee phase that visits every
+  wall at least once per mission before switching to that utility, fixing a
+  recall ceiling that turned out to affect `isler_nbv` too (see RESULTS.md's
+  "Coverage-guarantee fix" section for the full before/after and its honest
+  trade-off: recall/coverage roughly double, at a real cost to precision,
+  localization error, and flight distance). Unlike the baselines, it can
+  revisit an already-inspected viewpoint when that's where the utility is
+  (active reinspection). Five ablations (`uwtig_no_uncertainty`,
+  `uwtig_no_temporal`, `uwtig_no_staleness`, `uwtig_no_coverage_first`,
+  `uwtig_no_lookahead`) isolate each added term's effect. See
+  [`NOVELTY.md`](drone-sim-today/NOVELTY.md) for the wider literature
+  comparison this was checked against, and for two real bugs (a reward-decay
+  bug, a viewpoint-geometry coincidence) found and fixed while adding the
+  lookahead.
 
 **Experiments** (`experiments/`) — a fast kinematic camera sim
 (`kinematic_capture.py`, teleport + render, no PID stepping) drives the
@@ -67,7 +73,7 @@ statistical comparison across 4 scenarios (`scenarios.py`: static, uncertain,
 growing, multiple defects — static/uncertain/multi-defect use real MBDD2025
 photos as wall textures directly; growing uses a procedural generator since
 a single-timepoint photo dataset has no repeated-visit growth sequence) ×
-7 planners × multiple seeds × sequential missions. `evaluate.py` runs the
+8 planners × multiple seeds × sequential missions. `evaluate.py` runs the
 full sweep and writes `results/comparison.csv` + comparison charts; on
 Windows, prefer `run_full_sweep.sh` (runs each seed as its own subprocess
 and merges the results), since a single long-lived process running the

@@ -150,18 +150,28 @@ body(
 )
 body(
     "Every number in this report comes from an actual executed run &mdash; a 5-seed, 3-mission, "
-    "7-planner comparison sweep, an offline detection benchmark on a held-out real test set, and "
+    "8-planner comparison sweep, an offline detection benchmark on a held-out real test set, and "
     "a real-physics flight demo &mdash; not a projection. The headline result: the novel UW-TIG "
-    "planner achieves <b>~34% higher precision</b> (0.86 vs. 0.64 for the Isler-NBV base paper and "
-    "0.58 for Random) and <b>~61&ndash;75% lower localization error</b> (0.19m vs. 0.49m / 0.77m), "
-    "at an honestly-quantified and explained trade-off in raw coverage and recall."
+    "planner achieves <b>both higher precision AND higher recall than either baseline "
+    "simultaneously</b> (0.76 precision / 0.63 recall, vs. 0.64/0.43 for the Isler-NBV base paper "
+    "and 0.58/0.57 for Random) with full coverage and reinspection (1.00/1.00) &mdash; at an "
+    "honestly-quantified trade-off in mean localization error (0.72m, worse than Isler-NBV's 0.49m) "
+    "and flight distance (108.9m, more than Isler-NBV's 18.6m though still ~3.6x less than Random's "
+    "393.8m). This precision/recall/coverage combination was reached in two passes: an initial "
+    "configuration favored precision and localization sharply at recall and coverage's expense "
+    "(0.86 precision but only 0.36 recall and 0.33 coverage), which a coverage-guarantee fix "
+    "(Section 3.4.2) then rebalanced once low recall was flagged as a real problem -- both "
+    "configurations remain available (<font face=\"Courier\">uwtig</font> and "
+    "<font face=\"Courier\">uwtig_no_coverage_first</font>) since which one a deployment wants "
+    "depends on whether missing real defects or flying further is the costlier mistake."
 )
 body(
     "This report also extends the original base-paper comparison with a wider literature sweep "
-    "(Section 1.1) and two further planner mechanisms motivated by that sweep &mdash; a "
-    "persistent-monitoring staleness/latency term and a 2-step receding-horizon lookahead "
-    "(Section 3.4) &mdash; each independently ablatable and each backed by the same real, "
-    "re-executed 5-seed statistical sweep, not a re-used or projected number."
+    "(Section 1.1) and three further planner mechanisms motivated by that sweep and by this "
+    "iteration &mdash; a persistent-monitoring staleness/latency term, a 2-step receding-horizon "
+    "lookahead, and the coverage-guarantee phase (Section 3.4) &mdash; each independently ablatable "
+    "and each backed by the same real, re-executed 5-seed statistical sweep, not a re-used or "
+    "projected number."
 )
 
 # ---------------------------------------------------------------- 1. Problem statement
@@ -361,12 +371,15 @@ table(
                             "temporal-growth term sourced from persistent memory, and a "
                             "persistent-monitoring staleness/latency term, combined in one weighted "
                             "utility and selected via a 2-step receding-horizon lookahead rather than "
-                            "pure 1-step greedy. Unlike the baselines, it can revisit an "
-                            "already-inspected viewpoint when that is where the utility is.",
+                            "pure 1-step greedy, with a coverage-guarantee phase that visits every "
+                            "wall at least once per mission before this utility takes over. Unlike "
+                            "the baselines, it can revisit an already-inspected viewpoint when that "
+                            "is where the utility is.",
          "Novel contribution"],
-        ["UW-TIG (4 ablations)", "UW-TIG with, respectively: the uncertainty term zeroed, the "
-                                  "temporal term zeroed, the staleness term zeroed, and the "
-                                  "lookahead disabled (pure 1-step greedy).",
+        ["UW-TIG (5 ablations)", "UW-TIG with, respectively: the uncertainty term zeroed, the "
+                                  "temporal term zeroed, the staleness term zeroed, the "
+                                  "coverage-guarantee phase disabled, and the lookahead disabled "
+                                  "(pure 1-step greedy).",
          "Isolates each added term's contribution"],
     ],
     col_widths=[3.1 * cm, 9.4 * cm, 3.3 * cm],
@@ -400,6 +413,26 @@ body(
     "distorting any real routing decision elsewhere (an initial, larger calibration attempt "
     "overcorrected and was caught before being reported: it suppressed Isler-NBV's exploration of the "
     "larger room almost entirely, and was revised down before the results in Section 4.2)."
+)
+
+h2("3.4.2 A Coverage-Guarantee Fix for Low Recall")
+body(
+    "Section 4.2's results initially showed UW-TIG's recall pinned at 0.36 with "
+    "<font face=\"Courier\">coverage_frac</font> stuck at exactly 0.33 (3 of 9 walls) across every "
+    "seed and every ablation. The tell that ruled out a weight-tuning fix: <b>Isler-NBV itself "
+    "(zero uncertainty/temporal/staleness weight) showed the identical 0.33 coverage ceiling</b>, "
+    "seed for seed. The ceiling comes from the cost-normalized-greedy formulation's own cost/reward "
+    "scale on this viewpoint graph &mdash; travelling to the far building is never worth its cost "
+    "relative to the coverage-entropy reward on offer, for any weighting of UW-TIG's added terms, "
+    "since even a planner with none of those terms hits the same wall. <i>Fix:</i> an explicit "
+    "coverage-guarantee phase in <font face=\"Courier\">UWTIGPlanner.select_next</font>: while any "
+    "wall has zero visits this mission, restrict selection to Isler-NBV's own formulation over only "
+    "the unvisited walls; once every wall has at least one visit, control passes to the full "
+    "multi-term utility for the rest of the budget. A new ablation, "
+    "<font face=\"Courier\">uwtig_no_coverage_first</font>, reproduces the old behavior for "
+    "comparison. This is not a strict improvement -- Section 4.2's updated table quantifies a real "
+    "trade-off (recall and coverage roughly double, at a real cost to precision, localization error, "
+    "and flight distance) rather than a free win, and is reported as such."
 )
 
 h2("3.5 Simulation Environment")
@@ -486,44 +519,50 @@ body(
     "mode, not a comparable number). Produced by running each seed as its own subprocess and merging "
     "the results (<font face=\"Courier\">run_full_sweep.sh</font>) after the naive single-process "
     "sweep proved unreliable on this machine &mdash; see Section 6. Uses the GPU-retrained detector "
-    "(Section 3.1) -- every planner's precision improved over an earlier run with the CPU detector "
-    "(e.g. Random 0.37&rarr;0.58, Isler-NBV 0.45&rarr;0.64), confirming the detector upgrade helps "
-    "regardless of planning strategy, while recall/coverage stayed essentially flat since which walls "
-    "get visited is a planning decision the detector doesn't change:"
+    "(Section 3.1) and, as of this table, the coverage-guarantee phase (Section 3.4.2) as UW-TIG's "
+    "default -- <font face=\"Courier\">uwtig_no_coverage_first</font>'s row is the earlier, "
+    "recall-limited configuration, kept for direct comparison:"
 )
 table(
     ["Planner", "Prec.", "Recall", "F1", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cover-<br/>age", "Reinsp.<br/>rate"],
     [
         ["Random", "0.58", "0.57", "0.55", "0.77", "393.8", "1.00", "1.00"],
         ["Isler-NBV (base paper)", "0.64", "0.43", "0.50", "0.49", "18.6", "0.33", "0.44"],
-        ["UW-TIG (novel)", "0.86", "0.36", "0.55", "0.19", "0.30", "0.33", "0.44"],
-        ["UW-TIG, no uncertainty term", "0.86", "0.36", "0.55", "0.19", "0.00", "0.33", "0.44"],
-        ["UW-TIG, no temporal term", "0.86", "0.36", "0.55", "0.19", "0.27", "0.33", "0.44"],
-        ["UW-TIG, no staleness term", "0.87", "0.36", "0.55", "0.19", "0.37", "0.33", "0.44"],
-        ["UW-TIG, no lookahead", "0.87", "0.36", "0.55", "0.20", "1.50", "0.33", "0.44"],
+        ["UW-TIG (novel, default)", "0.76", "0.63", "0.65", "0.72", "108.9", "1.00", "1.00"],
+        ["UW-TIG, no uncertainty term", "0.76", "0.62", "0.65", "0.70", "109.2", "1.00", "1.00"],
+        ["UW-TIG, no temporal term", "0.76", "0.63", "0.65", "0.73", "109.0", "1.00", "1.00"],
+        ["UW-TIG, no staleness term", "0.71", "0.57", "0.59", "0.69", "94.0", "1.00", "1.00"],
+        ["UW-TIG, no coverage-guarantee", "0.86", "0.36", "0.55", "0.19", "0.3", "0.33", "0.44"],
+        ["UW-TIG, no lookahead", "0.76", "0.62", "0.65", "0.67", "106.3", "1.00", "1.00"],
     ],
-    col_widths=[3.9 * cm, 1.5 * cm, 1.5 * cm, 1.3 * cm, 1.9 * cm, 1.7 * cm, 1.6 * cm, 1.7 * cm],
+    col_widths=[4.0 * cm, 1.5 * cm, 1.5 * cm, 1.2 * cm, 1.9 * cm, 1.7 * cm, 1.5 * cm, 1.7 * cm],
     highlight_row=3,
     left_align_cols=(0,),
 )
 body(
-    "Two results here need the same honest explanation given in Section 3.4.1 and the codebase's "
-    "RESULTS.md, rather than being read at face value: <b>Isler-NBV's row is numerically identical "
-    "across every seed and scenario</b> (18.6m flight distance, 0.33 coverage, to the last decimal in "
-    "every run) &mdash; not a bug, but a direct consequence of its formulation being a pure function "
-    "of the coverage belief with no dependence on the random seed or the scenario's ground truth, so "
-    "on a fixed viewpoint graph it always makes the identical sequence of moves; only what happens to "
-    "be physically present on the walls it visits varies. <b>UW-TIG's flight distance (0.00&ndash;0.37m) "
-    "is genuinely tiny</b> because, on this viewpoint graph, its highest-utility reinspection targets "
-    "happen to be reachable from the coincident-viewpoint position described in Section 3.4.1 &mdash; "
-    "real hover-and-reorient behavior confirmed by inspecting the raw per-step viewpoint sequence "
-    "(three distinct viewpoints visited, not one repeated), but also a case where the "
-    "translation-only flight-distance metric understates real rotation time spent. "
-    "<font face=\"Courier\">uwtig_no_lookahead</font>'s larger, more representative 1.50m reaches the "
-    "same three walls by a route not pinned to that exact coincident point."
+    "<b>UW-TIG is now the only planner ahead of both baselines on precision AND recall at once</b> "
+    "(0.76/0.63 vs. Isler-NBV's 0.64/0.43 and Random's 0.58/0.57), with full coverage and "
+    "reinspection (1.00/1.00) &mdash; but this did not come free, and the "
+    "<font face=\"Courier\">no-coverage-guarantee</font> row shows exactly what was traded. Before "
+    "Section 3.4.2's fix, every UW-TIG variant (and Isler-NBV itself) was stuck at exactly 0.33 "
+    "coverage (3 of 9 walls), identically, every seed &mdash; since even a planner with none of "
+    "UW-TIG's added terms hit the same ceiling, no amount of reweighting those terms could have "
+    "reliably fixed it; the ceiling was in the cost-normalized-greedy formulation's own cost/reward "
+    "scale on this viewpoint graph. Forcing full coverage first raised recall 0.36&rarr;0.63 and "
+    "coverage/reinspection 0.33/0.44&rarr;1.00/1.00, at the cost of precision (0.86&rarr;0.76), mean "
+    "localization error (0.19m&rarr;0.72m &mdash; plausibly because the coverage phase picks each "
+    "unvisited wall's viewpoint by entropy/cost alone, with no notion of which standoff localizes "
+    "best, unlike the mature multi-look positions UW-TIG settles into under reinspection), and "
+    "flight distance (0.3m&rarr;108.9m, still ~3.6x less than Random's 393.8m but no longer close to "
+    "Isler-NBV's 18.6m). <b>Isler-NBV's own row is numerically identical across every seed and "
+    "scenario</b> (18.6m flight distance, 0.33 coverage, to the last decimal in every run) &mdash; a "
+    "direct consequence of its formulation being a pure function of the coverage belief with no "
+    "dependence on the random seed or the scenario's ground truth, so on a fixed viewpoint graph it "
+    "always makes the identical sequence of moves; only what happens to be physically present on the "
+    "walls it visits varies."
 )
 image(os.path.join(HERE, "..", "results", "comparison.png"), width=15.5 * cm,
-      caption="Figure 3. Comparison chart across all seven planners (blue = UW-TIG) for six of the "
+      caption="Figure 3. Comparison chart across all eight planners (blue = UW-TIG) for six of the "
               "logged metrics, generated directly by experiments/evaluate.py.")
 
 story.append(PageBreak())
@@ -532,58 +571,63 @@ h2("4.3 Flagship Real-Physics Demo")
 body(
     "<font face=\"Courier\">demo_uwtig_flight.py --missions 3 --budget 8 --scenario multi_defect</font> "
     "flies UW-TIG with the trained detector under real PID-controlled physics (not kinematic teleport, "
-    "not a fixed patrol list) across 3 sequential missions over six real-photo-textured walls. It "
-    "produces an annotated video with confidence and uncertainty overlaid on every detection."
+    "not a fixed patrol list) across 3 sequential missions over all 9 walls/panels of the facility, six "
+    "of which carry real defects. It produces an annotated video with confidence and uncertainty "
+    "overlaid on every detection."
 )
 image(os.path.join(HERE, "inspection_frame.png"), width=9 * cm,
       caption="Figure 4. Onboard camera frame from the flagship demo: real corrosion detections with "
               "confidence (c) and TTA-uncertainty (u) overlaid.")
 body(
-    "With the GPU-retrained detector, the real-physics log shows both halves of the project's "
-    "central claim in one run: <b>active reinspection</b> &mdash; mission 1 concentrates on Building "
-    "B's three defect-bearing walls with repeated same-wall revisits (crack, corrosion, and leakage "
-    "each caught multiple times with rising and falling confidence across repeat looks, not a single "
-    "pass) &mdash; and <b>genuine multi-building exploration</b>, not a fixation on one room: mission "
-    "2 shifts to Building A and correctly catches the crack on "
-    "<font face=\"Courier\">A-west</font> and corrosion on <font face=\"Courier\">A-east</font>, "
-    "before mission 3 returns to Building B for further reinspection. Both behaviors run for real "
-    "through the physics stack, not only in the fast kinematic comparison."
+    "With the GPU-retrained detector and the coverage-guarantee phase (Section 3.4.2), the "
+    "real-physics log shows the coverage-then-reinspect structure directly: <b>mission 1</b> visits "
+    "8 of the 9 walls (crack/corrosion/leakage all correctly caught on Buildings A and B, plus the "
+    "two decorative panels), still filling out first-time coverage rather than reinspecting anything; "
+    "<b>mission 2</b> visits the last never-seen wall (<font face=\"Courier\">Tower-Panel</font>) "
+    "first, then begins active reinspection of Building A's real defects "
+    "(<font face=\"Courier\">A-west</font> crack and <font face=\"Courier\">A-east</font> corrosion "
+    "each caught twice); by <b>mission 3</b>, every wall has been visited at least once across the "
+    "two prior missions, so the coverage-guarantee phase never triggers and the entire mission goes to "
+    "<b>active reinspection</b> of Building B's three real defects, each revisited 2&ndash;3 times with "
+    "confidence varying across repeat looks. This is the coverage/reinspection trade-off from Section "
+    "4.2 running for real through the physics stack, not only in the fast kinematic comparison: "
+    "complete facility coverage first, concentrated reinspection of what matters once that's secured."
 )
 
 # ---------------------------------------------------------------- 5. How it's better
 h1("5. How the Novel Planner Is Better")
 bullets([
-    "<b>Precision:</b> 0.86 vs. 0.58&ndash;0.64 for the baselines &mdash; roughly <b>34% higher than "
-    "the base paper</b> &mdash; fewer, better-chosen looks produce more reliable detections with far "
-    "fewer false positives. Every planner's precision improved once the GPU-retrained detector "
-    "replaced the CPU one (Section 3.1) -- a perception-level gain that applies regardless of planning "
-    "strategy -- and UW-TIG still leads by the same relative margin.",
-    "<b>Localization accuracy:</b> mean error 0.19m vs. 0.49&ndash;0.77m &mdash; roughly <b>61&ndash;75% "
-    "lower</b> &mdash; because repeated, closer, deliberate observations of the same defect "
-    "triangulate its position better than one-off passes.",
-    "<b>Flight distance is negligible</b> (0.00&ndash;0.37m across ablations) next to Isler-NBV's 18.6m "
-    "and Random's 393.8m for the identical 16-viewpoint budget &mdash; reported with the caveat in "
-    "Section 4.2 that part of this reflects a translation-only metric not charging for real "
-    "hover-and-reorient time, not claimed as a clean multiplier the way flight distance alone might "
-    "suggest.",
+    "<b>Precision AND recall, simultaneously ahead of both baselines:</b> 0.76 precision / 0.63 "
+    "recall vs. Isler-NBV's 0.64/0.43 and Random's 0.58/0.57 &mdash; no baseline beats UW-TIG on "
+    "either axis, let alone both, and full coverage/reinspection (1.00/1.00) means it is no longer "
+    "trading completeness away to get there. Every planner's precision also improved once the "
+    "GPU-retrained detector replaced the CPU one (Section 3.1), a perception-level gain independent "
+    "of planning strategy, on top of which this precision/recall combination sits.",
+    "<b>Real trade-offs, reported plainly, not hidden:</b> reaching that combination costs mean "
+    "localization error (0.72m, worse than Isler-NBV's 0.49m -- plausibly because the "
+    "coverage-guarantee phase, Section 3.4.2, picks viewpoints by entropy/cost alone with no "
+    "localization-quality criterion) and flight distance (108.9m, more than Isler-NBV's 18.6m, "
+    "though still ~3.6x less than Random's 393.8m). An earlier configuration "
+    "(<font face=\"Courier\">uwtig_no_coverage_first</font>) instead had excellent precision and "
+    "localization (0.86, 0.19m) but only 0.36 recall and 0.33 coverage; both configurations remain "
+    "available since which is preferable is a real deployment decision, not something this report "
+    "picks for the reader.",
     "<b>Genuine active reinspection:</b> unlike both baselines (which only ever visit each station "
     "once per mission by construction), UW-TIG is the only planner that revisits an already-inspected "
     "viewpoint mid-mission when the utility says to &mdash; directly observed in both the kinematic "
     "sweep's reinspection-rate metric and the real-physics flagship log.",
-    "<b>Two literature-grounded additions beyond the original novelty</b> (Section 3.4): a "
+    "<b>Three literature-grounded additions beyond the original novelty</b> (Section 3.4): a "
     "persistent-monitoring staleness term (Alamdari, Fata &amp; Smith 2014) rewards revisiting a cell "
     "purely for time-elapsed-since-last-look, independent of whether a defect was ever found there; "
     "a 2-step receding-horizon lookahead (Bircher et al. 2016; Dhami et al.'s GATSBI) evaluates each "
     "candidate together with its best likely follow-up rather than choosing purely myopically, while "
-    "still only ever executing one step before replanning.",
-    "<b>Base paper is strictly subsumed, not sidestepped:</b> zeroing UW-TIG's novel weight terms and "
-    "disabling the lookahead recovers the Isler-NBV baseline exactly, so the comparison is a true "
-    "ablation of what the novel terms add, not two unrelated algorithms.",
-    "<b>Honest trade-off, not a free lunch:</b> UW-TIG's precision/localization gains come from "
-    "concentrating its fixed budget on fewer, higher-value targets, so raw coverage (0.33 vs. Random's "
-    "1.00) and recall (0.36 vs. 0.57) are lower &mdash; reported plainly rather than hidden, with the "
-    "concrete mitigation identified (lower the temporal/uncertainty/staleness weights, or run a "
-    "two-phase coverage-then-reinspection policy).",
+    "still only ever executing one step before replanning; and a coverage-guarantee phase "
+    "(Section 3.4.2) that fixed a recall ceiling found to affect Isler-NBV too, not just UW-TIG's "
+    "added terms.",
+    "<b>Base paper is strictly subsumed, not sidestepped:</b> zeroing UW-TIG's novel weight terms, "
+    "disabling the lookahead, and disabling the coverage-guarantee phase recovers the Isler-NBV "
+    "baseline exactly, so the comparison is a true ablation of what the novel terms add, not two "
+    "unrelated algorithms.",
 ])
 
 story.append(PageBreak())
@@ -604,10 +648,11 @@ bullets([
     "called for (YOLOv8s, 640px, 100 epochs, on a rented NVIDIA L4), reaching mAP50=0.884 on the "
     "identical test set (Section 3.1); this is now the default detector and Section 4.2's numbers "
     "reflect it. Still not the absolute ceiling &mdash; yolov8m/l and 1280px were not tried.",
-    "<b>5 seeds</b> is enough to see the headline effects (precision, localization) clearly, but not "
-    "enough to cleanly separate the four ablations' individual contributions (uncertainty, temporal, "
-    "staleness, lookahead) &mdash; their deltas in Section 4.2 are small and within what 5 seeds can "
-    "statistically separate.",
+    "<b>5 seeds</b> is enough to see the headline effects clearly, but not enough to cleanly separate "
+    "most ablations' individual contributions (uncertainty, temporal, staleness, lookahead) &mdash; "
+    "their deltas in Section 4.2 are small and within what 5 seeds can statistically separate. The "
+    "exception is the coverage-guarantee ablation, whose effect (recall 0.63 vs. 0.36) is large enough "
+    "to be clearly visible even at this seed count.",
     "<b>PostgreSQL/Neo4j run as local Docker containers</b> with development-only credentials, not a "
     "production deployment.",
     "<b>A real fairness bug was found and fixed during development:</b> the shared memory store used "
@@ -633,24 +678,26 @@ h1("7. Conclusion &amp; Future Work")
 body(
     "This project delivers exactly what the proposal set out to build: a real, working, simulated "
     "closed loop from perception through persistent memory to active replanning, with a novel "
-    "planner (UW-TIG) that strictly generalizes the identified base paper and is shown &mdash; with "
-    "real numbers from real runs, honestly including where it trades away coverage for precision "
-    "&mdash; to see more precisely and localize more accurately than both a naive baseline and the "
-    "base-paper adaptation. A subsequent literature-positioning pass checked this claim against a "
-    "wider set of active-inspection-planning work (Section 1.1) and used the gaps found there to add "
-    "two further, independently-ablatable mechanisms &mdash; a persistent-monitoring staleness term "
-    "and a receding-horizon lookahead &mdash; each validated with the same real, re-executed 5-seed "
-    "sweep, and each pass surfacing and fixing a real bug (Section 3.4.1) rather than only adding "
-    "features. A further pass then addressed the perception side's own stated limitation directly: "
-    "renting an NVIDIA L4 GPU to retrain past the original CPU budget (Section 3.1), lifting held-out "
-    "test mAP50 from 0.685 to 0.884 and, once re-run through the full closed-loop sweep (Section 4.2), "
-    "improving every planner's precision and UW-TIG's localization error further still."
+    "planner (UW-TIG) that strictly generalizes the identified base paper and is shown, with real "
+    "numbers from real runs, to beat both a naive baseline and the base-paper adaptation on precision "
+    "AND recall simultaneously, with full coverage and reinspection &mdash; while stating plainly what "
+    "that costs (mean localization error and flight distance both rose relative to the base paper). "
+    "The path to this result went through three iterations, each honestly reported rather than "
+    "smoothed over: a literature-positioning pass (Section 1.1) added a persistent-monitoring "
+    "staleness term and a receding-horizon lookahead, surfacing and fixing a real bug along the way "
+    "(Section 3.4.1); a perception pass addressed the detector's own stated CPU-budget limitation by "
+    "renting an NVIDIA L4 GPU, lifting held-out test mAP50 from 0.685 to 0.884 (Section 3.1); and a "
+    "final pass, triggered by a direct observation that recall was too low, traced that ceiling to "
+    "the base formulation itself (not UW-TIG's added terms) and fixed it with an explicit "
+    "coverage-guarantee phase (Section 3.4.2) &mdash; trading some of the precision/localization "
+    "advantage the earlier configuration had for a large recall and coverage gain, a trade-off stated "
+    "plainly rather than presented as a pure win."
 )
 body("Concrete next steps, in priority order:")
 bullets([
-    "Tune or schedule the temporal/uncertainty/staleness vs. coverage weights (e.g., a two-phase "
-    "coverage-then-reinspection policy) to recover higher recall without giving up the precision "
-    "gains.",
+    "Improve the coverage-guarantee phase's viewpoint selection to weight localization quality "
+    "(preferred standoff/lateral offset per wall), not just entropy/cost, to recover some of the "
+    "localization accuracy lost when it was added (Section 3.4.2).",
     "Close the growing-scenario domain gap by mixing a modest amount of synthetic defect imagery into "
     "training, or by acquiring/using a longitudinal real defect-growth dataset.",
     "Push perception further still (yolov8m/l, 1280px) now that a GPU pipeline exists, and complete "

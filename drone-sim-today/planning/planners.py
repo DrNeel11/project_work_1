@@ -25,8 +25,26 @@ one candidate viewpoint graph (planning/viewpoints.py):
   "provably-reasonable coverage, best-effort defect-awareness on top."
 
 - UWTIGPlanner (novel): Uncertainty-Weighted Temporal Information Gain.
-  Extends the coverage/information-gain term with three literature-grounded
-  additions, each independently ablatable:
+  Extends the coverage/information-gain term with four additions, each
+  independently ablatable:
+    0. a coverage-guarantee phase: while any wall has zero visits this
+       mission, restrict selection to Isler-NBV's own formulation over only
+       the unvisited walls, before falling through to the terms below for
+       the remaining budget. Added after finding `coverage_frac` stuck at
+       exactly 3 of 9 walls for EVERY UW-TIG variant *and* for `isler_nbv`
+       itself -- i.e. a ceiling caused by the cost-normalized-greedy
+       formulation's cost/reward scale on this viewpoint graph, not by the
+       terms below, so retuning their weights could not have reliably fixed
+       it. This is the single highest-impact change here: recall
+       0.36 -> 0.63, coverage 0.33 -> 1.00, reinspection_rate 0.44 -> 1.00
+       -- at a real, honestly-reported cost: precision 0.86 -> 0.76,
+       mean localization error 0.19m -> 0.72m (many walls now get only one,
+       not-localization-optimized look during the coverage phase), and
+       flight distance 0.3m -> 109m (no longer near-free once nine separate
+       walls are actually visited). See RESULTS.md for the full numbers and
+       NOVELTY.md for why this isn't a strict improvement, just a different,
+       arguably more deployment-realistic point on the precision/recall/
+       flight-cost trade-off surface.
     1. detection-uncertainty and temporal-growth terms fed from persistent
        defect memory (the original novelty -- see MissionBelief).
     2. a persistent-monitoring staleness/latency term: cells accrue reward
@@ -58,7 +76,8 @@ one candidate viewpoint graph (planning/viewpoints.py):
        from the CURRENT belief, not a genuinely predicted future one.
   Ablation variants zero out one added term at a time (see
   UWTIGNoUncertaintyPlanner / UWTIGNoTemporalPlanner /
-  UWTIGNoStalenessPlanner / UWTIGNoLookaheadPlanner).
+  UWTIGNoStalenessPlanner / UWTIGNoCoverageFirstPlanner /
+  UWTIGNoLookaheadPlanner).
 
 Related work this project's approach is positioned against (not
 implemented here, but see NOVELTY.md for the full comparison table):
@@ -210,6 +229,7 @@ class BasePlanner:
         self.dist = dist
         self.rng = rng
         self.by_id = {v.id: v for v in viewpoints}
+        self.all_walls = sorted({v.wall for v in viewpoints})
 
     def _cost(self, current_id, v):
         if current_id is None:
@@ -253,7 +273,27 @@ class UWTIGPlanner(BasePlanner):
     allowed to revisit an already-inspected viewpoint when that utility
     gain is high (active reinspection). Selects via a 2-step
     receding-horizon lookahead rather than pure 1-step greedy (see module
-    docstring for the literature this is adapted from and its caveats)."""
+    docstring for the literature this is adapted from and its caveats).
+
+    Also runs a **coverage-guarantee phase**: while any wall has zero visits
+    this mission, `select_next` restricts itself to Isler-NBV's own
+    formulation (ig - cost, no uncertainty/temporal/staleness, no lookahead)
+    over ONLY the still-unvisited walls' viewpoints. This was added after
+    finding that `coverage_frac` was stuck at exactly 0.333 (3 of 9 walls)
+    for EVERY UW-TIG ablation *and* for `isler_nbv` itself, identically,
+    across every seed -- i.e. this is not a side effect of the
+    uncertainty/temporal/staleness weights (a weight retune can't reliably
+    fix it), it's the cost-normalized-greedy formulation itself finding
+    that, on this viewpoint graph, traveling to the far building is never
+    worth its cost relative to the coverage-entropy reward available,
+    regardless of weighting. A weight scale is fragile to depend on for a
+    coverage guarantee; an explicit phase is not. Once every wall has been
+    visited at least once this mission, control passes to the full
+    multi-term utility below for the remaining budget -- so this only
+    changes *when* full coverage happens, not whether UW-TIG's reinspection
+    behavior still runs (as long as budget > wall count, which it is
+    throughout this project's evaluation). Ablation: `uwtig_no_coverage_first`
+    reproduces the original (recall-limited) behavior for comparison."""
     name = "uwtig"
     w_ig = 1.0
     w_cost = 0.4
@@ -261,6 +301,7 @@ class UWTIGPlanner(BasePlanner):
     w_temporal = 2.0
     w_staleness = 1.0
     lookahead_discount = 0.5  # weight on the best-achievable second step
+    coverage_first = True
 
     def _utility(self, belief, from_id, v, view_count=None):
         vc = belief.view_count if view_count is None else view_count
@@ -284,7 +325,19 @@ class UWTIGPlanner(BasePlanner):
             vc[(v.wall, c)] = vc.get((v.wall, c), 0) + 1
         return vc
 
+    def _unvisited_walls(self, belief):
+        visited_walls = {self.by_id[vid].wall for vid in belief.visited_ids}
+        return [w for w in self.all_walls if w not in visited_walls]
+
     def select_next(self, belief, current_id):
+        if self.coverage_first:
+            unvisited_walls = self._unvisited_walls(belief)
+            if unvisited_walls:
+                pool = [v for v in self.viewpoints if v.wall in unvisited_walls]
+                scored = [(self.w_ig * belief.information_gain(v) - self.w_cost * self._cost(current_id, v), v)
+                          for v in pool]
+                return max(scored, key=lambda t: t[0])[1]
+
         best_v, best_val = None, -math.inf
         for v1 in self.viewpoints:
             val1 = self._utility(belief, current_id, v1)
@@ -324,6 +377,17 @@ class UWTIGNoLookaheadPlanner(UWTIGPlanner):
     lookahead_discount = 0.0
 
 
+class UWTIGNoCoverageFirstPlanner(UWTIGPlanner):
+    """Ablation: no coverage-guarantee phase -- reproduces the
+    recall/coverage-limited behavior UW-TIG had before this was added
+    (coverage_frac stuck at 3/9 walls regardless of the other weights,
+    since that ceiling comes from the cost-normalized-greedy formulation
+    itself, not from the uncertainty/temporal/staleness terms -- see
+    UWTIGPlanner's docstring)."""
+    name = "uwtig_no_coverage_first"
+    coverage_first = False
+
+
 PLANNER_REGISTRY = {
     "random": RandomPlanner,
     "isler_nbv": IslerNBVPlanner,
@@ -331,5 +395,6 @@ PLANNER_REGISTRY = {
     "uwtig_no_uncertainty": UWTIGNoUncertaintyPlanner,
     "uwtig_no_temporal": UWTIGNoTemporalPlanner,
     "uwtig_no_staleness": UWTIGNoStalenessPlanner,
+    "uwtig_no_coverage_first": UWTIGNoCoverageFirstPlanner,
     "uwtig_no_lookahead": UWTIGNoLookaheadPlanner,
 }

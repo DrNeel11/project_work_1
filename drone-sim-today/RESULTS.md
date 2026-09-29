@@ -221,6 +221,66 @@ detections spread across both buildings (not just Building B), e.g. a
 genuine crack catch on `A-west` and corrosion on `A-east` in mission 2 that
 the weaker CPU detector's runs didn't surface as clearly.
 
+## Coverage-guarantee fix: recall was too low (third 5-seed re-run)
+
+The table above shows UW-TIG's recall stuck at 0.36 with coverage pinned to
+exactly 0.33 (3 of 9 walls) in every ablation -- and, tellingly, `isler_nbv`
+(zero uncertainty/temporal/staleness terms) is *also* pinned at exactly
+0.33 coverage, identically, every seed. That ruled out a weight-tuning fix:
+the ceiling comes from the cost-normalized-greedy formulation's own
+cost/reward scale on this viewpoint graph (traveling to the far building
+is never worth its cost relative to the coverage-entropy reward on offer,
+for *any* weighting of the extra terms), not from anything UW-TIG's novel
+terms added. Fixed with an explicit coverage-guarantee phase in
+`UWTIGPlanner.select_next` (`planning/planners.py`): while any wall has zero
+visits this mission, restrict selection to Isler-NBV's own formulation
+(ig - cost, no lookahead) over only the unvisited walls; once every wall has
+at least one visit, fall through to the full multi-term utility for the
+rest of the budget. New ablation `uwtig_no_coverage_first` reproduces the
+old behavior for comparison. Re-ran the full 5-seed sweep (`run_full_sweep.sh
+5 16 3`, all 5 seeds succeeded first try) against the same GPU detector:
+
+| planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
+|---|---|---|---|---|---|---|---|
+| random | 0.58 | 0.57 | 0.55 | 0.77 | 393.8 | 1.00 | 1.00 |
+| isler_nbv | 0.64 | 0.43 | 0.50 | 0.49 | 18.6 | 0.33 | 0.44 |
+| **uwtig** | 0.76 | **0.63** | 0.65 | 0.72 | 108.9 | **1.00** | **1.00** |
+| uwtig_no_uncertainty | 0.76 | 0.62 | 0.65 | 0.70 | 109.2 | 1.00 | 1.00 |
+| uwtig_no_temporal | 0.76 | 0.63 | 0.65 | 0.73 | 109.0 | 1.00 | 1.00 |
+| uwtig_no_staleness | 0.71 | 0.57 | 0.59 | 0.69 | 94.0 | 1.00 | 1.00 |
+| uwtig_no_coverage_first | 0.86 | 0.36 | 0.55 | 0.19 | 0.3 | 0.33 | 0.44 |
+| uwtig_no_lookahead | 0.76 | 0.62 | 0.65 | 0.67 | 106.3 | 1.00 | 1.00 |
+
+**This is a genuine trade-off, not a strict improvement — stated plainly:**
+
+- **Recall nearly doubled** (0.36 &rarr; 0.63, +77% relative) and
+  **coverage/reinspection both hit their ceiling** (1.00/1.00) — the fix
+  does exactly what it set out to do. `uwtig_no_coverage_first`'s row is the
+  old behavior, confirming the ablation isolates this change correctly.
+- **Precision dropped** (0.86 &rarr; 0.76, about -12%) — spreading the fixed
+  step budget across all 9 walls means more single-look detections that
+  never get the benefit of repeated reinspection to confirm or reject them.
+- **Mean localization error got substantially worse** (0.19m &rarr; 0.72m,
+  ~3.8x) — the likely cause: the coverage phase picks each unvisited wall's
+  viewpoint by ig-cost alone, the same as Isler-NBV, which has no notion of
+  "pick the standoff/lateral offset that localizes well," unlike the mature,
+  multi-look reinspection positions UW-TIG settles into for its previously-
+  favored 3 walls. A natural follow-up: weight the coverage phase's
+  viewpoint choice toward localization quality, not just entropy/cost.
+- **Flight distance rose sharply** (0.3m &rarr; 108.9m) — unsurprising once
+  the planner is actually required to visit all 9 walls including the far
+  building; it's still ~3.6x less than Random's 393.8m, but no longer
+  anywhere near Isler-NBV's 18.6m either. The "UW-TIG flies far less"
+  framing from earlier in this document no longer holds under this
+  configuration -- superseded by this section, kept for its own record.
+- **Whether this trade is worth it depends on the deployment**: a safety
+  inspection use case that cares about not missing real defects would very
+  plausibly prefer this trade (catch 77% more real defects, at a real but
+  smaller precision cost and a meaningfully larger flight budget); a
+  deployment optimizing for minimum flight time over a small, already-known
+  defect hotspot would prefer `uwtig_no_coverage_first`. Both are available
+  as named planners in `PLANNER_REGISTRY`.
+
 ## Flagship real-flight demo
 
 `python demo_uwtig_flight.py --missions 3 --budget 8 --scenario multi_defect`
@@ -294,11 +354,13 @@ real through the physics stack, not just in the kinematic comparison.
    simulation sweep and flagship demo have been re-run against it (see
    "Updated 5-seed results" above). Still not the absolute ceiling --
    e.g. yolov8m/l or 1280px were not tried.
-4. **5 seeds** is enough to see the headline effects (flight efficiency,
-   precision, localization) clearly, but not enough to cleanly separate the
-   four ablations' individual contributions — see above (originally two
-   ablations; the novelty pass added `uwtig_no_staleness` and
-   `uwtig_no_lookahead`, same caveat applies to all four).
+4. **5 seeds** is enough to see the headline effects clearly, but not
+   enough to cleanly separate the ablations' individual contributions — see
+   above (originally two ablations; the novelty pass added
+   `uwtig_no_staleness` and `uwtig_no_lookahead`, and the coverage-guarantee
+   fix added `uwtig_no_coverage_first`; same caveat applies to all five --
+   though `uwtig_no_coverage_first`'s effect is large enough (recall
+   0.63 -> 0.36) to be clearly visible even at 5 seeds, unlike the other four).
 5. **Postgres/Neo4j run as local Docker containers** with dev-only
    credentials (`docker/docker-compose.yml`), not a production deployment.
 6. **A real fairness bug was found and fixed during development**: the

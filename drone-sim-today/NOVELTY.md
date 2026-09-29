@@ -34,9 +34,33 @@ across sessions.
 
 ## 2. Concrete strengthening applied to the planner
 
-Three literature-grounded additions were made to `planning/planners.py`,
-each independently ablatable via `PLANNER_REGISTRY`:
+Four additions were made to `planning/planners.py`, each independently
+ablatable via `PLANNER_REGISTRY`:
 
+0. **Coverage-guarantee phase** (`UWTIGPlanner.select_next`, added after a
+   user-reported "recall is too low"): while any wall has zero visits this
+   mission, restrict selection to Isler-NBV's own formulation (ig - cost,
+   no lookahead) over only the unvisited walls, before falling through to
+   the full utility below. Root cause this fixes: `coverage_frac` was stuck
+   at exactly 3 of 9 walls for **every** UW-TIG ablation *and* for
+   `isler_nbv` itself, identically, across every seed -- proof the ceiling
+   came from the cost-normalized-greedy formulation's cost/reward scale on
+   this viewpoint graph (the far building is never worth its travel cost
+   relative to available coverage-entropy reward, for any weighting of the
+   added terms), not from anything specific to UW-TIG's novelty. A weight
+   retune could not have reliably fixed this since the same ceiling
+   independently afflicts a planner with zero of those weights; an explicit
+   phase does not depend on weight scale at all. Ablation:
+   `uwtig_no_coverage_first`. Effect size (5-seed, GPU detector, see
+   RESULTS.md's "Coverage-guarantee fix" section): recall 0.36 -> 0.63,
+   coverage/reinspection_rate 0.33/0.44 -> 1.00/1.00, at a real cost --
+   precision 0.86 -> 0.76, mean localization error 0.19m -> 0.72m, flight
+   distance 0.3m -> 108.9m. Not a strict improvement, a different point on
+   the trade-off surface -- see RESULTS.md for the full honest breakdown,
+   including a plausible explanation for the localization-error jump (the
+   coverage phase's viewpoint choice optimizes ig-cost, not localization
+   quality, unlike the mature reinspection positions UW-TIG settles into
+   under the old, coverage-starved behavior).
 1. **Persistent-monitoring staleness term** (`MissionBelief.staleness_score`,
    `UWTIGPlanner.w_staleness`): cells accrue reward for time-since-last-visit
    even absent a detected defect, adapted from the latency-minimizing
