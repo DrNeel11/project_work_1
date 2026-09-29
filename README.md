@@ -73,7 +73,17 @@ statistical comparison across 4 scenarios (`scenarios.py`: static, uncertain,
 growing, multiple defects — static/uncertain/multi-defect use real MBDD2025
 photos as wall textures directly; growing uses a procedural generator since
 a single-timepoint photo dataset has no repeated-visit growth sequence) ×
-8 planners × multiple seeds × sequential missions. `evaluate.py` runs the
+8 planners × multiple seeds × sequential missions. Besides
+precision/recall/f1/localization-error/flight-distance/coverage/
+reinspection-rate, `evaluate.py` also reports two calibration-style metrics
+added after a deeper pass through the informative-path-planning literature
+(Rückin et al., IEEE T-RO 2023 — see `NOVELTY.md`'s "Metrics" section):
+**`ece`** (Expected Calibration Error of the detector's confidence against
+empirical accuracy) and **`uncertainty_gap_fp_minus_tp`** (whether the
+TTA-ensemble uncertainty UW-TIG's utility weights is actually higher on
+wrong detections than right ones — a direct check of whether its central
+"uncertainty" signal is informative, not just noise it's chasing).
+`evaluate.py` runs the
 full sweep and writes `results/comparison.csv` + comparison charts; on
 Windows, prefer `run_full_sweep.sh` (runs each seed as its own subprocess
 and merges the results), since a single long-lived process running the

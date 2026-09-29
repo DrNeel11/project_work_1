@@ -155,7 +155,7 @@ body(
     "planner achieves <b>both higher precision AND higher recall than either baseline "
     "simultaneously</b> (0.76 precision / 0.63 recall, vs. 0.64/0.43 for the Isler-NBV base paper "
     "and 0.58/0.57 for Random) with full coverage and reinspection (1.00/1.00) &mdash; at an "
-    "honestly-quantified trade-off in mean localization error (0.72m, worse than Isler-NBV's 0.49m) "
+    "honestly-quantified trade-off in mean localization error (0.70m, worse than Isler-NBV's 0.49m) "
     "and flight distance (108.9m, more than Isler-NBV's 18.6m though still ~3.6x less than Random's "
     "393.8m). This precision/recall/coverage combination was reached in two passes: an initial "
     "configuration favored precision and localization sharply at recall and coverage's expense "
@@ -219,10 +219,11 @@ table(
         ["Liu et al. 2022 (uncertainty-controlled CPP)", "Yes", "No", "No", "Yes", "N/A"],
         ["Taioli et al. 2023 (POMDP/MCTS active search)", "Yes", "No", "No", "Partial", "Assumed"],
         ["Alamdari, Fata &amp; Smith 2014 (persistent monitoring)", "No", "Yes", "No", "Yes", "N/A"],
+        ["Rückin et al. (ICRA'22/IROS'22/T-RO'23)", "Yes", "No", "No", "Yes", "Yes"],
         ["UW-TIG (this project)", "Yes", "Yes", "Yes", "Yes", "Yes"],
     ],
     col_widths=[5.6 * cm, 2.3 * cm, 2.4 * cm, 2.1 * cm, 1.9 * cm, 1.9 * cm],
-    highlight_row=7,
+    highlight_row=8,
     left_align_cols=(0,),
 )
 body(
@@ -240,6 +241,23 @@ body(
     "additions described in Section 3.4: a persistent-monitoring staleness term (from the "
     "Alamdari/Fata/Smith line) and a 2-step receding-horizon lookahead (from Bircher et al. and "
     "GATSBI's replanning structure)."
+)
+body(
+    "Rückin et al.'s line of work (ICRA 2022, IROS 2022, and its T-RO 2023 extension) is the "
+    "closest single relative on the uncertainty column specifically, and is worth stating plainly as "
+    "a better-matched comparison than the others above: it plans UAV viewpoints using a real Bayesian "
+    "epistemic-uncertainty estimate (BALD, from an MC-Dropout ensemble) mapped onto a terrain grid, "
+    "then selects greedily by that mapped uncertainty normalized by a cost/count term &mdash; "
+    "structurally the same “uncertainty-weighted, cost-normalized greedy” shape as UW-TIG's own "
+    "utility. The difference is what the uncertainty is <i>about</i>: theirs is the segmentation "
+    "model's own epistemic confidence, spent deciding which images are worth labelling to retrain "
+    "that model (a single-session active-learning problem); UW-TIG's is a specific defect's detection "
+    "confidence, spent deciding which physical location is worth a second look, persisted and "
+    "re-identified across missions. Put differently, Rückin et al. plan to reduce <i>model</i> "
+    "uncertainty; UW-TIG plans to reduce <i>world-state</i> uncertainty using a fixed model. Reading "
+    "their evaluation methodology closely also surfaced a metric this project had never run on itself "
+    "despite its name &mdash; Expected Calibration Error &mdash; discussed in Section 4.2 below, where "
+    "it produced a real, not entirely flattering finding."
 )
 
 # ---------------------------------------------------------------- 2. Architecture
@@ -524,18 +542,18 @@ body(
     "recall-limited configuration, kept for direct comparison:"
 )
 table(
-    ["Planner", "Prec.", "Recall", "F1", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cover-<br/>age", "Reinsp.<br/>rate"],
+    ["Planner", "Prec.", "Recall", "F1", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cover-<br/>age", "Reinsp.<br/>rate", "ECE", "Unc. gap<br/>(fp&minus;tp)"],
     [
-        ["Random", "0.58", "0.57", "0.55", "0.77", "393.8", "1.00", "1.00"],
-        ["Isler-NBV (base paper)", "0.64", "0.43", "0.50", "0.49", "18.6", "0.33", "0.44"],
-        ["UW-TIG (novel, default)", "0.76", "0.63", "0.65", "0.72", "108.9", "1.00", "1.00"],
-        ["UW-TIG, no uncertainty term", "0.76", "0.62", "0.65", "0.70", "109.2", "1.00", "1.00"],
-        ["UW-TIG, no temporal term", "0.76", "0.63", "0.65", "0.73", "109.0", "1.00", "1.00"],
-        ["UW-TIG, no staleness term", "0.71", "0.57", "0.59", "0.69", "94.0", "1.00", "1.00"],
-        ["UW-TIG, no coverage-guarantee", "0.86", "0.36", "0.55", "0.19", "0.3", "0.33", "0.44"],
-        ["UW-TIG, no lookahead", "0.76", "0.62", "0.65", "0.67", "106.3", "1.00", "1.00"],
+        ["Random", "0.58", "0.57", "0.55", "0.77", "393.8", "1.00", "1.00", "0.33", "-0.05"],
+        ["Isler-NBV (base paper)", "0.64", "0.43", "0.50", "0.49", "18.6", "0.33", "0.44", "0.33", "-0.06"],
+        ["UW-TIG (novel, default)", "0.76", "0.63", "0.65", "0.70", "108.8", "1.00", "1.00", "0.35", "-0.07"],
+        ["UW-TIG, no uncertainty term", "0.76", "0.62", "0.65", "0.70", "109.3", "1.00", "1.00", "0.34", "-0.08"],
+        ["UW-TIG, no temporal term", "0.75", "0.62", "0.65", "0.71", "109.1", "1.00", "1.00", "0.35", "-0.07"],
+        ["UW-TIG, no staleness term", "0.72", "0.57", "0.59", "0.68", "93.9", "1.00", "1.00", "0.36", "-0.06"],
+        ["UW-TIG, no coverage-guarantee", "0.86", "0.36", "0.55", "0.19", "0.4", "0.33", "0.44", "0.28", "-0.02"],
+        ["UW-TIG, no lookahead", "0.76", "0.62", "0.65", "0.67", "106.5", "1.00", "1.00", "0.36", "-0.07"],
     ],
-    col_widths=[4.0 * cm, 1.5 * cm, 1.5 * cm, 1.2 * cm, 1.9 * cm, 1.7 * cm, 1.5 * cm, 1.7 * cm],
+    col_widths=[3.6 * cm, 1.3 * cm, 1.3 * cm, 1.0 * cm, 1.6 * cm, 1.5 * cm, 1.3 * cm, 1.4 * cm, 1.3 * cm, 1.7 * cm],
     highlight_row=3,
     left_align_cols=(0,),
 )
@@ -550,7 +568,7 @@ body(
     "reliably fixed it; the ceiling was in the cost-normalized-greedy formulation's own cost/reward "
     "scale on this viewpoint graph. Forcing full coverage first raised recall 0.36&rarr;0.63 and "
     "coverage/reinspection 0.33/0.44&rarr;1.00/1.00, at the cost of precision (0.86&rarr;0.76), mean "
-    "localization error (0.19m&rarr;0.72m &mdash; plausibly because the coverage phase picks each "
+    "localization error (0.19m&rarr;0.70m &mdash; plausibly because the coverage phase picks each "
     "unvisited wall's viewpoint by entropy/cost alone, with no notion of which standoff localizes "
     "best, unlike the mature multi-look positions UW-TIG settles into under reinspection), and "
     "flight distance (0.3m&rarr;108.9m, still ~3.6x less than Random's 393.8m but no longer close to "
@@ -562,8 +580,39 @@ body(
     "walls it visits varies."
 )
 image(os.path.join(HERE, "..", "results", "comparison.png"), width=15.5 * cm,
-      caption="Figure 3. Comparison chart across all eight planners (blue = UW-TIG) for six of the "
+      caption="Figure 3. Comparison chart across all eight planners (blue = UW-TIG) for eight of the "
               "logged metrics, generated directly by experiments/evaluate.py.")
+
+h2("4.2.1 Calibration Check: Is the Uncertainty Signal Actually Informative?")
+body(
+    "Reading Rückin et al.'s evaluation methodology closely (Section 1.1) prompted a check this "
+    "project had never actually run despite naming itself “uncertainty-weighted”: is the "
+    "detector's confidence well-calibrated, and does the TTA-ensemble uncertainty term UW-TIG's "
+    "utility weights (<font face=\"Courier\">w_uncertainty=1.5</font>) actually correlate with which "
+    "detections are wrong? Two metrics were added to <font face=\"Courier\">evaluate.py</font> for "
+    "this, using data every mission already produces &mdash; no re-training or re-simulation of the "
+    "detector needed &mdash; and both come back with an honest, not entirely flattering answer, shown "
+    "in the table's last two columns above. <b>ECE is high</b> (0.28&ndash;0.36) for every planner: a "
+    "well-calibrated detector would show ECE close to 0 (confidence tracking empirical accuracy "
+    "bin-by-bin); this detector's confidence is useful for <i>ranking</i> detections (precision/recall "
+    "trade off in the expected direction as the confidence threshold moves) but is not trustworthy as "
+    "a calibrated probability &mdash; invisible in every mAP/precision/recall number reported so far, "
+    "since none of them check calibration. <b>The uncertainty gap is negative for every planner</b> "
+    "(-0.02 to -0.08): the TTA-ensemble uncertainty is, on average, <i>lower</i> on false positives "
+    "than on true positives &mdash; the opposite of what would validate “high uncertainty means "
+    "likely wrong.” A plausible explanation, not confirmed further here: genuine defects "
+    "(especially subtle ones like <font face=\"Courier\">crack</font>) sit closer to the model's "
+    "decision boundary and are more sensitive to the photometric TTA transforms, so correct detections "
+    "of real, hard-to-see defects legitimately vary more across augmented views than a spurious, "
+    "texture-confusion false positive that fires consistently regardless of augmentation. This does "
+    "not undermine the ablations' measured effect of <font face=\"Courier\">w_uncertainty</font> "
+    "(it's a real signal, used only for relative ranking within one mission, never thresholded as an "
+    "absolute probability), but it does mean this project cannot currently back the claim that a high "
+    "TTA-uncertainty reading means a detection is probably wrong &mdash; on this evidence, the opposite "
+    "direction is what was measured. Stated plainly as Limitation 8 rather than left an unstated "
+    "assumption; a genuine fix would swap in an uncertainty estimate actually validated for "
+    "calibration, e.g. MC-Dropout as Rückin et al. use, or post-hoc temperature scaling."
+)
 
 story.append(PageBreak())
 
@@ -604,9 +653,9 @@ bullets([
     "GPU-retrained detector replaced the CPU one (Section 3.1), a perception-level gain independent "
     "of planning strategy, on top of which this precision/recall combination sits.",
     "<b>Real trade-offs, reported plainly, not hidden:</b> reaching that combination costs mean "
-    "localization error (0.72m, worse than Isler-NBV's 0.49m -- plausibly because the "
+    "localization error (0.70m, worse than Isler-NBV's 0.49m -- plausibly because the "
     "coverage-guarantee phase, Section 3.4.2, picks viewpoints by entropy/cost alone with no "
-    "localization-quality criterion) and flight distance (108.9m, more than Isler-NBV's 18.6m, "
+    "localization-quality criterion) and flight distance (108.8m, more than Isler-NBV's 18.6m, "
     "though still ~3.6x less than Random's 393.8m). An earlier configuration "
     "(<font face=\"Courier\">uwtig_no_coverage_first</font>) instead had excellent precision and "
     "localization (0.86, 0.19m) but only 0.36 recall and 0.33 coverage; both configurations remain "
@@ -671,6 +720,20 @@ bullets([
     "development</b>, independent of this report's planner changes &mdash; so the flight-distance "
     "figures here are not directly comparable to any earlier internal draft that used the smaller "
     "graph; all numbers in this report are from one consistent, current environment.",
+    "<b>The uncertainty signal UW-TIG plans around is not shown to correlate with correctness the way "
+    "its name implies &mdash; checked directly, not assumed.</b> Prompted by a deeper read of "
+    "Rückin et al.'s evaluation methodology (Section 1.1, Section 4.2.1), two calibration metrics "
+    "were added and measured: detector confidence has a high Expected Calibration Error (0.28&ndash;"
+    "0.36, well above a calibrated model), and false positives have <i>lower</i> average TTA-ensemble "
+    "uncertainty than true positives for every planner (-0.02 to -0.08) &mdash; the opposite of the "
+    "assumption implicit in weighting uncertainty as a “worth a second look” signal. This "
+    "doesn't invalidate the planner's measured precision/recall/reinspection results (uncertainty is "
+    "used only as a relative ranking signal within one mission, never thresholded as an absolute "
+    "probability), but it does mean “high uncertainty here probably means wrong” is not a "
+    "claim this project can currently back with evidence &mdash; the opposite direction is what was "
+    "measured. A real fix would swap in an uncertainty estimate actually validated for calibration "
+    "(e.g. MC-Dropout, as Rückin et al. use, or post-hoc temperature scaling); out of scope here, "
+    "which was about measuring and reporting the gap honestly, not fixing it.",
 ])
 
 # ---------------------------------------------------------------- 7. Conclusion
@@ -710,6 +773,9 @@ bullets([
     "Move from the simulated two-room house toward the proposal's originally targeted structure "
     "types (pipeline segments, tower/truss rigs) as first-class inspectable geometry, not just "
     "decorative scenery.",
+    "Replace TTA-ensemble variance with an uncertainty estimate actually validated for calibration "
+    "(e.g. MC-Dropout, as Rückin et al. use, or post-hoc temperature scaling), given the negative "
+    "uncertainty-gap finding in Section 4.2.1.",
 ])
 
 # ---------------------------------------------------------------- References
@@ -724,6 +790,13 @@ refs = [
     "arXiv:2406.16625, 2024.",
     "A. Bircher, M. Kamel, K. Alexis, H. Oleynikova, and R. Siegwart, “Receding horizon "
     "&lsquo;next-best-view&rsquo; planner for 3D exploration,” ICRA 2016, pp. 1462&ndash;1468.",
+    "J. Rückin, L. Jin, and M. Popovic, “Adaptive informative path planning using deep "
+    "reinforcement learning for UAV-based active sensing,” ICRA 2022 (arXiv:2109.13570).",
+    "J. Rückin, F. Magistri, C. Stachniss, and M. Popovic, “Informative path planning "
+    "for active learning in aerial semantic mapping,” IROS 2022 (arXiv:2203.01652).",
+    "J. Rückin, L. Jin, F. Magistri, C. Stachniss, and M. Popovic, “An informative path "
+    "planning framework for active learning in UAV-based semantic mapping,” IEEE Transactions "
+    "on Robotics, 39:4279&ndash;4296, 2023 (arXiv:2302.03347).",
     "S. Alamdari, E. Fata, and S. L. Smith, “Persistent monitoring in discrete environments: "
     "Minimizing the maximum weighted latency between observations,” The International Journal "
     "of Robotics Research, 33(1):138&ndash;154, 2014.",

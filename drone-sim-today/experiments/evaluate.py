@@ -30,6 +30,31 @@ def _gt_wall_classes(gt):
     return {(wall, info["defect_type"]) for wall, info in gt.items() if info["defect_type"] != "clean"}
 
 
+def compute_ece(confidence_correct_pairs, n_bins=10):
+    """Expected Calibration Error (Guo et al. 2017; used for exactly this
+    purpose -- checking a detector's confidence against empirical accuracy --
+    by Rückin et al., "An Informative Path Planning Framework for Active
+    Learning in UAV-Based Semantic Mapping", IEEE T-RO 2023, arXiv:2302.03347).
+    UW-TIG's whole premise is that its uncertainty/confidence signals are
+    worth planning around; this checks whether the detector's confidence is
+    actually a trustworthy probability (mean confidence tracks empirical
+    accuracy in each bin) rather than just an arbitrarily-scaled score which
+    happens to work as a ranking signal but not as a calibrated one."""
+    if not confidence_correct_pairs:
+        return float("nan")
+    conf = np.array([c for c, _ in confidence_correct_pairs])
+    correct = np.array([1.0 if ok else 0.0 for _, ok in confidence_correct_pairs])
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    n = len(conf)
+    ece = 0.0
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (conf > lo) & (conf <= hi) if lo > 0 else (conf >= lo) & (conf <= hi)
+        if not mask.any():
+            continue
+        ece += (mask.sum() / n) * abs(conf[mask].mean() - correct[mask].mean())
+    return float(ece)
+
+
 def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     tp = fp = fn = 0
     loc_errors = []
@@ -37,6 +62,8 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     gt_walls_ever = set()
     revisit_count = {}
     defect_first_last = {}  # defect_id -> (first_uncertainty, last_uncertainty, first_size, last_size, n_obs)
+    conf_correct_pairs = []  # (confidence, is_tp) for every raw detection, for ECE
+    uncertainty_by_correctness = {"tp": [], "fp": []}  # TTA-ensemble uncertainty split by correctness
     total_dist = sum(m["total_dist"] for m in mission_logs)
     total_viewpoints = sum(m["n_viewpoints"] for m in mission_logs)
     n_cells_total = sum(n_cells_for_wall(w) for w in WALL_SEGMENTS)
@@ -53,6 +80,8 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
                 revisit_count[step["wall"]] = revisit_count.get(step["wall"], 0) + 1
             for det in step["detections"]:
                 is_tp = (step["wall"], det["label"]) in gt_classes
+                conf_correct_pairs.append((det["confidence"], is_tp))
+                uncertainty_by_correctness["tp" if is_tp else "fp"].append(det["uncertainty"])
                 if is_tp:
                     wall_hits.add((step["wall"], det["label"]))
                     wall = WALL_BY_NAME[step["wall"]]
@@ -84,6 +113,11 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     uncertainty_reduction = float(np.mean([r[0] - r[1] for r in multi_obs])) if multi_obs else float("nan")
     growth_detected = float(np.mean([r[3] > r[2] for r in multi_obs])) if multi_obs else float("nan")
 
+    ece = compute_ece(conf_correct_pairs)
+    mean_unc_tp = float(np.mean(uncertainty_by_correctness["tp"])) if uncertainty_by_correctness["tp"] else float("nan")
+    mean_unc_fp = float(np.mean(uncertainty_by_correctness["fp"])) if uncertainty_by_correctness["fp"] else float("nan")
+    uncertainty_gap_fp_minus_tp = mean_unc_fp - mean_unc_tp if not (np.isnan(mean_unc_tp) or np.isnan(mean_unc_fp)) else float("nan")
+
     return {
         "planner": planner_name, "scenario": scenario_name, "seed": seed,
         "precision": precision, "recall": recall, "f1": f1,
@@ -94,6 +128,8 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
         "uncertainty_reduction": uncertainty_reduction,
         "growth_detected_frac": growth_detected,
         "info_gain_per_viewpoint": (n_cells_total - final_entropy) / total_viewpoints if total_viewpoints else float("nan"),
+        "ece": ece,
+        "uncertainty_gap_fp_minus_tp": uncertainty_gap_fp_minus_tp,
     }
 
 
@@ -128,7 +164,7 @@ def print_summary_table(rows):
         by_planner[r["planner"]].append(r)
     cols = ["precision", "recall", "f1", "mean_localization_error_m", "total_flight_dist_m",
             "coverage_frac", "reinspection_rate", "uncertainty_reduction", "growth_detected_frac",
-            "info_gain_per_viewpoint"]
+            "info_gain_per_viewpoint", "ece", "uncertainty_gap_fp_minus_tp"]
     print("\n=== Summary (mean over scenarios x seeds) ===")
     header = f"{'planner':22s}" + "".join(f"{c:>18s}" for c in cols)
     print(header)
@@ -149,8 +185,8 @@ def make_plots(rows, out_dir):
     planners = list(by_planner.keys())
 
     metrics = ["f1", "reinspection_rate", "uncertainty_reduction", "growth_detected_frac",
-               "total_flight_dist_m", "info_gain_per_viewpoint"]
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+               "total_flight_dist_m", "info_gain_per_viewpoint", "ece", "uncertainty_gap_fp_minus_tp"]
+    fig, axes = plt.subplots(2, 4, figsize=(20, 8))
     for ax, metric in zip(axes.flat, metrics):
         means = [np.nanmean([r[metric] for r in by_planner[p]]) for p in planners]
         ax.bar(planners, means, color=["#888" if p != "uwtig" else "#2b6cb0" for p in planners])

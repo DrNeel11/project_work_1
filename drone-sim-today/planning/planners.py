@@ -38,7 +38,7 @@ one candidate viewpoint graph (planning/viewpoints.py):
        it. This is the single highest-impact change here: recall
        0.36 -> 0.63, coverage 0.33 -> 1.00, reinspection_rate 0.44 -> 1.00
        -- at a real, honestly-reported cost: precision 0.86 -> 0.76,
-       mean localization error 0.19m -> 0.72m (many walls now get only one,
+       mean localization error 0.19m -> 0.70m (many walls now get only one,
        not-localization-optimized look during the coverage phase), and
        flight distance 0.3m -> 109m (no longer near-free once nine separate
        walls are actually visited). See RESULTS.md for the full numbers and

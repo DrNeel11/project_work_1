@@ -18,6 +18,7 @@ citation (arXiv id or venue given); nothing here is invented.
 | **Wang et al., uncertainty-controlled CPP** (arXiv:2201.04310) | yes (measurement uncertainty) | no | no | yes | n/a (dimensional/quality inspection, not vision defects) | coverage-quality bound |
 | **Active search under detector uncertainty** (arXiv:2303.03155, POMDP/MCTS) | yes (detector confidence drives belief) | no (single search session) | no | partially | yes (assumes a detector) | POMDP-optimality in the planning horizon |
 | **Alamdari, Fata & Smith 2014** (persistent monitoring, IJRR) | no | yes (revisit scheduling is the whole point) | no (latency, not defect growth) | yes (walk cost) | n/a | O(log n) / O(log ρ) approximation |
+| **Rückin et al.** (ICRA 2022, arXiv:2109.13570; IROS 2022, arXiv:2203.01652; IEEE T-RO 2023, arXiv:2302.03347) | yes (Bayesian/MC-Dropout epistemic uncertainty via BALD, mapped onto a terrain grid) | no (single mission; the "model" being improved persists, not a per-defect identity) | no (no repeated-visit change tracking — the goal is training-set coverage, not monitoring a known object over time) | yes (acquisition value normalized by a per-cell training-data-count term, then a frontier-style argmax — structurally close to UW-TIG's ig-minus-cost utility) | yes (a real semantic segmentation model, retrained iteratively on the UAV's own picks) | none stated |
 | **UW-TIG (this project)** | **yes** (real TTA-ensemble detector uncertainty) | **yes** (Postgres+pgvector / Neo4j identity + growth across missions) | **yes** (growth term from re-identified defects) | **yes** (translation + rotation cost, receding-horizon) | **yes** (YOLOv8n trained on real MBDD2025 photos) | inherited (1-1/e) guarantee on the coverage sub-objective only (see below); no guarantee on the full utility |
 
 No single cited work combines all five columns UW-TIG does. The honest
@@ -31,6 +32,32 @@ single relative (GTSP routing + a real defect detector), but has no
 cross-mission memory or detection-uncertainty term; the POMDP/MCTS active
 search line has the uncertainty-driven belief update but no persistence
 across sessions.
+
+**Rückin et al.'s line of work is the closest single relative on the
+*uncertainty* column specifically**, and is worth stating plainly since it's
+a better-matched comparison than the others above: it plans UAV paths using
+a real, principled Bayesian epistemic-uncertainty estimate (BALD --
+mutual information between a prediction and an MC-Dropout ensemble's
+weights, arXiv:2302.03347 Eq. in the framework section) mapped onto a
+terrain grid, then greedily selects the next viewpoint by that mapped
+uncertainty normalized by a cost/count term -- structurally the same
+"uncertainty-weighted, cost-normalized greedy" shape as UW-TIG's own
+utility. The difference is the objective the uncertainty serves: Rückin et
+al.'s uncertainty is about the *segmentation model's* epistemic confidence,
+and the goal is choosing which images are worth labeling to retrain that
+model (a single-session active-learning problem -- once the model is good
+enough, the task is done). UW-TIG's uncertainty is about *this specific
+defect's* detection confidence, and the goal is deciding which physical
+locations are worth a second look, persisted and re-identified across
+missions via `memory/store.py` -- the model itself is fixed at inference
+time, never retrained from the drone's own flights. Put differently: Rückin
+et al. plan to reduce *model* uncertainty; UW-TIG plans to reduce *world-state*
+uncertainty using a fixed model. Both are legitimate uses of the same
+underlying idea (uncertainty as an acquisition function for view selection),
+applied to different variables. This also made it clear what UW-TIG could
+honestly check but never had (see the Metrics section below): whether its
+own uncertainty signal is a *calibrated* one, the way Rückin et al.
+explicitly validate theirs (their Expected Calibration Error metric).
 
 ## 2. Concrete strengthening applied to the planner
 
@@ -54,8 +81,8 @@ ablatable via `PLANNER_REGISTRY`:
    `uwtig_no_coverage_first`. Effect size (5-seed, GPU detector, see
    RESULTS.md's "Coverage-guarantee fix" section): recall 0.36 -> 0.63,
    coverage/reinspection_rate 0.33/0.44 -> 1.00/1.00, at a real cost --
-   precision 0.86 -> 0.76, mean localization error 0.19m -> 0.72m, flight
-   distance 0.3m -> 108.9m. Not a strict improvement, a different point on
+   precision 0.86 -> 0.76, mean localization error 0.19m -> 0.70m, flight
+   distance 0.3m -> 108.8m. Not a strict improvement, a different point on
    the trade-off surface -- see RESULTS.md for the full honest breakdown,
    including a plausible explanation for the localization-error jump (the
    coverage phase's viewpoint choice optimizes ig-cost, not localization
@@ -144,7 +171,68 @@ generalizes past this one constant: a fix aimed at one failure mode (free
 spins in a degenerate room) needs checking against the metric it could
 plausibly break next (coverage elsewhere), not just the one it targeted.
 
-## 3. What this does and doesn't claim
+## 3. Metrics: what the wider literature suggested, and what was added
+
+RESULTS.md's tables already report precision/recall/f1, mean localization
+error, flight distance, coverage, and reinspection rate -- all standard for
+this literature (Isler et al., Bircher et al., GATSBI, and the CPP surveys
+all report some subset of coverage/path-length/detection-quality). Reading
+Rückin et al.'s evaluation section (arXiv:2302.03347) specifically to answer
+"what metrics would fit this project" surfaced one used there that this
+project never had, despite naming itself "uncertainty-weighted": **Expected
+Calibration Error (ECE)**. Rückin et al. use ECE to check whether their
+segmentation model's predicted confidence actually tracks its empirical
+accuracy, per confidence bin -- a standard calibration check (Guo et al.
+2017), not something they invented, but one this project had simply never
+run on its own detector despite using its confidence/uncertainty outputs as
+a planning signal for three ablations. Two additions were made to
+`experiments/evaluate.py`'s `summarize_run`, using data every mission run
+already produces (no re-training, no new detector run needed):
+
+- **`ece`** (`compute_ece`): bins every raw detection (real, not just
+  UW-TIG's) by the detector's confidence score, compares each bin's mean
+  confidence to its empirical accuracy (fraction that were true positives),
+  weighted-sums the bins' |confidence - accuracy| gap. Lower is better
+  (0 = perfectly calibrated). This is planner-agnostic in principle (the
+  detector is shared), but is still reported per-planner since which
+  detections a planner's own viewpoint choices surface differs, and the
+  MBDD2025-trained detector's calibration on this sim's rendered frames
+  specifically (rather than its own held-out photo test set) is exactly
+  the domain-transfer question worth checking, not assumed.
+- **`uncertainty_gap_fp_minus_tp`**: mean TTA-ensemble uncertainty on false
+  positives minus mean TTA-ensemble uncertainty on true positives. This is
+  not from Rückin et al. (who use MC-Dropout/BALD on a segmentation model,
+  a different uncertainty mechanism from this project's TTA-ensemble
+  variance) -- it's a project-specific, simpler check motivated by the same
+  underlying question their ECE check asks: is the *specific* uncertainty
+  number UW-TIG's utility weights (`w_uncertainty=1.5`) actually informative
+  about correctness, or just noise the planner is chasing? A positive gap
+  (false positives more uncertain than true positives, on average) is the
+  signal that would validate the design -- **the measured value is negative
+  for every planner** (-0.02 to -0.08; see RESULTS.md's "Calibration check"
+  section), the opposite of what would validate the design. Reported
+  honestly as a real limitation (RESULTS.md Limitation 8), not hidden: the
+  ablations still show `w_uncertainty` changes behavior somewhat, so it's a
+  real signal, just not one shown to track correctness in the assumed
+  direction.
+
+**What was considered and did NOT transfer, stated plainly:** Rückin et
+al.'s headline metrics (mIoU, per-pixel accuracy, per-pixel F1) are
+segmentation metrics -- they score a dense per-pixel label map against
+ground truth. This project's detector produces discrete bounding boxes over
+a small, fixed set of wall panels, evaluated at the panel/defect-instance
+level (already what RESULTS.md's precision/recall/f1 columns do) — there is
+no dense pixel grid to score an IoU against, so importing mIoU here would be
+a category error, not a genuine strengthening. Their "number of training
+images needed to reach a target mIoU" sample-efficiency framing also doesn't
+transfer directly, since this project's detector is trained once, offline,
+and never retrained from mission data (a real, stated difference from
+Rückin et al.'s active-learning loop, not an oversight) -- the closest
+analogous question here, "how many viewpoints does a planner need to reach
+a target recall," is already implicitly answered by the existing
+budget-fixed comparison across planners, not a new metric.
+
+## 4. What this does and doesn't claim
 
 - These are real, reproducible code changes, now backed by a real 5-seed
   statistical sweep. The first attempt at the full sweep (one long-lived

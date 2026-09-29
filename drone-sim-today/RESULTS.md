@@ -238,18 +238,71 @@ visits this mission, restrict selection to Isler-NBV's own formulation
 at least one visit, fall through to the full multi-term utility for the
 rest of the budget. New ablation `uwtig_no_coverage_first` reproduces the
 old behavior for comparison. Re-ran the full 5-seed sweep (`run_full_sweep.sh
-5 16 3`, all 5 seeds succeeded first try) against the same GPU detector:
+5 16 3`, all 5 seeds succeeded first try) against the same GPU detector, this
+table now including two calibration metrics added after a deeper literature
+pass (`ece`, `uncertainty_gap_fp_minus_tp` — see "Calibration check" below
+and NOVELTY.md's Metrics section for what they measure and why they were
+added):
 
-| planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate |
-|---|---|---|---|---|---|---|---|
-| random | 0.58 | 0.57 | 0.55 | 0.77 | 393.8 | 1.00 | 1.00 |
-| isler_nbv | 0.64 | 0.43 | 0.50 | 0.49 | 18.6 | 0.33 | 0.44 |
-| **uwtig** | 0.76 | **0.63** | 0.65 | 0.72 | 108.9 | **1.00** | **1.00** |
-| uwtig_no_uncertainty | 0.76 | 0.62 | 0.65 | 0.70 | 109.2 | 1.00 | 1.00 |
-| uwtig_no_temporal | 0.76 | 0.63 | 0.65 | 0.73 | 109.0 | 1.00 | 1.00 |
-| uwtig_no_staleness | 0.71 | 0.57 | 0.59 | 0.69 | 94.0 | 1.00 | 1.00 |
-| uwtig_no_coverage_first | 0.86 | 0.36 | 0.55 | 0.19 | 0.3 | 0.33 | 0.44 |
-| uwtig_no_lookahead | 0.76 | 0.62 | 0.65 | 0.67 | 106.3 | 1.00 | 1.00 |
+| planner | precision | recall | f1 | loc. error (m) | flight dist (m) | coverage | reinspection rate | ece | uncertainty gap (fp&minus;tp) |
+|---|---|---|---|---|---|---|---|---|---|
+| random | 0.58 | 0.57 | 0.55 | 0.77 | 393.8 | 1.00 | 1.00 | 0.33 | -0.05 |
+| isler_nbv | 0.64 | 0.43 | 0.50 | 0.49 | 18.6 | 0.33 | 0.44 | 0.33 | -0.06 |
+| **uwtig** | 0.76 | **0.63** | 0.65 | 0.70 | 108.8 | **1.00** | **1.00** | 0.35 | -0.07 |
+| uwtig_no_uncertainty | 0.76 | 0.62 | 0.65 | 0.70 | 109.3 | 1.00 | 1.00 | 0.34 | -0.08 |
+| uwtig_no_temporal | 0.75 | 0.62 | 0.65 | 0.71 | 109.1 | 1.00 | 1.00 | 0.35 | -0.07 |
+| uwtig_no_staleness | 0.72 | 0.57 | 0.59 | 0.68 | 93.9 | 1.00 | 1.00 | 0.36 | -0.06 |
+| uwtig_no_coverage_first | 0.86 | 0.36 | 0.55 | 0.19 | 0.4 | 0.33 | 0.44 | 0.28 | -0.02 |
+| uwtig_no_lookahead | 0.76 | 0.62 | 0.65 | 0.67 | 106.5 | 1.00 | 1.00 | 0.36 | -0.07 |
+
+(The first seven columns match the previous re-run within run-to-run noise —
+e.g. uwtig precision/recall 0.76/0.63 both times — confirming this re-run
+reproduces the same result, just with the two new columns added, not a
+different experiment.)
+
+### Calibration check: is the uncertainty signal actually informative?
+
+Reading Rückin et al.'s evaluation methodology (IEEE T-RO 2023,
+arXiv:2302.03347 — see NOVELTY.md section 1 and 3) prompted a check this
+project had never actually run despite naming itself "uncertainty-weighted":
+is the detector's confidence well-calibrated, and does the TTA-ensemble
+uncertainty term UW-TIG's utility weights (`w_uncertainty=1.5`) actually
+correlate with which detections are wrong? Both come back with an honest,
+not-great answer:
+
+- **ECE is high (0.28-0.36)** across every planner. A well-calibrated
+  detector would have ECE close to 0 (confidence tracks empirical accuracy
+  bin-by-bin); this detector's confidence scores, while useful as a *ranking*
+  signal (raising `conf_thresh` does trade off precision/recall in the
+  expected direction, and mAP is a ranking-based metric that doesn't require
+  calibration), are not trustworthy as *probabilities*. This wasn't visible
+  in any of the mAP/precision/recall numbers reported so far, since none of
+  them check calibration.
+- **`uncertainty_gap_fp_minus_tp` is negative for every planner** (-0.02 to
+  -0.08): the TTA-ensemble uncertainty is, on average, *lower* on false
+  positives than on true positives — the opposite of what would validate
+  "uncertainty tracks correctness." A plausible explanation, not confirmed
+  further here: genuine defects (especially subtle ones like `crack`) sit
+  closer to the model's decision boundary and are more sensitive to the
+  photometric TTA transforms (brightness/contrast/noise/blur), so correct
+  detections of real, hard-to-see defects legitimately vary more across
+  augmented views than a spurious, texture-confusion false positive that
+  fires consistently regardless of augmentation.
+- **What this does and doesn't undermine**: UW-TIG's `w_uncertainty` term
+  still does something real and previously measured — the ablations
+  (`uwtig_no_uncertainty` vs. `uwtig`) show small but consistent differences
+  in the original tables above, and the whole reinspection/lookahead
+  machinery works whether or not the uncertainty number it consumes is a
+  calibrated probability, since it's used as a relative ranking signal
+  within one mission, not compared across missions or thresholded absolutely.
+  What this check *does* undermine is any implicit claim that "high
+  TTA-uncertainty" straightforwardly means "likely wrong" — on this evidence
+  it doesn't, at least not in the direction assumed. This is now stated as
+  Limitation 8 below rather than left as an unstated assumption. A genuine
+  fix (not attempted here) would replace TTA-ensemble variance with an
+  uncertainty estimate actually validated for calibration on this detector
+  — e.g. temperature scaling post-hoc, or MC-Dropout as Rückin et al. use,
+  which unlike TTA-ensemble variance has a direct Bayesian interpretation.
 
 **This is a genuine trade-off, not a strict improvement — stated plainly:**
 
@@ -260,8 +313,8 @@ old behavior for comparison. Re-ran the full 5-seed sweep (`run_full_sweep.sh
 - **Precision dropped** (0.86 &rarr; 0.76, about -12%) — spreading the fixed
   step budget across all 9 walls means more single-look detections that
   never get the benefit of repeated reinspection to confirm or reject them.
-- **Mean localization error got substantially worse** (0.19m &rarr; 0.72m,
-  ~3.8x) — the likely cause: the coverage phase picks each unvisited wall's
+- **Mean localization error got substantially worse** (0.19m &rarr; 0.70m,
+  ~3.7x) — the likely cause: the coverage phase picks each unvisited wall's
   viewpoint by ig-cost alone, the same as Isler-NBV, which has no notion of
   "pick the standoff/lateral offset that localizes well," unlike the mature,
   multi-look reinspection positions UW-TIG settles into for its previously-
@@ -392,3 +445,25 @@ real through the physics stack, not just in the kinematic comparison.
    gone by the time seed 1 was retried alone) rather than a per-seed
    deterministic failure. The "Updated 5-seed results" section above is the
    real, complete, 5-seed output of this approach.
+8. **The uncertainty signal UW-TIG plans around is not shown to correlate
+   with correctness the way its name implies -- checked directly, not
+   assumed.** Prompted by a deeper read of Rückin et al.'s evaluation
+   methodology (IEEE T-RO 2023), two calibration metrics were added and run
+   (see "Calibration check" above): detector confidence has a high ECE
+   (0.28-0.36, well above what a calibrated model would show), and
+   `uncertainty_gap_fp_minus_tp` is *negative* for every planner -- false
+   positives have lower TTA-ensemble uncertainty than true positives, on
+   average, the opposite of the assumption implicit in weighting uncertainty
+   positively as a "worth a second look" signal. The ablations still show
+   `w_uncertainty` changes behavior somewhat (it's a real, measured signal,
+   just not a validated-calibrated one), and it's used only as a relative
+   ranking signal within one mission, never thresholded as an absolute
+   probability -- so this doesn't invalidate the planner's measured
+   precision/recall/reinspection results above, but it does mean "TTA
+   ensemble variance is highly uncertain here, so this is probably wrong"
+   is not a claim this project can currently back with evidence; the
+   opposite direction is what was measured. A real fix would swap in an
+   uncertainty estimate actually validated for calibration (e.g. MC-Dropout,
+   as Rückin et al. use, or post-hoc temperature scaling) -- out of scope
+   for this pass, which was about measuring and reporting the gap honestly,
+   not fixing it.
