@@ -77,7 +77,9 @@ class ChaseCam:
                                     cameraUpVector=[0, 0, 1])
         proj = p.computeProjectionMatrixFOV(fov=70, aspect=OVERVIEW_RES[0] / OVERVIEW_RES[1],
                                              nearVal=0.05, farVal=90)
-        _, _, rgba, _, _ = p.getCameraImage(OVERVIEW_RES[0], OVERVIEW_RES[1], view, proj, physicsClientId=client)
+        _, _, rgba, _, _ = p.getCameraImage(OVERVIEW_RES[0], OVERVIEW_RES[1], view, proj,
+                                             shadow=1, lightDirection=[0.6, -0.4, 1.0],
+                                             renderer=p.ER_TINY_RENDERER, physicsClientId=client)
         return np.reshape(rgba, (OVERVIEW_RES[1], OVERVIEW_RES[0], 4))[:, :, :3].astype(np.uint8)
 
 

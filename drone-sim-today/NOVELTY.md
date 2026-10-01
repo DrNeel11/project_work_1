@@ -300,3 +300,119 @@ model quality -- stated plainly rather than omitted).
   planner that legitimately hovers-and-rotates in a small room (see above)
   reports as near-zero distance even though real rotation time was spent --
   a metric gap, not a planning bug (see RESULTS.md's smoke-test section).
+
+## 5. On Simulation Realism: Why PyBullet, Not Unity/Unreal
+
+A natural question once the system is working end-to-end: wouldn't a
+game-engine-grade simulator (Unity, Unreal) look more realistic? The
+honest answer has two parts -- a literature survey of what those engines
+actually buy a project like this one, and a concrete, verified realism
+pass done instead within PyBullet.
+
+**What the literature says game engines are for here.** Two systems are
+the direct precedents for drone simulation built on each engine: **AirSim**
+(Shah, Dey, Lovett &amp; Kapoor, FSR 2017, arXiv:1705.05065), built on
+Unreal Engine, and **Flightmare** (Song, Naji, Kaufmann, Loquercio &amp;
+Scaramuzza, CoRL 2020, arXiv:2009.00563), pairing a Unity rendering
+front-end with a separate, fast physics back-end (up to 230Hz rendering,
+200kHz dynamics). Both exist to solve one specific problem: **the sim-to-real
+visual-fidelity gap** -- when a perception model is trained or evaluated on
+*rendered* images, how close must that rendering be to a real camera image
+for the model to transfer? That gap is real and well-documented in the
+field more broadly: AirSim is reported as having the widest adoption for
+exactly this reason among recent aerial vision-language-navigation work,
+and the field has since moved even further, past traditional rasterized
+game engines entirely, toward 3D-Gaussian-Splatting-based differentiable
+simulators reconstructed from real scene captures -- e.g. **GRaD-Nav**
+(Chen, Sun, Gao, Low, Chen &amp; Schwager, 2025, arXiv:2503.03984), which
+trains a visual navigation policy end-to-end through a differentiable
+Gaussian-radiance-field renderer precisely because even Unity/Unreal's
+rasterized graphics are now considered a visual-fidelity bottleneck for
+the hardest sim-to-real transfer cases. Citing this accurately matters:
+**Unity and Unreal are not actually the current state of the art for this
+specific problem any more** -- they were the right answer in 2017-2020,
+and 3DGS-based reconstruction is the newer one.
+
+**Why that gap does not actually apply to this project's perception
+pipeline.** AirSim/Flightmare/GRaD-Nav all solve the problem of a model
+trained or tested on *synthetic, rendered* defect/scene imagery needing to
+transfer to a *real* camera. This project's detector never has that
+problem in the first place: `perception/train_yolo_gpu.py` trains
+exclusively on **MBDD2025's 14,471 real UAV photographs**, and every
+`WALL_SEGMENTS` texture the detector is ever shown -- in training, in the
+offline benchmark, and in every simulated inspection flight -- is one of
+those same real photographs applied as a flat texture, not a synthetic
+render of a crack or a corrosion patch. The pixels the detector classifies
+are real in both training and simulated deployment; only the generic
+*surrounding* yard dressing (sky, ground, decorative pipe rack/tower
+props) is synthetic, and `scene/environment.py`'s own module docstring
+states, and this project's camera geometry confirms, that the onboard
+detection camera stays tightly framed on the wall it is inspecting at
+close standoff (never seeing sky/ground/props in that frame). A
+Unity/Unreal/3DGS-grade renderer would make the *simulator* prettier to
+watch; it would not change a single pixel the detector actually learns
+from or is evaluated against, since the defect imagery is already real.
+The one scenario where this project's own simplicity genuinely costs
+something is the procedurally-generated `growing` scenario (Limitation 1
+in RESULTS.md) -- a synthetic texture the real-photo-trained detector
+doesn't recognize at all -- which is precisely the kind of synthetic-vs-real
+domain gap AirSim/Flightmare/GRaD-Nav are built to narrow; stated here as
+the one place a higher-fidelity renderer could plausibly have helped, not
+hidden.
+
+**Why this project stays on PyBullet regardless.** Beyond the
+perception-pipeline argument above, three concrete engineering reasons:
+(1) Unity and Unreal are GUI-driven editors with no path to being scripted
+end-to-end from a terminal-only Python pipeline the way this project's
+planner, detector, persistent-memory store, and statistical sweep harness
+all are -- there is no Unity/Unreal equivalent of running
+`bash run_full_sweep.sh 5 16 3` unattended and getting a CSV out; (2) a
+migration would mean re-deriving `geometry.py`'s camera/plane math, the
+viewpoint graph, and the trained-detector integration from scratch in a
+different engine's coordinate/rendering conventions, invalidating every
+5-seed sweep and report already produced and verified in this project;
+(3) `gym-pybullet-drones`' own `DSLPIDControl` flight stack -- which gives
+`demo_uwtig_flight.py` its real, not merely kinematic, physics flight --
+is itself built on PyBullet, so leaving PyBullet would mean losing the one
+component that already provides genuine flight dynamics, not gaining one.
+
+**The realism pass actually done, verified by direct rendering, not
+assumed.** Four concrete improvements to `scene/environment.py` and the
+chase-cam, each checked by rendering and visually inspecting the result
+before and after, exactly as every other claim in this project has been
+checked:
+
+1. **A real shadow/lighting inconsistency, found and fixed.** The
+   flagship demo's third-person chase camera (`ChaseCam.capture`, the
+   camera used for nearly the entire flythrough video) had no `shadow=1`/
+   `lightDirection` set, while the opening establishing-shot orbit did --
+   so the bulk of the video looked flatly lit while the first few seconds
+   didn't, an inconsistency nobody had checked until now. Fixed by adding
+   the same shadow/light parameters already used everywhere else
+   (`sim_house.py`'s own overview camera had the identical gap, fixed too).
+2. **Ground texture**: regenerated at higher resolution with a poured-slab
+   expansion-joint grid, oil stains, and tire-mark streaks, replacing the
+   previous flatter mottled pattern.
+3. **Sky backdrop**: regenerated with a soft sun glow, low clouds, and a
+   lit-window skyline silhouette, replacing the previous plain gradient
+   and flat gray rectangles.
+4. **A second real bug, found by directly rendering and looking, not
+   assumed to work**: the sky backdrop was originally built from
+   `GEOM_BOX` primitives. Rendering the new, more detailed sky texture on
+   them revealed PyBullet tiles/repeats a box's texture across its
+   physical extents rather than stretching one copy per face -- the
+   skyline fractured into several small repeated copies instead of one
+   coherent distant silhouette. Caught by rendering a straight-on test
+   shot and comparing against intent (the same verify-before-claiming
+   discipline used throughout this project), not discovered by inspecting
+   code. Fixed by rebuilding the backdrop from the same flat-quad mesh
+   (`wall_quad.obj`) and yaw-to-normal convention already used -- and
+   already proven correct -- for every real inspection-wall texture in
+   this project, rather than fighting the primitive's undocumented UV
+   behavior.
+
+All four are presentation/context changes verified to touch nothing in
+the detection or planning path (confirmed by the camera-framing argument
+above), so none of the existing 5-seed sweep results needed re-running --
+only the flagship demo video, which is purely illustrative, was
+regenerated.

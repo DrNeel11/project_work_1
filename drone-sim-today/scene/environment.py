@@ -36,9 +36,15 @@ TOWER_POS = (-5.0, 3.0)
 YARD_CENTER = (5.0, 1.5)  # roughly the centroid of the whole layout
 
 
-def ensure_ground_texture(size=512):
+def ensure_ground_texture(size=1024):
     """Procedurally generates a mottled concrete/gravel-yard texture once,
-    caching it to disk (same generate-once-reuse pattern as scene/make_textures.py)."""
+    caching it to disk (same generate-once-reuse pattern as scene/make_textures.py).
+    Higher resolution than the original pass plus oil stains, tire marks, and
+    an expansion-joint grid (real poured-concrete yards are scored into
+    rectangular slabs, not a featureless blob) -- a pure presentation/context
+    improvement: this texture is never in the onboard detection camera's
+    tightly-framed, wall-facing field of view (see module docstring), so it
+    has no effect on any detection metric."""
     if os.path.exists(GROUND_TEXTURE_PATH):
         return GROUND_TEXTURE_PATH
 
@@ -48,19 +54,40 @@ def ensure_ground_texture(size=512):
     img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8))
 
     draw = ImageDraw.Draw(img, "RGBA")
-    for _ in range(40):  # mottled stains/patches
+    # Expansion-joint grid: real poured slabs are scored into rectangles
+    slab = size // 6
+    for i in range(1, 6):
+        draw.line([(i * slab, 0), (i * slab, size)], fill=(100, 98, 94, 160), width=3)
+        draw.line([(0, i * slab), (size, i * slab)], fill=(100, 98, 94, 160), width=3)
+    for _ in range(70):  # mottled weathering stains/patches
         cx, cy = rng.randint(0, size), rng.randint(0, size)
-        r = rng.randint(15, 45)
+        r = rng.randint(20, 90)
         shade = rng.randint(-25, 10)
-        col = (150 + shade, 148 + shade, 142 + shade, 60)
+        col = (150 + shade, 148 + shade, 142 + shade, 55)
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=col)
-    for _ in range(25):  # expansion-joint-style cracks/lines
+    for _ in range(45):  # fine surface cracks within slabs
         x0, y0 = rng.randint(0, size), rng.randint(0, size)
-        length = rng.randint(40, 160)
+        length = rng.randint(50, 220)
         angle = rng.uniform(0, 2 * math.pi)
         x1 = int(np.clip(x0 + length * math.cos(angle), 0, size))
         y1 = int(np.clip(y0 + length * math.sin(angle), 0, size))
-        draw.line([(x0, y0), (x1, y1)], fill=(90, 88, 84, 140), width=2)
+        draw.line([(x0, y0), (x1, y1)], fill=(90, 88, 84, 130), width=2)
+    for _ in range(10):  # dark oil/fluid stains near equipment
+        cx, cy = rng.randint(0, size), rng.randint(0, size)
+        rx, ry = rng.randint(25, 70), rng.randint(18, 45)
+        shade = rng.randint(35, 55)
+        draw.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=(shade, shade, shade, 90))
+    for _ in range(4):  # paired tire-mark streaks
+        x0 = rng.randint(0, size)
+        y0 = rng.randint(0, size)
+        angle = rng.uniform(0, 2 * math.pi)
+        length = rng.randint(200, 420)
+        dx, dy = math.cos(angle), math.sin(angle)
+        perp = (-dy, dx)
+        for off in (-14, 14):
+            sx, sy = x0 + perp[0] * off, y0 + perp[1] * off
+            ex, ey = sx + dx * length, sy + dy * length
+            draw.line([(sx, sy), (ex, ey)], fill=(70, 68, 65, 70), width=9)
 
     img.save(GROUND_TEXTURE_PATH)
     return GROUND_TEXTURE_PATH
@@ -76,57 +103,106 @@ def retexture_ground(client, plane_id):
     p.changeVisualShape(plane_id, -1, textureUniqueId=tex_id, physicsClientId=client)
 
 
-def ensure_sky_texture(size=512):
-    """A vertical sky gradient (blue overhead fading to a pale horizon)
-    with a simple distant-skyline silhouette baked into the bottom band --
-    applied to 4 big cyclorama walls (add_sky_backdrop) so the horizon
-    reads as sky everywhere, not a flat white void, for the whole flight."""
+def ensure_sky_texture(size=1024):
+    """A vertical sky gradient (blue overhead fading to a pale horizon), a
+    soft sun glow, a few low clouds, and a distant-skyline silhouette with
+    lit windows baked into the bottom band -- applied to 4 big cyclorama
+    walls (add_sky_backdrop) so the horizon reads as sky everywhere, not a
+    flat white void, for the whole flight. Higher resolution and more detail
+    than the original pass; still a flat painted backdrop, not real sky
+    geometry or a dynamic light source -- this is a presentation/context
+    improvement only (the onboard detection camera stays tightly framed on
+    the wall it's inspecting, see module docstring), so it has no effect on
+    any detection metric."""
     if os.path.exists(SKY_TEXTURE_PATH):
         return SKY_TEXTURE_PATH
 
-    top_color = np.array([118, 168, 224])
-    horizon_color = np.array([213, 223, 230])
+    top_color = np.array([98, 152, 214])
+    horizon_color = np.array([221, 229, 232])
     grad = np.zeros((size, size, 3), dtype=np.uint8)
     for y in range(size):
         t = min(1.0, (y / size) / 0.78)
         grad[y, :, :] = (top_color * (1 - t) + horizon_color * t).astype(np.uint8)
     img = Image.fromarray(grad)
+    draw = ImageDraw.Draw(img, "RGBA")
 
-    draw = ImageDraw.Draw(img)
+    # Soft sun glow -- a radial falloff blended additively onto one corner
+    sun_x, sun_y = int(size * 0.78), int(size * 0.22)
+    glow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    for r, a in [(220, 10), (160, 16), (110, 22), (65, 30), (30, 40)]:
+        glow_draw.ellipse([sun_x - r, sun_y - r, sun_x + r, sun_y + r], fill=(255, 250, 230, a))
+    img = Image.alpha_composite(img.convert("RGBA"), glow)
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    rng = np.random.RandomState(7)
+    # A few soft, low clouds well above the skyline
+    for _ in range(6):
+        cx = rng.randint(0, size)
+        cy = rng.randint(int(size * 0.25), int(size * 0.55))
+        for _ in range(5):
+            ox, oy = rng.randint(-60, 60), rng.randint(-15, 15)
+            r = rng.randint(30, 70)
+            draw.ellipse([cx + ox - r, cy + oy - r // 2, cx + ox + r, cy + oy + r // 2],
+                         fill=(255, 255, 255, 35))
+
     rng = np.random.RandomState(42)
     base_y = int(size * 0.80)
     x = 0
     while x < size:
-        w = rng.randint(18, 50)
-        h = rng.randint(15, 85)
-        shade = rng.randint(95, 145)
-        draw.rectangle([x, base_y - h, x + w, size], fill=(shade, shade, shade + 5))
-        x += w + rng.randint(2, 12)
+        w = rng.randint(28, 95)
+        h = rng.randint(25, 170)
+        shade = rng.randint(85, 140)
+        draw.rectangle([x, base_y - h, x + w, size], fill=(shade, shade, shade + 6, 255))
+        # Lit windows: a sparse grid of small warm-colored squares
+        if h > 50:
+            win_rng = np.random.RandomState(x)
+            for wy in range(base_y - h + 8, size - 8, 14):
+                for wx in range(x + 4, x + w - 4, 10):
+                    if win_rng.random() < 0.35:
+                        draw.rectangle([wx, wy, wx + 4, wy + 7], fill=(255, 221, 150, 200))
+        x += w + rng.randint(2, 14)
 
-    img.save(SKY_TEXTURE_PATH)
+    img.convert("RGB").save(SKY_TEXTURE_PATH)
     return SKY_TEXTURE_PATH
+
+
+WALL_QUAD_OBJ = os.path.join(SCENE_DIR, "wall_quad.obj")
 
 
 def add_sky_backdrop(client, center=YARD_CENTER, half_extent=45.0, wall_height=40.0):
     """4 large textured cyclorama walls surrounding the whole yard, tall
     enough to fill the background at every camera angle actually used
-    (station captures, transit, the orbiting establishing shot)."""
+    (station captures, transit, the orbiting establishing shot). Built from
+    the same flat-quad mesh (wall_quad.obj) and yaw-to-normal convention as
+    the real inspection walls in sim_house.WALL_SEGMENTS, each face rotated
+    to point inward toward the yard -- GEOM_BOX primitives were tried first
+    but PyBullet tiles/repeats a box's texture across its extents rather
+    than stretching one copy per face (confirmed by direct render-and-look
+    testing, not assumed), which fractured the skyline into several
+    tiny repeats; the mesh quad is the same approach already proven correct
+    for every real defect texture in this project, so it was reused here
+    too rather than fighting the primitive's UV behavior."""
     tex_id = p.loadTexture(ensure_sky_texture(), physicsClientId=client)
     cx, cy = center
     z = wall_height / 2
-    t = 0.5  # wall thickness
+    # (x, y, yaw): yaw follows sim_house's normal = (sin(yaw), -cos(yaw), 0)
+    # convention, chosen so each wall's visible face points toward the yard.
     specs = [
-        ((cx, cy + half_extent, z), (half_extent, t, wall_height / 2)),
-        ((cx, cy - half_extent, z), (half_extent, t, wall_height / 2)),
-        ((cx + half_extent, cy, z), (t, half_extent, wall_height / 2)),
-        ((cx - half_extent, cy, z), (t, half_extent, wall_height / 2)),
+        (cx, cy + half_extent, 0),
+        (cx, cy - half_extent, 180),
+        (cx + half_extent, cy, -90),
+        (cx - half_extent, cy, 90),
     ]
     bodies = []
-    for pos, half_extents in specs:
-        vis = p.createVisualShape(p.GEOM_BOX, halfExtents=list(half_extents),
+    for x, y, yaw in specs:
+        vis = p.createVisualShape(p.GEOM_MESH, fileName=WALL_QUAD_OBJ,
+                                   meshScale=[half_extent, 1, wall_height / 2],
                                    rgbaColor=[1, 1, 1, 1], physicsClientId=client)
+        orn = p.getQuaternionFromEuler([0, 0, math.radians(yaw)])
         body = p.createMultiBody(baseMass=0, baseVisualShapeIndex=vis,
-                                  basePosition=list(pos), physicsClientId=client)
+                                  basePosition=[x, y, z], baseOrientation=orn,
+                                  physicsClientId=client)
         p.changeVisualShape(body, -1, textureUniqueId=tex_id, physicsClientId=client)
         bodies.append(body)
     return bodies

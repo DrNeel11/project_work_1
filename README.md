@@ -96,18 +96,24 @@ kinematic teleport), driven live by UW-TIG + the trained detector, across a
 sequence of missions, saved as an annotated video.
 
 **Environment & flight quality** (`sim_house.py`, `scene/environment.py`,
-`demo_uwtig_flight.py`) — the two-room house (kept as the inspection layout
-throughout) is dressed as a utility inspection yard: a procedurally
-generated concrete ground texture, an elevated pipe rack, and a small
-lattice support tower surround it. Since the house is fully enclosed, the
-flagship demo opens with a slow orbiting establishing shot of the whole
-yard (otherwise never visible once the drone is inside, wall-facing, for
-the actual inspection flight). Flight itself uses ease-in-ease-out
+`demo_uwtig_flight.py`) — an **open-air utility yard**, not an enclosed
+building: two freestanding equipment structures (Building A, 4 walls;
+Building B, 3 walls) ~11m apart with real open sky between them, plus one
+real inspection panel each mounted on a decorative pipe rack and lattice
+tower (9 walls/panels total), surrounded by a procedurally generated
+concrete ground texture and a sky backdrop with a skyline silhouette on the
+horizon. Because the yard is open rather than enclosed, the sky and
+surrounding structures stay visible for the *entire* flight, not just a
+one-off establishing shot. Flight itself uses ease-in-ease-out
 (smoothstep) trajectory interpolation instead of a linear ramp — DSLPIDControl
 tracks a moving reference, so a linear ramp has a velocity discontinuity at
 both ends of every hop, which reads as jerky — and the third-person chase
 camera exponentially smooths its eye/target position instead of snapping to
-the drone's instantaneous pose every frame.
+the drone's instantaneous pose every frame. A rendering realism pass
+(consistent shadows/lighting, higher-resolution ground/sky textures, and a
+real PyBullet texture-tiling bug found and fixed along the way) and an
+honest literature-grounded answer to "why not Unity or Unreal" are in
+[`drone-sim-today/NOVELTY.md`](drone-sim-today/NOVELTY.md)'s section 5.
 
 ## Setup
 

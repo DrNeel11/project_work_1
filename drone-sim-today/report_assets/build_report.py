@@ -277,6 +277,60 @@ image(os.path.join(HERE, "architecture_diagram.png"), width=15.5 * cm,
       caption="Figure 1. Closed-loop data flow. The red arrow is what makes it a loop: persistent "
               "memory's growth/uncertainty state feeds directly into the next viewpoint decision.")
 
+h2("2.1 Simulation Environment: Why PyBullet, Not Unity/Unreal")
+body(
+    "A natural question once the system works end-to-end: wouldn't a game-engine-grade simulator "
+    "look more realistic? Two systems are the direct precedents: <b>AirSim</b> (Shah, Dey, Lovett "
+    "&amp; Kapoor, FSR 2017, arXiv:1705.05065), built on Unreal Engine, and <b>Flightmare</b> (Song, "
+    "Naji, Kaufmann, Loquercio &amp; Scaramuzza, CoRL 2020, arXiv:2009.00563), pairing Unity rendering "
+    "with a separate fast physics engine. Both solve one specific problem: the <i>sim-to-real "
+    "visual-fidelity gap</i> when a perception model is trained or tested on rendered images. The "
+    "field has since moved past rasterized game engines entirely for the hardest cases, toward "
+    "3D-Gaussian-Splatting-based differentiable simulators reconstructed from real scene captures "
+    "&mdash; e.g. <b>GRaD-Nav</b> (Chen, Sun, Gao, Low, Chen &amp; Schwager, 2025, arXiv:2503.03984) "
+    "&mdash; so Unity/Unreal are not actually the current frontier for this problem any more; they "
+    "were the right answer circa 2017-2020."
+)
+body(
+    "<b>That gap doesn't apply to this project's perception pipeline.</b> AirSim/Flightmare/GRaD-Nav "
+    "all solve a model trained on <i>synthetic</i> imagery needing to transfer to a <i>real</i> "
+    "camera. This project's detector never has that problem: it trains exclusively on MBDD2025's "
+    "14,471 real UAV photographs, and every wall texture it is ever shown &mdash; in training, in the "
+    "offline benchmark, and in every simulated flight &mdash; is one of those same real photographs, "
+    "not a synthetic render of a defect. Only the generic yard dressing (sky, ground, decorative "
+    "props) is synthetic, and the onboard detection camera stays tightly framed on the wall it "
+    "inspects at close standoff, never seeing that dressing in frame. A higher-fidelity renderer would "
+    "make the simulator prettier to watch; it would not change a single pixel the detector learns "
+    "from or is evaluated against. (The one place a higher-fidelity renderer could plausibly have "
+    "helped is the procedural <font face=\"Courier\">growing</font> scenario, Limitation 1 &mdash; a "
+    "synthetic texture the real-photo-trained detector doesn't recognize at all. Stated here, not "
+    "hidden.) Three further engineering reasons this project stays on PyBullet: Unity/Unreal have no "
+    "path to being scripted end-to-end from a terminal-only pipeline the way this project's planner, "
+    "detector, and statistical sweep harness are; a migration would re-derive the camera geometry and "
+    "viewpoint graph from scratch, invalidating every 5-seed sweep already produced; and "
+    "<font face=\"Courier\">gym-pybullet-drones</font>'s own PID flight stack, which gives the "
+    "flagship demo real (not merely kinematic) physics, is itself built on PyBullet."
+)
+body(
+    "<b>A realism pass was done within PyBullet instead, verified by rendering and looking, not "
+    "assumed:</b> the flagship demo's chase camera was missing the shadow/lighting the opening "
+    "establishing shot already had &mdash; found and fixed, so the whole flythrough is now "
+    "consistently lit, not just its first few seconds. The ground and sky textures were regenerated "
+    "at higher resolution (an expansion-joint slab grid, oil stains and tire marks on the ground; a "
+    "sun glow, soft clouds, and a lit-window skyline on the sky backdrop). Rendering that new sky "
+    "texture surfaced a second real bug: PyBullet's <font face=\"Courier\">GEOM_BOX</font> primitive "
+    "tiles a texture across its extents rather than stretching one copy per face, fracturing the "
+    "skyline into repeated fragments &mdash; caught by rendering a test shot and looking, not assumed "
+    "to work, and fixed by rebuilding the backdrop from the same flat-quad mesh and UV convention "
+    "already proven correct for every real inspection-wall texture in this project. All four changes "
+    "are presentation-only (confirmed by the camera-framing argument above), so no existing 5-seed "
+    "sweep needed re-running &mdash; only the flagship demo video was regenerated."
+)
+image(os.path.join(HERE, "establishing_shot.png"), width=13.5 * cm,
+      caption="Figure 2. The open-air yard after the realism pass: both buildings, the pipe rack and "
+              "lattice tower, and the regenerated ground/sky textures with a lit-window skyline on "
+              "the horizon.")
+
 story.append(PageBreak())
 
 # ---------------------------------------------------------------- 3. What was implemented
@@ -371,7 +425,7 @@ body(
 h2("3.4 Planning &mdash; Base Paper and Novel Algorithm")
 body(
     "All planners share one candidate-viewpoint graph (54 stations across the 9 wall segments "
-    "of the simulated two-room house) and a shared coverage belief: each wall is discretized into a "
+    "of the open-air utility yard, Section 3.5) and a shared coverage belief: each wall is discretized into a "
     "surface grid sized proportionally to its physical width (fixed 1m cells, not a fixed cell "
     "<i>count</i> &mdash; a narrower wall gets fewer cells, matching Isler et al.'s original "
     "fixed-voxel-size volumetric formulation rather than giving every wall equal weight regardless "
@@ -455,28 +509,28 @@ body(
 
 h2("3.5 Simulation Environment")
 body(
-    "A two-room house (Room A 4&times;4m, Room B 2.6&times;2.6m, connected by a 1m doorway) built on "
-    "gym-pybullet-drones (Panerati et al., IROS 2021), a real open-source drone simulator with actual "
-    "rotor thrust/drag physics and closed-loop PID flight control (DSLPIDControl) &mdash; not a "
-    "scripted kinematic teleport. Two capture modes share the identical scene-construction and camera "
-    "code: a fast kinematic mode (teleport + render, no physics stepping) for the large statistical "
-    "comparison sweep, and full real-physics PID flight for the qualitative flagship demo."
+    "An open-air utility yard built on gym-pybullet-drones (Panerati et al., IROS 2021), a real "
+    "open-source drone simulator with actual rotor thrust/drag physics and closed-loop PID flight "
+    "control (DSLPIDControl) &mdash; not a scripted kinematic teleport. Two freestanding equipment "
+    "buildings sit in open space with real sky between them, not an enclosed, connected structure: "
+    "<b>Building A</b> (4&times;4m, 4 walls) and <b>Building B</b> (2.6&times;2.6m, 3 walls) roughly "
+    "11m apart, plus one real inspection panel each mounted on the decorative pipe rack and lattice "
+    "tower (<font face=\"Courier\">PipeRack-Panel</font>, <font face=\"Courier\">Tower-Panel</font>) "
+    "&mdash; 9 inspectable walls/panels in total. Two capture modes share the identical scene-"
+    "construction and camera code: a fast kinematic mode (teleport + render, no physics stepping) for "
+    "the large statistical comparison sweep, and full real-physics PID flight for the qualitative "
+    "flagship demo."
 )
 body(
-    "The environment was dressed as a utility inspection yard rather than a plain house: a "
-    "procedurally generated concrete ground texture, an elevated pipe rack, and a small lattice "
-    "support tower surround the structure (<font face=\"Courier\">scene/environment.py</font>). "
-    "Since the house is fully enclosed, the flagship demo opens with a slow orbiting establishing "
-    "shot of the whole yard, otherwise never visible once the drone is inside flying wall-facing "
-    "inspection routes. Flight uses ease-in-ease-out (smoothstep) trajectory interpolation rather "
-    "than a linear ramp &mdash; DSLPIDControl tracks a moving reference, so a linear ramp has a "
-    "velocity discontinuity at both ends of every hop, which is most of what reads as jerky flight "
-    "&mdash; and the third-person chase camera exponentially smooths its position instead of "
-    "snapping to the drone's instantaneous pose every frame."
+    "Because the yard is open rather than enclosed, the sky and surrounding structures stay visible "
+    "for the entire flight, not just a one-off establishing shot &mdash; see Figure 2 and Section 2.1 "
+    "for the realism pass applied to the ground/sky dressing and a real rendering bug it surfaced and "
+    "fixed. Flight uses ease-in-ease-out (smoothstep) trajectory interpolation rather than a linear "
+    "ramp &mdash; DSLPIDControl tracks a moving reference, so a linear ramp has a velocity "
+    "discontinuity at both ends of every hop, which is most of what reads as jerky flight &mdash; and "
+    "the third-person chase camera exponentially smooths its position instead of snapping to the "
+    "drone's instantaneous pose every frame."
 )
-image(os.path.join(HERE, "establishing_shot.png"), width=13.5 * cm,
-      caption="Figure 2. Establishing shot from the flagship demo video: the utility yard (pipe rack, "
-              "right; lattice support tower, left) surrounding the two-room inspection structure.")
 
 h2("3.6 Experiment Harness")
 body(
@@ -493,9 +547,10 @@ body(
     "<font face=\"Courier\">experiments/evaluate.py</font> runs every (planner, scenario, seed, "
     "mission-sequence) combination, logs per-step detections/localizations/memory updates, and "
     "computes precision/recall/F1, mean localization error, total flight distance, coverage "
-    "fraction, reinspection rate, uncertainty reduction, growth-detection accuracy, and information "
-    "gain per viewpoint &mdash; writing <font face=\"Courier\">results/comparison.csv</font> and a "
-    "comparison chart."
+    "fraction, reinspection rate, uncertainty reduction, growth-detection accuracy, information "
+    "gain per viewpoint, and two calibration metrics added after a deeper literature pass "
+    "(Expected Calibration Error and the false-positive/true-positive uncertainty gap, Section 4.2.1) "
+    "&mdash; writing <font face=\"Courier\">results/comparison.csv</font> and a comparison chart."
 )
 
 story.append(PageBreak())
@@ -816,10 +871,12 @@ bullets([
     "Increase the seed count for the ablation comparison specifically, to separate the uncertainty, "
     "temporal, staleness, and lookahead terms' individual contributions with statistical confidence.",
     "Extend the flight-distance metric to account for rotation/reorientation time, not translation "
-    "alone, so it fairly represents hover-and-reinspect behavior in small rooms (Section 4.2).",
-    "Move from the simulated two-room house toward the proposal's originally targeted structure "
-    "types (pipeline segments, tower/truss rigs) as first-class inspectable geometry, not just "
-    "decorative scenery.",
+    "alone, so it fairly represents hover-and-reinspect behavior around small structures (Section 4.2).",
+    "Building B, the pipe rack, and the lattice tower already carry one real inspectable panel each "
+    "(Section 3.5) rather than being purely decorative, as an earlier draft of this report's future "
+    "work called for -- a natural next step is adding more than one panel per structure (e.g. multiple "
+    "faces of the pipe rack), closer to the proposal's originally targeted pipeline-segment/truss-rig "
+    "density.",
     "Replace TTA-ensemble variance with an uncertainty estimate actually validated for calibration "
     "(e.g. MC-Dropout, as Rückin et al. use, or post-hoc temperature scaling), given the negative "
     "uncertainty-gap finding in Section 4.2.1.",

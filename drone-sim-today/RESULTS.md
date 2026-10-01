@@ -14,10 +14,15 @@
   substitute for MC-Dropout (see Limitations).
 - **Memory**: PostgreSQL+pgvector (detection log + identity matching) and
   Neo4j (defect graph), run via `docker/docker-compose.yml`.
-- **Environment**: the two-room house (`sim_house.py`), a candidate-viewpoint
-  graph of 54 stations across 9 wall segments (`planning/viewpoints.py`) --
+- **Environment**: an open-air utility yard (`sim_house.py`) -- two
+  freestanding equipment buildings plus one real inspection panel each on
+  the decorative pipe rack/lattice tower, 9 walls/panels total, a
+  candidate-viewpoint graph of 54 stations (`planning/viewpoints.py`) --
   see the status note below the "Original 5-seed table" for why this count
-  differs from that table's 48.
+  differs from that table's 48. A realism pass (shadows/lighting
+  consistency, higher-resolution ground/sky textures, a real GEOM_BOX
+  tiling bug found and fixed) and a literature-grounded discussion of why
+  this stays on PyBullet rather than Unity/Unreal are in NOVELTY.md section 5.
 - **Comparison**: Random / Isler-NBV / UW-TIG / UW-TIG-no-uncertainty /
   UW-TIG-no-temporal / UW-TIG-no-staleness / UW-TIG-no-lookahead (the last
   two ablate the persistent-monitoring staleness term and the 2-step
@@ -406,11 +411,12 @@ not-great answer:
 teleport), driven live by UW-TIG + the trained detector, across 3 sequential
 missions over the multi-defect real-photo scenario (six walls, three real
 defect classes). Outputs `output/uwtig_flythrough.mp4` (third-person — opens
-with a wide orbiting establishing shot of the utility yard, since the house
-is fully enclosed and the drone never sees it again once flying, then
-follows the drone with a smoothed chase cam through smoothstep-eased
-flight) and `output/uwtig_inspection.mp4` (onboard camera +
-detection/confidence/uncertainty overlay).
+with a wide orbiting establishing shot of the open-air utility yard, which
+stays visible (sky, both buildings, pipe rack, lattice tower) for the whole
+flight since the yard is open rather than enclosed — not just a one-off
+establishing shot — then follows the drone with a smoothed chase cam
+through smoothstep-eased flight) and `output/uwtig_inspection.mp4` (onboard
+camera + detection/confidence/uncertainty overlay).
 
 (The default scenario argument was originally "growing" to show a temporal
 growth narrative, but that scenario's synthetic texture isn't recognized by
