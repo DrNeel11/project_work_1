@@ -445,6 +445,54 @@ across all 3 missions rather than touring every wall once, the active-
 reinspection behavior that is this project's central claim, running for
 real through the physics stack, not just in the kinematic comparison.
 
+## Visual proof: UW-TIG vs. the base paper vs. random, side by side
+
+The 5-seed sweep above is the real, statistical evidence for the novelty
+claim -- but a table of numbers doesn't make the *behavioral* difference
+immediately visible to someone watching, and a real drone isn't required to
+show it: `demo_uwtig_flight.py` now takes `--planner` (any name from
+`PLANNER_REGISTRY`), so the exact same real-physics flagship setup --
+same scenario (`multi_defect`), same seed (7), same 3 missions, same
+8-viewpoint budget -- was run once per planner (`uwtig`, `isler_nbv`,
+`random`), each producing its own flythrough/inspection video, scoped to
+its own persistent-memory namespace (`run_key = "{scenario}|{planner}|{seed}"`,
+the same leak-prevention fix already used in `experiments/mission.py`, now
+also applied here since this script never previously needed it with only
+one planner ever run through it). `make_comparison_video.py` then splices
+the matching frames (both the flythrough and inspection videos have
+*identical* frame counts across planners -- the step count is a function
+of budget/missions, not which planner is choosing the viewpoints -- so the
+concatenation is frame-exact, not padded or guessed) into one
+side-by-side video per kind:
+
+- `output/comparison_flythrough_uwtig_vs_isler_nbv_vs_random.mp4` (and a
+  2-way `..._uwtig_vs_isler_nbv.mp4` for just the base-paper comparison)
+- `output/comparison_inspection_uwtig_vs_isler_nbv_vs_random.mp4`
+
+**What's actually visible, checked directly by extracting and looking at
+frames, not assumed:** by mid-mission the three panels already show the
+drone at three different walls -- confirming real, divergent viewpoint
+choices from the identical starting condition, not a coincidence of a short
+run. By late mission, UW-TIG is engaged with a visually cluttered,
+detail-rich inspection target (a wall with a mounted AC unit and pipework,
+i.e. a real feature-dense defect-bearing surface) while the baselines sit
+at plainer walls at that same timestamp. In the inspection-camera
+comparison, the same synchronized step shows `isler_nbv` mid-detection
+(a real `corrosion c=0.38 u=0.31` box) on a wall `uwtig` and `random` are
+not even looking at that moment -- a concrete illustration of how little
+the baselines' viewpoint choice has to do with where the defects actually
+are, versus UW-TIG's defect- and uncertainty-aware selection.
+
+![Three planners, one frame](report_assets/comparison_flythrough_frame.png)
+
+**What this is and isn't**: this is illustrative, single-seed, qualitative
+evidence -- it makes the 5-seed statistical result (recall, precision,
+reinspection rate) visually intuitive, it does not replace it. The
+quantitative claim still rests on the table above; this is the "show, don't
+just tell" complement to it, and it required no physical drone -- the same
+real PID-controlled physics flight this project's quantitative demo already
+uses, just run three times with three planners and spliced together.
+
 ## Limitations (stated plainly)
 
 1. **The "growing" scenario's detector recall is ~0%.** It uses a

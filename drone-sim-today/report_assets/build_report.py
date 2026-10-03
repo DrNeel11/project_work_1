@@ -745,6 +745,36 @@ body(
     "complete facility coverage first, concentrated reinspection of what matters once that's secured."
 )
 
+h2("4.3.1 Visual Proof: UW-TIG vs. the Base Paper vs. Random, Side by Side")
+body(
+    "The 5-seed sweep (Section 4.2) is the real statistical evidence, but a table doesn't make the "
+    "<i>behavioral</i> difference immediately visible, and no physical drone is needed to show it: "
+    "<font face=\"Courier\">demo_uwtig_flight.py</font> gained a <font face=\"Courier\">--planner</font> "
+    "flag, so the identical real-physics setup (same scenario, seed, missions, budget) was run once per "
+    "planner, each scoped to its own persistent-memory namespace to prevent cross-planner leakage (the "
+    "same fix already used in <font face=\"Courier\">experiments/mission.py</font>, Limitation 6). "
+    "Flythrough and inspection videos have identical frame counts across planners regardless of which "
+    "one is choosing viewpoints, so <font face=\"Courier\">make_comparison_video.py</font> splices them "
+    "into one frame-exact side-by-side video per kind."
+)
+image(os.path.join(HERE, "comparison_flythrough_frame.png"), width=15.5 * cm,
+      caption="Figure 5. Same scenario, same seed, same timestep, three planners (left to right: "
+              "UW-TIG, Isler-NBV, Random). Each is already at a different wall -- real, divergent "
+              "viewpoint choices from an identical start, not coincidence.")
+body(
+    "Checked directly by extracting and looking at frames, not assumed: by mid-mission the three "
+    "panels already show genuinely different walls. By late mission, UW-TIG is engaged with a "
+    "visually cluttered, feature-dense real inspection target (a wall with a mounted AC unit and "
+    "pipework) while the baselines sit at plainer walls at that same timestep. The synchronized "
+    "inspection-camera comparison shows Isler-NBV mid-detection (a real "
+    "<font face=\"Courier\">corrosion c=0.38 u=0.31</font> box) on a wall neither UW-TIG nor Random is "
+    "even looking at that moment &mdash; a concrete illustration of how little the baselines' "
+    "viewpoint choice has to do with where the defects actually are, versus UW-TIG's defect- and "
+    "uncertainty-aware selection. This is illustrative, single-seed, qualitative evidence that makes "
+    "the statistical result visually intuitive; it does not replace Section 4.2's table, which remains "
+    "the quantitative claim."
+)
+
 # ---------------------------------------------------------------- 5. How it's better
 h1("5. How the Novel Planner Is Better")
 bullets([

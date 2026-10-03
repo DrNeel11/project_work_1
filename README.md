@@ -169,6 +169,24 @@ python demo_uwtig_flight.py --missions 3 --budget 8
 # output/uwtig_inspection.mp4 (onboard camera + detection/uncertainty overlay)
 ```
 
+**No physical drone needed to see the novelty in action.** `--planner`
+selects any planner from `PLANNER_REGISTRY` (e.g. `--planner isler_nbv` to
+fly the base paper instead, under identical real PID-controlled physics,
+same scenario/seed/budget), and `make_comparison_video.py` splices
+same-timestep videos from different planners side by side:
+
+```bash
+python demo_uwtig_flight.py --missions 3 --budget 8 --planner isler_nbv
+python demo_uwtig_flight.py --missions 3 --budget 8 --planner random
+python make_comparison_video.py --kind flythrough --planners uwtig isler_nbv random
+python make_comparison_video.py --kind inspection --planners uwtig isler_nbv random
+# output/comparison_flythrough_uwtig_vs_isler_nbv_vs_random.mp4
+# output/comparison_inspection_uwtig_vs_isler_nbv_vs_random.mp4
+```
+
+See RESULTS.md's "Visual proof" section for what these actually show,
+checked by extracting and looking at frames, not assumed.
+
 ## Caveats (stated plainly, see RESULTS.md for the full writeup)
 
 - Detection uncertainty is TTA ensemble variance, not literal MC-Dropout.

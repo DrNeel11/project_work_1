@@ -20,7 +20,7 @@ import geometry as geo  # noqa: E402
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl  # noqa: E402
 from gym_pybullet_drones.utils.enums import DroneModel, Physics  # noqa: E402
 from memory.store import MemoryStore  # noqa: E402
-from planning.planners import MissionBelief, UWTIGPlanner  # noqa: E402
+from planning.planners import PLANNER_REGISTRY, MissionBelief  # noqa: E402
 from planning.viewpoints import build_viewpoints, cell_index_for_world_point  # noqa: E402
 from scene.environment import retexture_ground  # noqa: E402
 from sim_gpd import VisionCtrlAviary  # noqa: E402
@@ -83,7 +83,18 @@ class ChaseCam:
         return np.reshape(rgba, (OVERVIEW_RES[1], OVERVIEW_RES[0], 4))[:, :, :3].astype(np.uint8)
 
 
-def _establishing_shot(client, writer, frames=90):
+def _label_frame(frame_bgr, text):
+    """Burns a small planner-name label into a chase-cam frame's corner, so
+    a side-by-side comparison video (make_comparison_video.py) is
+    self-explanatory without needing a separate legend."""
+    out = frame_bgr.copy()
+    (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+    cv2.rectangle(out, (6, 6), (16 + tw, 16 + th), (0, 0, 0), -1)
+    cv2.putText(out, text, (11, 11 + th), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+    return out
+
+
+def _establishing_shot(client, writer, frames=90, label=None):
     """A slow orbiting wide shot of the whole open-air yard (two freestanding
     buildings, pipe rack, lattice tower, sky backdrop) before the mission
     starts. The yard is open (not an enclosed structure), so the chase-cam
@@ -105,7 +116,10 @@ def _establishing_shot(client, writer, frames=90):
                                              shadow=1, lightDirection=[0.6, -0.4, 1.0],
                                              renderer=p.ER_TINY_RENDERER, physicsClientId=client)
         frame = np.reshape(rgba, (OVERVIEW_RES[1], OVERVIEW_RES[0], 4))[:, :, :3].astype(np.uint8)
-        writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        out_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        if label:
+            out_bgr = _label_frame(out_bgr, label)
+        writer.write(out_bgr)
 
 
 def _smoothstep(t):
@@ -131,7 +145,8 @@ def _annotate(frame_bgr, wall_name, dets, tag):
 
 
 def _fly_to(env, ctrl, obs, target_pos, target_yaw, control_timestep, approach_steps,
-            hover_steps, chase_cam=None, overview_writer=None, overview_every=3, step_counter=0):
+            hover_steps, chase_cam=None, overview_writer=None, overview_every=3, step_counter=0,
+            label=None):
     start_pos = obs[0][0:3].copy()
     start_yaw = math.degrees(p.getEulerFromQuaternion(obs[0][3:7])[2])
     yaw_delta = ((target_yaw - start_yaw + 180) % 360) - 180
@@ -148,12 +163,16 @@ def _fly_to(env, ctrl, obs, target_pos, target_yaw, control_timestep, approach_s
         step_counter += 1
         if overview_writer is not None and step_counter % overview_every == 0:
             frame = chase_cam.capture(env.CLIENT, obs[0][0:3], obs[0][3:7])
-            overview_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            out_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            if label:
+                out_bgr = _label_frame(out_bgr, label)
+            overview_writer.write(out_bgr)
     return obs, step_counter
 
 
 def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=240,
-        approach_steps=300, hover_steps=40, scenario_name="multi_defect"):
+        approach_steps=300, hover_steps=40, scenario_name="multi_defect", planner_name="uwtig",
+        seed=7):
     from experiments.scenarios import SCENARIO_REGISTRY
     from perception.ml_detector import detect_with_uncertainty as detector
 
@@ -161,11 +180,17 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
     # detector doesn't recognize (see RESULTS.md limitations) -- the
     # flagship demo instead uses real MBDD2025 photos (multi_defect) so it
     # actually shows the trained model detecting something.
-    scenario = SCENARIO_REGISTRY[scenario_name](seed=7)
+    scenario = SCENARIO_REGISTRY[scenario_name](seed=seed)
     wall_names = [w["name"] for w in WALL_SEGMENTS]
     viewpoints, dist = build_viewpoints(WALL_SEGMENTS)
-    rng = np.random.RandomState(7)
-    planner = UWTIGPlanner(viewpoints, dist, rng)
+    rng = np.random.RandomState(seed)
+    planner = PLANNER_REGISTRY[planner_name](viewpoints, dist, rng)
+    # Scopes this run's persistent-memory wall keys so comparing planners
+    # side by side (this flag's whole point) never lets one planner's
+    # detection history leak into another's belief through the shared
+    # MemoryStore -- same run-scoping fix already applied in
+    # experiments/mission.py for exactly this reason (RESULTS.md Limitation 6).
+    run_key = f"{scenario_name}|{planner_name}|{seed}"
 
     first = viewpoints[0]
     env = VisionCtrlAviary(
@@ -181,10 +206,10 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
     house = LiveHouseAdapter(env.CLIENT, wall_bodies)
     control_timestep = 1.0 / ctrl_freq
 
-    flythrough_path = os.path.join(OUTPUT_DIR, "uwtig_flythrough.mp4")
-    inspection_path = os.path.join(OUTPUT_DIR, "uwtig_inspection.mp4")
+    flythrough_path = os.path.join(OUTPUT_DIR, f"{planner_name}_flythrough.mp4")
+    inspection_path = os.path.join(OUTPUT_DIR, f"{planner_name}_inspection.mp4")
     overview_writer = cv2.VideoWriter(flythrough_path, cv2.VideoWriter_fourcc(*"mp4v"), 30, OVERVIEW_RES)
-    _establishing_shot(env.CLIENT, overview_writer)
+    _establishing_shot(env.CLIENT, overview_writer, label=planner_name)
     chase_cam = ChaseCam()
     inspect_writer = None
     step_counter = 0
@@ -193,12 +218,13 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
     with MemoryStore() as mem, tempfile.TemporaryDirectory() as tmp_dir:
         for mission_index in range(1, n_missions + 1):
             gt = scenario.setup_mission(house, mission_index, tmp_dir)
-            mission_id = mem.create_mission(scenario.name, "uwtig", seed=7, mission_index=mission_index)
+            mission_id = mem.create_mission(scenario.name, planner_name, seed=seed, mission_index=mission_index)
             if mission_index > 1:
                 priors = {}
                 for wall in wall_names:
                     wd = house.wall_by_name[wall]
-                    for d in mem.active_defects_on_wall(wall):
+                    wall_key = f"{run_key}::{wall}"
+                    for d in mem.active_defects_on_wall(wall_key):
                         hist = mem.get_defect_history(d["id"])
                         if not hist:
                             continue
@@ -212,7 +238,8 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
                 vp = planner.select_next(belief, current_id)
                 obs, step_counter = _fly_to(env, ctrl, obs, vp.pos, vp.yaw_deg, control_timestep,
                                              approach_steps, hover_steps, chase_cam=chase_cam,
-                                             overview_writer=overview_writer, step_counter=step_counter)
+                                             overview_writer=overview_writer, step_counter=step_counter,
+                                             label=planner_name)
                 current_id = vp.id
 
                 rgb, _, _ = env._getDroneImages(0, segmentation=False)
@@ -233,13 +260,14 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
                     size_m = float(np.linalg.norm(corners[0] - corners[1])) if len(corners) == 2 else 0.0
 
                     crop = bgr[max(0, y):y + h, max(0, x):x + w]
+                    wall_key = f"{run_key}::{vp.wall}"
                     _, _, _, growth = mem.match_or_create_defect(
-                        mission_id, vp.wall, det["label"], det["confidence"], det["uncertainty"],
+                        mission_id, wall_key, det["label"], det["confidence"], det["uncertainty"],
                         (x, y, w, h), tuple(world_xyz), size_m=size_m, crop_bgr=crop)
                     belief.record_detection(vp.wall, world_xyz, det["uncertainty"], growth, wall_dict)
 
                 belief.record_visit(vp)
-                tag = f"mission {mission_index} step {step_i} | budget {budget_per_mission}"
+                tag = f"[{planner_name}] mission {mission_index} step {step_i} | budget {budget_per_mission}"
                 annotated = _annotate(bgr, vp.wall, dets, tag)
                 if inspect_writer is None:
                     h, w = annotated.shape[:2]
@@ -264,6 +292,11 @@ if __name__ == "__main__":
     ap.add_argument("--gui", action="store_true")
     ap.add_argument("--scenario", default="multi_defect",
                      choices=["static", "uncertain", "growing", "multi_defect"])
+    ap.add_argument("--planner", default="uwtig", choices=list(PLANNER_REGISTRY.keys()),
+                     help="Which planner drives this flight -- run the same scenario/seed with "
+                          "different planners (e.g. uwtig vs. isler_nbv) for a direct, same-"
+                          "conditions video comparison of the novel planner vs. the base paper.")
+    ap.add_argument("--seed", type=int, default=7)
     args = ap.parse_args()
     run(n_missions=args.missions, budget_per_mission=args.budget, gui=args.gui,
-        scenario_name=args.scenario)
+        scenario_name=args.scenario, planner_name=args.planner, seed=args.seed)

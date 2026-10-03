@@ -416,3 +416,26 @@ the detection or planning path (confirmed by the camera-framing argument
 above), so none of the existing 5-seed sweep results needed re-running --
 only the flagship demo video, which is purely illustrative, was
 regenerated.
+
+## 6. Demonstrating the Novelty Without Physical Hardware
+
+A real drone would test flight-hardware reliability, not planning novelty
+-- the actual novelty claim (Section 1) lives in the planner and memory
+logic, which this project validates the standard way this subfield
+validates a new planning algorithm: controlled comparison against a
+faithfully reimplemented base paper, in one testbed, with a real trained
+perception model in the loop (not assumed ground truth). That's the
+5-seed statistical sweep. What was previously missing was a way to *watch*
+that difference, not just read it off a table -- `demo_uwtig_flight.py`
+gained a `--planner` flag (any `PLANNER_REGISTRY` entry) and
+`make_comparison_video.py` splices same-scenario, same-seed, frame-exact
+videos from different planners side by side, so the behavioral difference
+behind the numbers is directly visible: by mid-mission the three planners
+are already provably at three different walls from an identical start;
+by late mission UW-TIG is engaged with a feature-dense real defect target
+while the baselines sit elsewhere; the inspection-camera comparison shows
+one planner mid-detection on a wall the others aren't even looking at.
+See RESULTS.md's "Visual proof" section for the full description, checked
+by extracting and looking at the actual frames, not assumed. This required
+no hardware -- the same real PID-controlled physics flight this project's
+quantitative sweep is validated against, run once per planner.
