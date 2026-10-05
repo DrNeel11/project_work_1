@@ -2,8 +2,11 @@
 
 > **Current headline numbers** are in "Getting precision, recall and F1
 > above 0.90" further down: UW-TIG **P 0.949 / R 0.967 / F1 0.953** on test
-> seeds 0-4, with every choice made on separate dev seeds. Earlier tables
-> are kept as the project's record and are superseded by that section.
+> seeds 0-4, with every choice made on separate dev seeds. "Head-to-head vs.
+> published planners" compares it with four more re-implemented literature
+> planners. UW-TIG ties the best of them on F1 (Rückin IPP 0.950) on 39% less
+> flight. Earlier tables are kept as the project's record and are superseded
+> by those two sections.
 
 ## Setup
 
@@ -496,12 +499,12 @@ unit-mismatched formula on these same runs:
 |---|---|---|---|---|---|---|---|---|---|
 | random | 0.921 | 0.837 | 0.873 | 0.782 / 0.837 / 0.800 | 0.548 | 0.85 | 394.9 | 1.00 | 0.31 |
 | isler_nbv | 0.890 | 0.556 | 0.671 | 0.844 / 0.556 / 0.649 | 0.507 | 0.94 | 30.7 | 0.44 | 0.33 |
-| **uwtig** | **0.949** | **0.967** | **0.953** | **0.917 / 0.978 / 0.939** | 0.668 | 0.71 | 125.2 | 1.00 | 0.30 |
-| uwtig_no_uncertainty | 0.949 | 0.967 | 0.953 | 0.917 / 0.978 / 0.939 | 0.668 | 0.71 | 124.7 | 1.00 | 0.30 |
+| **uwtig** | **0.949** | **0.967** | **0.953** | **0.917 / 0.978 / 0.939** | 0.668 | 0.70 | 125.1 | 1.00 | 0.30 |
+| uwtig_no_uncertainty | 0.949 | 0.967 | 0.953 | 0.917 / 0.978 / 0.939 | 0.668 | 0.71 | 124.6 | 1.00 | 0.30 |
 | uwtig_no_temporal | 0.949 | 0.967 | 0.953 | 0.917 / 0.978 / 0.939 | 0.668 | 0.70 | 125.1 | 1.00 | 0.30 |
-| uwtig_no_staleness | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.730 | 0.58 | 80.6 | 1.00 | 0.29 |
+| uwtig_no_staleness | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.731 | 0.57 | 80.6 | 1.00 | 0.29 |
 | uwtig_no_coverage_first | 0.911 | 0.556 | 0.680 | 0.911 / 0.556 / 0.680 | 0.575 | 0.81 | 13.4 | 0.44 | 0.31 |
-| uwtig_no_lookahead | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.731 | 0.59 | 87.1 | 1.00 | 0.29 |
+| uwtig_no_lookahead | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.731 | 0.59 | 85.2 | 1.00 | 0.29 |
 
 Per scenario (UW-TIG, confirmed P / R / F1): static 0.964 / 0.933 / 0.940;
 uncertain **0.893** / 0.967 / 0.925; multi-defect 0.989 / 1.000 / 0.995.
@@ -509,10 +512,11 @@ Per-seed UW-TIG F1: 0.943, **0.890**, 1.000, 1.000, 0.933.
 
 **Stated plainly:**
 
-- **UW-TIG clears 0.90 on all three averaged metrics, and is the only
-  planner that does.** Random reaches 0.921 precision but 0.837 recall;
+- **UW-TIG clears 0.90 on all three averaged metrics; neither baseline in
+  this table does.** Random reaches 0.921 precision but 0.837 recall;
   Isler-NBV, still capped at 4 of 9 walls by its cost/coverage scale, reaches
-  0.556 recall.
+  0.556 recall. (Two of the published planners added in the next section,
+  Rückin IPP and Alamdari, also clear 0.90 -- see there.)
 - **Not every slice clears 0.90:** the deliberately faint "uncertain"
   scenario's precision is 0.893, and one of five seeds has F1 0.890. The
   averages are above 0.90; the floor is not.
@@ -522,7 +526,7 @@ Per-seed UW-TIG F1: 0.943, **0.890**, 1.000, 1.000, 0.933.
   planner -- Random and Isler-NBV improved too.
 - **Two ablations now beat the full planner.** Without the staleness term
   or without the lookahead, precision is 0.967 (vs. 0.949), localization
-  error 0.58 m (vs. 0.71 m) and flight ~35% shorter. Once a single survey
+  error 0.57-0.59 m (vs. 0.70 m) and flight ~32-36% shorter. Once a single survey
   look is ~99% reliable, revisiting for staleness or planning two steps ahead
   adds flying without adding accuracy. The uncertainty and temporal ablations
   are now *identical* to the full planner -- in this configuration those terms
@@ -534,6 +538,69 @@ Per-seed UW-TIG F1: 0.943, **0.890**, 1.000, 1.000, 0.933.
   (Limitation 1, synthetic texture the real-photo detector doesn't recognise).
 - **Calibration is still poor** (ECE 0.30) and the uncertainty gap is still
   negative (-0.11) -- Limitation 8 stands.
+
+## Head-to-head vs. published planners (same testbed, same test seeds)
+
+Until now the only external planner in the table was the base paper
+(Isler-NBV). Four more planners from the literature are now in
+`planning/planners.py`. Each re-implements that paper's **viewpoint-selection
+rule** over this project's viewpoint graph and belief, not the full published
+system. They all get the same detector, memory, confirmation rule, 16-view
+budget and test seeds 0-4. The confirmation rule was tuned on dev seeds
+*before* these planners existed, so it was not tuned in UW-TIG's favour
+against them.
+
+| re-implemented rule | registry name | what it selects |
+|---|---|---|
+| Bircher et al. 2016, receding-horizon NBV | `bircher_rhnbv` | best depth-2 branch of gain &middot; e^(&minus;0.5&middot;cost), executes only the first step |
+| Dhami et al. (GATSBI), GTSP tour | `gatsbi_gtsp` | nearest-neighbour + 2-opt tour over the least-inspected walls, followed in order |
+| Rückin et al., informative path planning | `ruckin_ipp` | acquisition (uncertainty, unobserved = 0.5) / (1 + visit count), single-session belief |
+| Alamdari/Fata/Smith, persistent monitoring | `alamdari_latency` | wall with the greatest time since last visit |
+
+Mean over static / uncertain / multi-defect &times; 5 test seeds &times; 3
+missions (growing excluded, as above), from the same 12-planner sweep as the
+ablation table above:
+
+| planner | P (confirmed) | R (confirmed) | F1 (confirmed) | F1 single-look | loc. err (m) | flight (m) | coverage |
+|---|---|---|---|---|---|---|---|
+| random | 0.921 | 0.837 | 0.873 | 0.800 | 0.85 | 394.9 | 1.00 |
+| isler_nbv (base paper) | 0.890 | 0.556 | 0.671 | 0.649 | 0.94 | 30.7 | 0.44 |
+| bircher_rhnbv | 0.917 | 0.756 | 0.814 | 0.814 | 0.80 | 47.9 | 0.67 |
+| gatsbi_gtsp | 0.887 | 0.922 | 0.900 | 0.846 | 0.63 | 125.4 | 1.00 |
+| alamdari_latency | 0.924 | **0.967** | 0.941 | 0.909 | 0.73 | 167.7 | 1.00 |
+| ruckin_ipp | **0.959** | 0.944 | 0.950 | 0.931 | 0.86 | 204.3 | 1.00 |
+| **uwtig** | 0.949 | **0.967** | **0.953** | **0.939** | **0.70** | 125.1 | 1.00 |
+
+Per-scenario F1 (confirmed), static / uncertain / multi-defect: uwtig
+0.940 / 0.925 / 0.995; ruckin_ipp 0.964 / 0.909 / 0.978; alamdari_latency
+0.910 / 0.925 / 0.989; gatsbi_gtsp 0.893 / 0.841 / 0.966; bircher_rhnbv
+0.931 / 0.600 / 0.909.
+
+**Stated plainly:**
+
+- **UW-TIG has the highest F1, but only narrowly.** Its lead over Rückin IPP
+  (0.953 vs. 0.950) and Alamdari (0.941) is well within seed-to-seed noise
+  (UW-TIG's own per-seed F1 ranges 0.890-1.000). The honest claim is a tie at
+  the top on detection quality, not a clear win.
+- **Where UW-TIG does separate is cost.** It matches the best detection
+  numbers on 125 m of flight. Rückin IPP flies 204 m (+63%) and Alamdari
+  168 m (+34%). GATSBI flies the same 125 m but reaches F1 0.900, and its
+  uncertain-scenario F1 is 0.841. UW-TIG also has the lowest localization
+  error of the seven planners (0.70 m).
+- **Rückin IPP beats UW-TIG on precision** (0.959 vs. 0.949) and on the
+  static scenario (0.964 vs. 0.940). Uncertainty-driven acquisition is a
+  strong rule here, which supports Rückin et al.'s approach as much as
+  UW-TIG's.
+- **The failure pattern of the published rules is coverage.** Bircher's
+  receding horizon, like Isler-NBV, never pays to cross to the far building
+  (coverage 0.67 and 0.44). This is the same cost-scale ceiling UW-TIG's
+  coverage-guarantee phase was added to fix (F1 0.680 without it).
+- **What this comparison is not:** these are selection-rule
+  re-implementations, not the authors' code or full systems (no learned
+  models from Rückin et al., no exploration mapping from Bircher et al., no
+  semantic detector from GATSBI). They are as close as this testbed allows,
+  and every one runs through the same evaluation, but a paper's own reported
+  numbers would not be reproduced here and are not claimed to be.
 
 ## Flagship real-flight demo
 

@@ -388,9 +388,163 @@ class UWTIGNoCoverageFirstPlanner(UWTIGPlanner):
     coverage_first = False
 
 
+# ---------------------------------------------------------------------------
+# Re-implemented literature baselines. Each adapts one paper's core
+# viewpoint-selection rule to this testbed's discrete 54-viewpoint graph and
+# shared MissionBelief -- the same way IslerNBVPlanner adapts Isler et al. --
+# so every planner is measured with the same detector, scenes, seeds and
+# scoring. They are faithful to each paper's *selection rule*, not to its
+# full system (no RRT sampling, 3D occupancy mapping or online model
+# retraining); that limitation is stated in RESULTS.md. Parameters are set
+# once from the papers' formulations and were not tuned on any results.
+# ---------------------------------------------------------------------------
+
+
+def _coverage_gain(view_count, v):
+    return sum(_entropy(1 - 0.5 * math.exp(-VIEW_SATURATION_K * view_count[(v.wall, c)]))
+               for c in v.visible_cells)
+
+
+class BircherRHNBVPlanner(BasePlanner):
+    """Bircher et al., "Receding Horizon 'Next-Best-View' Planner for 3D
+    Exploration", ICRA 2016. Branch gain accumulates per node as
+    Gain(n_k) = Gain(n_{k-1}) + G(n_k) * exp(-lambda * c(n_{k-1} -> n_k)),
+    and only the first edge of the best branch is executed before
+    replanning. Here: every depth-2 branch over the viewpoint graph (instead
+    of an RRT), G = coverage information gain, geometry only."""
+    name = "bircher_rhnbv"
+    lam = 0.5
+
+    def select_next(self, belief, current_id):
+        best_v, best_val = None, -math.inf
+        for v1 in self.viewpoints:
+            g1 = belief.information_gain(v1) * math.exp(-self.lam * self._cost(current_id, v1))
+            vc = dict(belief.view_count)
+            for c in v1.visible_cells:
+                vc[(v1.wall, c)] += 1
+            g2 = max(_coverage_gain(vc, v2) * math.exp(-self.lam * self._cost(v1.id, v2))
+                     for v2 in self.viewpoints)
+            if g1 + g2 > best_val:
+                best_val, best_v = g1 + g2, v1
+        return best_v
+
+
+class GATSBIPlanner(BasePlanner):
+    """Dhami et al., GATSBI (ICUAS 2023; arXiv:2406.16625): an online GTSP --
+    one viewpoint per still-uninspected surface cluster, ordered into the
+    shortest tour from the current position, replanned every step, first
+    leg executed. Here clusters are walls; the target set is the walls whose
+    least-observed cell is least observed (all walls with an unseen cell
+    first, then a fresh lap), each served by its viewpoint that sees the
+    most of those cells; tour order is nearest-neighbour + 2-opt.
+    Coverage-driven, no detection-uncertainty term."""
+    name = "gatsbi_gtsp"
+
+    def __init__(self, viewpoints, dist, rng):
+        super().__init__(viewpoints, dist, rng)
+        self.wall_cells = {}
+        for v in viewpoints:
+            self.wall_cells.setdefault(v.wall, set()).update(v.visible_cells)
+
+    def _wall_view(self, belief, wall, target):
+        cands = [v for v in self.viewpoints if v.wall == wall]
+        return max(cands, key=lambda v: (len(target & set(v.visible_cells)), len(v.visible_cells)))
+
+    def _path_cost(self, start_id, path):
+        total, prev = 0.0, start_id
+        for v in path:
+            total += self._cost(prev, v)
+            prev = v.id
+        return total
+
+    def select_next(self, belief, current_id):
+        least = {w: min(belief.view_count[(w, c)] for c in cells) for w, cells in self.wall_cells.items()}
+        floor = min(least.values())
+        nodes = []
+        for w, cells in self.wall_cells.items():
+            if least[w] == floor:
+                target = {c for c in cells if belief.view_count[(w, c)] == floor}
+                nodes.append(self._wall_view(belief, w, target))
+
+        tour, remaining, prev = [], list(nodes), current_id
+        while remaining:
+            nxt = min(remaining, key=lambda v: self._cost(prev, v))
+            tour.append(nxt)
+            remaining.remove(nxt)
+            prev = nxt.id
+        improved = True
+        while improved:
+            improved = False
+            for i in range(len(tour) - 1):
+                for j in range(i + 1, len(tour)):
+                    cand = tour[:i] + tour[i:j + 1][::-1] + tour[j + 1:]
+                    if self._path_cost(current_id, cand) < self._path_cost(current_id, tour) - 1e-9:
+                        tour, improved = cand, True
+        return tour[0]
+
+
+class RuckinIPPPlanner(BasePlanner):
+    """Rueckin, Jin, Magistri, Stachniss & Popovic, "An Informative Path
+    Planning Framework for Active Learning in UAV-Based Semantic Mapping",
+    IEEE T-RO 2023 (arXiv:2302.03347): next pose
+    p* = argmax ||G_U(p)||_1 / ||T(p)||_1 -- mapped model uncertainty in the
+    view footprint, normalized by how much data that footprint already has.
+    Here G_U per cell is the detector's TTA uncertainty recorded THIS mission
+    (unobserved cells take the maximal Bernoulli std, 0.5, as an
+    uninformed prior) and T = 1 + times the cell was observed. Single-session
+    by design, like the original: uncertainty seeded from cross-mission
+    memory is ignored (that persistence is UW-TIG's contribution, not
+    theirs). No travel-cost term -- the objective has none."""
+    name = "ruckin_ipp"
+    unobserved_acq = 0.5
+
+    def __init__(self, viewpoints, dist, rng):
+        super().__init__(viewpoints, dist, rng)
+        self._seeded = None
+
+    def _acq(self, belief, key):
+        if belief.view_count[key] == 0:
+            return self.unobserved_acq
+        u = belief.uncertainty[key]
+        return u if u != self._seeded.get(key) else 0.0
+
+    def select_next(self, belief, current_id):
+        if self._seeded is None:
+            self._seeded = dict(belief.uncertainty)  # mission-start state = memory priors
+        def score(v):
+            keys = [(v.wall, c) for c in v.visible_cells]
+            return (sum(self._acq(belief, k) for k in keys)
+                    / sum(1 + belief.view_count[k] for k in keys), -self._cost(current_id, v))
+        return max(self.viewpoints, key=score)
+
+
+class AlamdariLatencyPlanner(BasePlanner):
+    """Alamdari, Fata & Smith, "Persistent Monitoring in Discrete
+    Environments: Minimizing the Maximum Weighted Latency Between
+    Observations", IJRR 2014. Online greedy form of their min-max-latency
+    walk: go to the wall with the largest latency (steps since any of its
+    cells was last observed; never-observed walls first), uniform weights
+    (no defect knowledge), using that wall's widest-view viewpoint, ties
+    broken by travel cost."""
+    name = "alamdari_latency"
+
+    def select_next(self, belief, current_id):
+        latency = {}
+        for (w, c), last in belief.last_visit_step.items():
+            age = belief.step + 1 if last < 0 else belief.step - last
+            latency[w] = min(latency.get(w, math.inf), age)  # wall latency = its freshest cell
+        top = max(latency.values())
+        cands = [v for v in self.viewpoints if latency[v.wall] == top]
+        return max(cands, key=lambda v: (len(v.visible_cells), -self._cost(current_id, v)))
+
+
 PLANNER_REGISTRY = {
     "random": RandomPlanner,
     "isler_nbv": IslerNBVPlanner,
+    "bircher_rhnbv": BircherRHNBVPlanner,
+    "gatsbi_gtsp": GATSBIPlanner,
+    "ruckin_ipp": RuckinIPPPlanner,
+    "alamdari_latency": AlamdariLatencyPlanner,
     "uwtig": UWTIGPlanner,
     "uwtig_no_uncertainty": UWTIGNoUncertaintyPlanner,
     "uwtig_no_temporal": UWTIGNoTemporalPlanner,

@@ -250,6 +250,21 @@ literature" for the real numbers and the honest, non-flattering result
 that are partly about task difficulty and dataset provenance, not just
 model quality -- stated plainly rather than omitted).
 
+**Update: the published planners are now measured in this testbed, not just
+tabulated.** The papers' own numbers still can't be compared, for the reasons
+above. Instead, the viewpoint-selection rules of Bircher et al. 2016
+(receding-horizon NBV), GATSBI (GTSP tour over the least-inspected walls),
+Rückin et al. (uncertainty acquisition / visit count) and Alamdari, Fata &
+Smith (max latency) were re-implemented in `planning/planners.py`. They ran
+through the exact same sweep as UW-TIG (same detector, confirmation rule and
+test seeds). Result, confirmed F1 / flight: UW-TIG 0.953 / 125 m, Rückin IPP
+0.950 / 204 m, Alamdari 0.941 / 168 m, GATSBI 0.900 / 125 m, Bircher 0.814 /
+48 m, Isler-NBV 0.671 / 31 m. UW-TIG ties the best of them on detection
+quality (the 0.003 lead is inside seed noise) at 39% less flight than Rückin
+IPP. Rückin IPP has slightly higher precision (0.959 vs. 0.949). These are
+selection-rule re-implementations, not the authors' full systems. The full
+table and caveats are in RESULTS.md, "Head-to-head vs. published planners".
+
 ## 4. What this does and doesn't claim
 
 - These are real, reproducible code changes, now backed by a real 5-seed

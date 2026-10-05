@@ -14,6 +14,9 @@ drone-sim-today/sweep_*.txt
 # see README.md setup steps to reproduce)
 drone-sim-today/gpd_src/
 
+# Office lock files (exist only while a deck/document is open)
+~$*
+
 # Python
 __pycache__/
 *.pyc
