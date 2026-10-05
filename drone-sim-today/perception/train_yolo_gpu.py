@@ -26,12 +26,16 @@ def main():
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--model", default="yolov8s.pt")
     ap.add_argument("--name", default="mbdd_yolov8s_gpu")
+    ap.add_argument("--patience", type=int, default=20)
+    ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--cache", default=False, help="'ram' to cache decoded images (needs ~15GB RAM at 640px)")
     args = ap.parse_args()
 
     model = YOLO(args.model)
     model.train(
         data=DATA_YAML, epochs=args.epochs, imgsz=args.imgsz, batch=args.batch,
-        device=0, project=WEIGHTS_DIR, name=args.name, exist_ok=True, patience=20,
+        device=0, project=WEIGHTS_DIR, name=args.name, exist_ok=True, patience=args.patience,
+        workers=args.workers, cache=args.cache,
     )
     best = os.path.join(WEIGHTS_DIR, args.name, "weights", "best.pt")
     print("best weights ->", best)

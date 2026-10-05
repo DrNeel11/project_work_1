@@ -34,6 +34,13 @@ IMG_DIR = os.path.join(ROOT, "datasets", "mbdd_yolo", "images", "test")
 LBL_DIR = os.path.join(ROOT, "datasets", "mbdd_yolo", "labels", "test")
 
 TARGET_AREA_FRAC = 0.12  # prefer a defect box around this fraction of the frame
+# Long side of the generated texture. The wall camera sees only ~1 m of a
+# 2.6-4 m wall at close standoff, so a 512 px texture (the procedural
+# generator's SIZE) is magnified ~3x into visible blocky pixels -- an
+# artifact no real camera would see. Ground-truth `center` stays expressed
+# in geometry.texture_uv_to_world's 512-normalized texture units regardless.
+TEX_LONG_SIDE = 1536
+GT_TEX_UNITS = 512
 
 _index_cache = None
 _photo_by_center = {}
@@ -71,7 +78,11 @@ def _pick_photo(defect_type, rng, severity=1.0):
     return min(sampled, key=lambda c: abs(c[3] * c[4] - target))
 
 
-def make_wall_texture(defect_type, rng, severity=1.0, base_color=None, center=None):
+def make_wall_texture(defect_type, rng, severity=1.0, base_color=None, center=None, aspect=1.0):
+    """`aspect` is the target wall's width/height. The photo is cropped to
+    that aspect (not to a square later stretched across a 4 m x 2.4 m wall,
+    which smeared every defect ~1.7x horizontally), so photo pixels land
+    square on the wall."""
     if base_color is None:
         base_color = random_base_color(rng)
 
@@ -91,21 +102,41 @@ def make_wall_texture(defect_type, rng, severity=1.0, base_color=None, center=No
 
     img = Image.open(os.path.join(IMG_DIR, base + ".jpg")).convert("RGB")
     iw, ih = img.size
-    side = min(iw, ih)
+    crop_w, crop_h = (iw, iw / aspect) if iw / aspect <= ih else (ih * aspect, ih)
     bx, by = cx * iw, cy * ih
-    x0 = int(np.clip(bx - side / 2, 0, max(0, iw - side)))
-    y0 = int(np.clip(by - side / 2, 0, max(0, ih - side)))
-    square = img.crop((x0, y0, x0 + side, y0 + side)).resize((SIZE, SIZE))
+    x0 = float(np.clip(bx - crop_w / 2, 0, max(0.0, iw - crop_w)))
+    y0 = float(np.clip(by - crop_h / 2, 0, max(0.0, ih - crop_h)))
+    out_w, out_h = ((TEX_LONG_SIDE, round(TEX_LONG_SIDE / aspect)) if aspect >= 1
+                    else (round(TEX_LONG_SIDE * aspect), TEX_LONG_SIDE))
+    tex = img.crop((round(x0), round(y0), round(x0 + crop_w), round(y0 + crop_h))).resize(
+        (out_w, out_h), Image.LANCZOS)
 
     if center is None:
-        tex_cx = int(np.clip((bx - x0) / side * SIZE, 0, SIZE - 1))
-        tex_cy = int(np.clip((by - y0) / side * SIZE, 0, SIZE - 1))
+        tex_cx = int(np.clip((bx - x0) / crop_w * GT_TEX_UNITS, 0, GT_TEX_UNITS - 1))
+        tex_cy = int(np.clip((by - y0) / crop_h * GT_TEX_UNITS, 0, GT_TEX_UNITS - 1))
         center = (tex_cx, tex_cy)
         _photo_by_center[(defect_type, center)] = (base, cx, cy, w, h)
 
     meta = {"defect_type": defect_type, "severity": severity, "base_color": base_color,
-            "center": center, "source_image": base}
-    return square, None, meta
+            "center": center, "source_image": base,
+            "present_classes": _classes_in_crop(base, iw, ih, x0, y0, crop_w, crop_h) | {defect_type}}
+    return tex, None, meta
+
+
+def _classes_in_crop(base, iw, ih, x0, y0, crop_w, crop_h):
+    """Every class with a labeled box centered inside the crop. 16% of
+    MBDD2025 test photos carry more than one class, so a photo picked for
+    `crack` can genuinely also contain labeled `abscission` -- detecting it is
+    a correct detection, not a false positive, and evaluate.py must know."""
+    present = set()
+    for line in open(os.path.join(LBL_DIR, base + ".txt")):
+        parts = line.split()
+        if not parts:
+            continue
+        bcx, bcy = float(parts[1]) * iw, float(parts[2]) * ih
+        if x0 <= bcx <= x0 + crop_w and y0 <= bcy <= y0 + crop_h:
+            present.add(CLASS_NAMES[int(parts[0])])
+    return present
 
 
 if __name__ == "__main__":

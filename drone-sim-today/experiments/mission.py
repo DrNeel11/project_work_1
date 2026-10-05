@@ -19,9 +19,9 @@ import geometry as geo  # noqa: E402
 from experiments.kinematic_capture import KinematicHouse  # noqa: E402
 from planning.planners import PLANNER_REGISTRY, MissionBelief  # noqa: E402
 from planning.viewpoints import build_viewpoints, cell_index_for_world_point, n_cells_for_wall  # noqa: E402
-from sim_house import WALL_SEGMENTS  # noqa: E402
+from sim_house import IMG_RES, WALL_SEGMENTS  # noqa: E402
 
-IMG_W, IMG_H = 320, 240
+IMG_W, IMG_H = int(IMG_RES[0]), int(IMG_RES[1])
 
 
 def _seed_priors_from_memory(mem, wall_names, run_key):
@@ -93,8 +93,8 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
                 world_xyz = geo.localize_on_wall(center_px, pos, quat, wall_dict, IMG_W, IMG_H)
                 if world_xyz is None:
                     continue
-                corners = [geo.localize_on_wall((x, y), pos, quat, wall_dict, IMG_W, IMG_H),
-                           geo.localize_on_wall((x + w, y + h), pos, quat, wall_dict, IMG_W, IMG_H)]
+                corners = [geo.localize_on_wall((x, y), pos, quat, wall_dict, IMG_W, IMG_H, within_extent=False),
+                           geo.localize_on_wall((x + w, y + h), pos, quat, wall_dict, IMG_W, IMG_H, within_extent=False)]
                 corners = [c for c in corners if c is not None]
                 size_m = float(np.linalg.norm(corners[0] - corners[1])) if len(corners) == 2 else 0.0
 

@@ -26,8 +26,37 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 WALL_BY_NAME = {w["name"]: w for w in WALL_SEGMENTS}
 
 
-def _gt_wall_classes(gt):
-    return {(wall, info["defect_type"]) for wall, info in gt.items() if info["defect_type"] != "clean"}
+# A defect counts as "confirmed" in the inspection report once it has been
+# seen in >= CONFIRM_MIN_VIEWS separate looks (accumulated across missions --
+# persistent memory carries the count forward), or once in a single look at
+# >= CONFIRM_MIN_CONF. Applied identically to every planner. Chosen on dev
+# seeds (experiments/diagnose_detection.py), never on the reported seeds.
+CONFIRM_MIN_VIEWS = 3
+CONFIRM_MIN_CONF = 0.45
+
+
+def _gt_sets(gt):
+    """(primary, present): primary = the defect the scenario deliberately
+    placed on each wall (what recall is measured against); present = every
+    class actually labeled inside that wall's real MBDD2025 photo crop. A
+    report of a present-but-not-primary class is a correct detection of a
+    real labeled defect, so it is ignored -- neither TP nor FP (COCO-style
+    ignore semantics) -- rather than wrongly scored as a false positive."""
+    primary = {(w, info["defect_type"]) for w, info in gt.items() if info["defect_type"] != "clean"}
+    present = set(primary)
+    for w, info in gt.items():
+        present |= {(w, c) for c in info.get("present_classes", ())}
+    return primary, present
+
+
+def _prf(tp, fp, fn):
+    precision = tp / (tp + fp) if (tp + fp) else float("nan")
+    recall = tp / (tp + fn) if (tp + fn) else float("nan")
+    if np.isnan(precision) or np.isnan(recall):
+        f1 = float("nan")
+    else:
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return precision, recall, f1
 
 
 def compute_ece(confidence_correct_pairs, n_bins=10):
@@ -56,7 +85,9 @@ def compute_ece(confidence_correct_pairs, n_bins=10):
 
 
 def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
-    tp = fp = fn = 0
+    counts = {"any": [0, 0, 0], "confirmed": [0, 0, 0]}  # [tp, fp, fn] at the report level
+    legacy_tp = legacy_fp = legacy_fn = 0  # pre-fix scoring, kept for transparency (see RESULTS.md)
+    cumulative_views = {}  # (wall, label) -> looks so far, carried across missions like persistent memory
     loc_errors = []
     visited_walls_ever = set()
     gt_walls_ever = set()
@@ -70,27 +101,31 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     final_entropy = mission_logs[-1]["final_mean_entropy"] * n_cells_total
 
     for m in mission_logs:
-        gt_classes = _gt_wall_classes(m["ground_truth"])
-        gt_walls_ever |= {w for w, _ in gt_classes}
-        wall_hits = set()
+        primary, present = _gt_sets(m["ground_truth"])
+        gt_walls_ever |= {w for w, _ in primary}
+        mission_max_conf = {}  # (wall, label) -> best confidence this mission
+        legacy_hits = set()
 
         for step in m["steps"]:
             visited_walls_ever.add(step["wall"])
-            if step["wall"] in {w for w, _ in gt_classes}:
+            if step["wall"] in {w for w, _ in primary}:
                 revisit_count[step["wall"]] = revisit_count.get(step["wall"], 0) + 1
+            labels_this_look = set()
             for det in step["detections"]:
-                is_tp = (step["wall"], det["label"]) in gt_classes
-                conf_correct_pairs.append((det["confidence"], is_tp))
-                uncertainty_by_correctness["tp" if is_tp else "fp"].append(det["uncertainty"])
-                if is_tp:
-                    wall_hits.add((step["wall"], det["label"]))
-                    wall = WALL_BY_NAME[step["wall"]]
+                pair = (step["wall"], det["label"])
+                is_correct = pair in present
+                conf_correct_pairs.append((det["confidence"], is_correct))
+                uncertainty_by_correctness["tp" if is_correct else "fp"].append(det["uncertainty"])
+                mission_max_conf[pair] = max(mission_max_conf.get(pair, 0.0), det["confidence"])
+                labels_this_look.add(pair)
+                if pair in primary:
+                    legacy_hits.add(pair)
                     center = scenario._centers.get(step["wall"])
                     if center is not None:
-                        gt_xyz = geo.texture_uv_to_world(wall, *center)
+                        gt_xyz = geo.texture_uv_to_world(WALL_BY_NAME[step["wall"]], *center)
                         loc_errors.append(float(np.linalg.norm(np.array(det["world_xyz"]) - gt_xyz)))
                 else:
-                    fp += 1
+                    legacy_fp += 1
 
                 did = det["defect_id"]
                 rec = defect_first_last.setdefault(did, [det["uncertainty"], det["uncertainty"],
@@ -98,13 +133,25 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
                 rec[1] = det["uncertainty"]
                 rec[3] = det["size_m"]
                 rec[4] += 1
+            for pair in labels_this_look:  # one look counts once, however many boxes it drew
+                cumulative_views[pair] = cumulative_views.get(pair, 0) + 1
 
-        tp += len(wall_hits)
-        fn += len(gt_classes - wall_hits)
+        legacy_tp += len(legacy_hits)
+        legacy_fn += len(primary - legacy_hits)
 
-    precision = tp / (tp + fp) if (tp + fp) else float("nan")
-    recall = tp / (tp + fn) if (tp + fn) else float("nan")
-    f1 = 2 * precision * recall / (precision + recall) if (precision and recall and (precision + recall)) else float("nan")
+        reported = {
+            "any": set(mission_max_conf),
+            "confirmed": {pr for pr, c in mission_max_conf.items()
+                          if cumulative_views[pr] >= CONFIRM_MIN_VIEWS or c >= CONFIRM_MIN_CONF},
+        }
+        for variant, rep in reported.items():
+            counts[variant][0] += len(rep & primary)
+            counts[variant][1] += len(rep - present)
+            counts[variant][2] += len(primary - rep)
+
+    precision, recall, f1 = _prf(*counts["any"])
+    precision_c, recall_c, f1_c = _prf(*counts["confirmed"])
+    precision_legacy, recall_legacy, f1_legacy = _prf(legacy_tp, legacy_fp, legacy_fn)
 
     reinspect_targets = [w for w in gt_walls_ever if revisit_count.get(w, 0) > 1]
     reinspection_rate = len(reinspect_targets) / len(gt_walls_ever) if gt_walls_ever else float("nan")
@@ -121,6 +168,8 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     return {
         "planner": planner_name, "scenario": scenario_name, "seed": seed,
         "precision": precision, "recall": recall, "f1": f1,
+        "precision_confirmed": precision_c, "recall_confirmed": recall_c, "f1_confirmed": f1_c,
+        "precision_legacy": precision_legacy, "recall_legacy": recall_legacy, "f1_legacy": f1_legacy,
         "mean_localization_error_m": float(np.mean(loc_errors)) if loc_errors else float("nan"),
         "total_flight_dist_m": total_dist, "total_viewpoints": total_viewpoints,
         "coverage_frac": len(visited_walls_ever) / len(WALL_SEGMENTS),
@@ -133,8 +182,9 @@ def summarize_run(planner_name, scenario_name, seed, mission_logs, scenario):
     }
 
 
-def run_sweep(detector, planners, scenarios, seeds, missions_per_scenario, budget):
+def run_sweep(detector, planners, scenarios, seeds, missions_per_scenario, budget, dump_logs=None):
     rows = []
+    dumped = []
     with MemoryStore() as mem:
         for scenario_name in scenarios:
             for seed in seeds:
@@ -144,7 +194,13 @@ def run_sweep(detector, planners, scenarios, seeds, missions_per_scenario, budge
                     logs = [run_mission(planner_name, scen, mi, detector, mem, rng, budget=budget, seed=seed)
                             for mi in range(1, missions_per_scenario + 1)]
                     rows.append(summarize_run(planner_name, scenario_name, seed, logs, scen))
+                    if dump_logs:
+                        dumped.append((planner_name, scenario_name, seed, logs))
                     print(f"  done: {planner_name:22s} {scenario_name:12s} seed={seed}")
+    if dump_logs:
+        import pickle
+        with open(dump_logs, "wb") as f:
+            pickle.dump(dumped, f)
     return rows
 
 
@@ -162,7 +218,8 @@ def print_summary_table(rows):
     by_planner = collections.defaultdict(list)
     for r in rows:
         by_planner[r["planner"]].append(r)
-    cols = ["precision", "recall", "f1", "mean_localization_error_m", "total_flight_dist_m",
+    cols = ["precision", "recall", "f1", "precision_confirmed", "recall_confirmed", "f1_confirmed",
+            "precision_legacy", "recall_legacy", "f1_legacy", "mean_localization_error_m", "total_flight_dist_m",
             "coverage_frac", "reinspection_rate", "uncertainty_reduction", "growth_detected_frac",
             "info_gain_per_viewpoint", "ece", "uncertainty_gap_fp_minus_tp"]
     print("\n=== Summary (mean over scenarios x seeds) ===")
@@ -253,6 +310,12 @@ if __name__ == "__main__":
     ap.add_argument("--merge", action="store_true",
                      help="Merge results/comparison_seed{0..seeds-1}.csv (from prior --seed N "
                           "runs) into results/comparison.csv and print/plot -- runs no missions.")
+    ap.add_argument("--planners", nargs="+", default=None, help="subset of PLANNER_REGISTRY (default: all)")
+    ap.add_argument("--scenarios", nargs="+", default=None, help="subset of SCENARIO_REGISTRY (default: all)")
+    ap.add_argument("--dump-logs", default=None,
+                     help="pickle every run's raw mission logs here -- used on DEV seeds to choose the "
+                          "report-confirmation rule offline (experiments/tune_report_rule.py)")
+    ap.add_argument("--out", default=None, help="override the output CSV path")
     args = ap.parse_args()
 
     if args.quick:
@@ -264,12 +327,13 @@ if __name__ == "__main__":
 
     from perception.ml_detector import detect_with_uncertainty as detector
 
-    planners = list(PLANNER_REGISTRY.keys())
-    scenarios = list(SCENARIO_REGISTRY.keys())
+    planners = args.planners or list(PLANNER_REGISTRY.keys())
+    scenarios = args.scenarios or list(SCENARIO_REGISTRY.keys())
     seeds = [args.seed] if args.seed is not None else list(range(args.seeds))
 
-    rows = run_sweep(detector, planners, scenarios, seeds, args.missions, args.budget)
-    out_path = _seed_csv_path(args.seed) if args.seed is not None else os.path.join(RESULTS_DIR, "comparison.csv")
+    rows = run_sweep(detector, planners, scenarios, seeds, args.missions, args.budget, dump_logs=args.dump_logs)
+    out_path = args.out or (_seed_csv_path(args.seed) if args.seed is not None
+                            else os.path.join(RESULTS_DIR, "comparison.csv"))
     write_csv(rows, out_path)
     if args.seed is None:
         print_summary_table(rows)

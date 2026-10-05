@@ -80,13 +80,31 @@ def ray_plane_intersect(origin, direction, plane_point, plane_normal):
     return origin + t * direction
 
 
-def localize_on_wall(pixel_xy, drone_pos, drone_quat, wall, img_w, img_h, cam_offset_z=0.0):
+WALL_HEIGHT = 2.4
+ON_WALL_MARGIN_M = 0.05
+
+
+def localize_on_wall(pixel_xy, drone_pos, drone_quat, wall, img_w, img_h, cam_offset_z=0.0,
+                     within_extent=True):
     """Full pipeline: pixel -> ray -> intersection with the given wall's
-    plane -> world xyz. Returns None if the ray misses the wall plane."""
+    plane -> world xyz. Returns None if the ray misses the wall plane, or --
+    when within_extent -- if the hit lies outside the wall's physical
+    rectangle: that pixel shows some other surface (an adjacent wall, the
+    ground, a prop) that merely shares the frame, not the wall being
+    inspected. Without this check, 51-75% of all false positives on dev seeds
+    were such misattributions, versus 1 of 1,369 true positives
+    (experiments/diagnose_detection.py notes, RESULTS.md)."""
     view, proj = drone_camera_matrices(drone_pos, drone_quat, cam_offset_z=cam_offset_z)
     origin, direction = pixel_ray(pixel_xy[0], pixel_xy[1], view, proj, img_w, img_h)
-    point, normal, _, _ = wall_plane(wall)
-    return ray_plane_intersect(origin, direction, point, normal)
+    point, normal, u_axis, v_axis = wall_plane(wall)
+    hit = ray_plane_intersect(origin, direction, point, normal)
+    if hit is None or not within_extent:
+        return hit
+    d = hit - point
+    if (abs(d @ u_axis) > wall["width"] / 2 + ON_WALL_MARGIN_M
+            or abs(d @ v_axis) > WALL_HEIGHT / 2 + ON_WALL_MARGIN_M):
+        return None
+    return hit
 
 
 def texture_uv_to_world(wall, px, py, tex_size=512, wall_height=2.4):

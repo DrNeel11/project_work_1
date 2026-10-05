@@ -58,12 +58,27 @@ def _iou_xyxy(a, b):
     return inter / union if union > 0 else 0.0
 
 
-def detect_with_uncertainty(bgr, weights=DEFAULT_WEIGHTS, conf_thresh=CONF_THRESH, seed=None):
+def square_pixels(bgr):
+    """The drone camera (gym-pybullet-drones BaseAviary, mirrored in
+    geometry.drone_camera_matrices) renders a 60 deg x 60 deg field of view
+    into a non-square image (e.g. 320x240), so every frame is stretched
+    horizontally by width/height (1.33x). The detector was trained on real,
+    undistorted photos -- resample to square pixels (W x W) before inference.
+    Returns (frame, y_scale) where y_scale maps detected y back to the
+    original frame's coordinates, which geometry.py's localization expects."""
+    h, w = bgr.shape[:2]
+    if h == w:
+        return bgr, 1.0
+    return cv2.resize(bgr, (w, w), interpolation=cv2.INTER_LINEAR), h / w
+
+
+def detect_with_uncertainty(bgr, weights=DEFAULT_WEIGHTS, conf_thresh=CONF_THRESH, seed=None, imgsz=320):
     model = _get_model(weights)
     rng = np.random.RandomState(seed) if seed is not None else np.random
 
-    variants = [bgr] + _augment(bgr, rng)
-    preds = [model.predict(v, conf=0.1, verbose=False, imgsz=320)[0] for v in variants]
+    frame, y_scale = square_pixels(bgr)
+    variants = [frame] + _augment(frame, rng)
+    preds = [model.predict(v, conf=0.1, verbose=False, imgsz=imgsz)[0] for v in variants]
 
     canonical = preds[0]
     results = []
@@ -73,7 +88,7 @@ def detect_with_uncertainty(bgr, weights=DEFAULT_WEIGHTS, conf_thresh=CONF_THRES
             continue
         cls_id = int(box.cls.item())
         x1, y1, x2, y2 = box.xyxy[0].tolist()
-        bbox = (int(round(x1)), int(round(y1)), int(round(x2 - x1)), int(round(y2 - y1)))
+        bbox = (int(round(x1)), int(round(y1 * y_scale)), int(round(x2 - x1)), int(round((y2 - y1) * y_scale)))
 
         confs = [conf]
         for pred in preds[1:]:

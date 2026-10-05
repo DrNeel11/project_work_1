@@ -24,6 +24,15 @@ N_COPIES = 3
 BULGE_CLASS = "4"
 
 
+def _link(src, dst):
+    """Symlink where allowed; on Windows without Developer Mode fall back to an
+    NTFS hard link (no admin needed, still no extra disk space)."""
+    try:
+        os.symlink(os.path.abspath(src), dst)
+    except OSError:
+        os.link(src, dst)
+
+
 def main():
     bulge_images = []
     for fname in os.listdir(LBL_DIR):
@@ -46,8 +55,8 @@ def main():
             lbl_dst = os.path.join(LBL_DIR, f"{base}_bulgedup{i}.txt")
             if os.path.exists(img_dst):
                 continue
-            os.symlink(os.path.abspath(img_src), img_dst)
-            os.symlink(os.path.abspath(lbl_src), lbl_dst)
+            _link(img_src, img_dst)
+            _link(lbl_src, lbl_dst)
             made += 1
     print(f"created {made} duplicate image+label pairs "
           f"(~{len(bulge_images) * N_COPIES} bulge instance exposures added)")

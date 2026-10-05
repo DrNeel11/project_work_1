@@ -19,6 +19,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datagen import mbdd_textures  # noqa: E402
 from scene import texture_gen  # noqa: E402
+from sim_house import WALL_HEIGHT  # noqa: E402
 
 CLEAN_WALLS_ALWAYS = True  # walls with no assigned defect stay "clean" every mission
 
@@ -58,11 +59,16 @@ class Scenario:
 
             center = self._centers.get(wall_name)
             base_color = self._base_colors.get(wall_name)
+            extra = {}
+            if self.provider is mbdd_textures:
+                extra["aspect"] = house.wall_by_name[wall_name]["width"] / WALL_HEIGHT
             tex, _, meta = self.provider.make_wall_texture(
                 dtype, self.rng, severity=max(severity, 0.01) if dtype != "clean" else 0.0,
-                base_color=base_color, center=center)
+                base_color=base_color, center=center, **extra)
             self._centers.setdefault(wall_name, meta["center"])
             self._base_colors.setdefault(wall_name, meta["base_color"])
+            if wall_name in gt:
+                gt[wall_name]["present_classes"] = set(meta.get("present_classes", {dtype}))
 
             path = os.path.join(tmp_dir, f"{wall_name}_{mission_index}.png")
             tex.save(path)

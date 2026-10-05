@@ -254,8 +254,10 @@ def run(n_missions=3, budget_per_mission=8, gui=False, ctrl_freq=48, pyb_freq=24
                                                        wall_dict, IMG_RES[0], IMG_RES[1])
                     if world_xyz is None:
                         continue
-                    corners = [geo.localize_on_wall((x, y), drone_pos, drone_quat, wall_dict, IMG_RES[0], IMG_RES[1]),
-                               geo.localize_on_wall((x + w, y + h), drone_pos, drone_quat, wall_dict, IMG_RES[0], IMG_RES[1])]
+                    corners = [geo.localize_on_wall((x, y), drone_pos, drone_quat, wall_dict, IMG_RES[0], IMG_RES[1],
+                                                     within_extent=False),
+                               geo.localize_on_wall((x + w, y + h), drone_pos, drone_quat, wall_dict, IMG_RES[0], IMG_RES[1],
+                                                     within_extent=False)]
                     corners = [c for c in corners if c is not None]
                     size_m = float(np.linalg.norm(corners[0] - corners[1])) if len(corners) == 2 else 0.0
 

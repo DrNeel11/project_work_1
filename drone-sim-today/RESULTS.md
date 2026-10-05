@@ -1,5 +1,10 @@
 # Results: Base Paper (Isler-NBV) vs. Novelty (UW-TIG)
 
+> **Current headline numbers** are in "Getting precision, recall and F1
+> above 0.90" further down: UW-TIG **P 0.949 / R 0.967 / F1 0.953** on test
+> seeds 0-4, with every choice made on separate dev seeds. Earlier tables
+> are kept as the project's record and are superseded by that section.
+
 ## Setup
 
 - **Perception**: trained from scratch on **MBDD2025** (14,471 real
@@ -17,9 +22,10 @@
 - **Environment**: an open-air utility yard (`sim_house.py`) -- two
   freestanding equipment buildings plus one real inspection panel each on
   the decorative pipe rack/lattice tower, 9 walls/panels total, a
-  candidate-viewpoint graph of 54 stations (`planning/viewpoints.py`) --
-  see the status note below the "Original 5-seed table" for why this count
-  differs from that table's 48. A realism pass (shadows/lighting
+  candidate-viewpoint graph of 54 stations (`planning/viewpoints.py`; 1.3 m
+  inspection + 2.2 m survey standoffs as of the fourth re-run, previously
+  0.8 m + 1.3 m) -- see the status note below the "Original 5-seed table"
+  for why this count differs from that table's 48. A realism pass (shadows/lighting
   consistency, higher-resolution ground/sky textures, a real GEOM_BOX
   tiling bug found and fixed) and a literature-grounded discussion of why
   this stays on PyBullet rather than Unity/Unreal are in NOVELTY.md section 5.
@@ -403,6 +409,131 @@ not-great answer:
   deployment optimizing for minimum flight time over a small, already-known
   defect hotspot would prefer `uwtig_no_coverage_first`. Both are available
   as named planners in `PLANNER_REGISTRY`.
+
+## Getting precision, recall and F1 above 0.90 (fourth 5-seed re-run -- current numbers)
+
+**This section supersedes every closed-loop table above.** The goal was
+precision, recall and F1 all above 0.90. The way that was approached matters
+as much as the result, so it is laid out in full: nothing below was tuned on
+the seeds it is reported on.
+
+**Protocol.** Every diagnosis and every choice (camera/inference settings,
+viewpoint standoffs, the report-confirmation rule) was made on **dev seeds
+100-102**, which no earlier table used. The final numbers come from **one run
+on the usual test seeds 0-4** after all choices were frozen. The tools are
+committed: `experiments/diagnose_detection.py` (planner-independent:
+renders every viewpoint of every wall and measures per-look detection) and
+`experiments/tune_report_rule.py` (chooses the confirmation rule from dumped
+dev logs by maximising F1 averaged over Random, Isler-NBV and UW-TIG
+*equally* -- deliberately not UW-TIG's own F1).
+
+**What was actually wrong -- five real problems, found by measuring, not
+guessing.** (A first guess -- "render the camera at higher resolution" --
+was tested and turned out to make detection *worse*, 0.42 &rarr; 0.22
+single-look recall; it was not adopted.)
+
+1. **Precision was computed with mismatched units** (`experiments/evaluate.py`):
+   true positives were unique (wall, class) pairs per mission, but false
+   positives were *every raw detection box*. A planner that re-looks at a
+   wall -- UW-TIG's entire point -- was charged once per box for a false
+   alarm but credited once total for a real find. Fixed: everything is now
+   scored at the same unit, the per-mission inspection report of (wall,
+   class) pairs. The old formula is still computed (`precision_legacy`) so
+   its effect stays visible: on these final runs it gives UW-TIG precision
+   0.668 vs. 0.917 for the same detections scored consistently.
+2. **Ground truth missed real labeled defects.** 16% of MBDD2025 test photos
+   carry more than one defect class, but each wall's ground truth listed only
+   the class the photo was picked for -- so a correct detection of the
+   photo's *other* labeled defect was scored as a false positive. Fixed:
+   `datagen/mbdd_textures.py` records every class labeled inside the crop;
+   detecting one that wasn't the scenario's target is *ignored* (neither TP
+   nor FP, COCO-style), the conservative choice. Recall is still measured only
+   against the deliberately placed defect.
+3. **The simulator distorted every defect photo.** A 512x512 square crop was
+   stretched across 4.0 x 2.4 m walls (~1.7x horizontal smear, magnified into
+   visible blocky pixels at close range), and the drone camera itself renders
+   a 60x60-degree view into a 4:3 frame (another 1.33x stretch, inherited
+   from gym-pybullet-drones). The detector, trained on real undistorted
+   photos, saw cracks ~2.2x wider than any it was trained on. Fixed: photos
+   are cropped to each wall's true aspect ratio at 1536 px
+   (`datagen/mbdd_textures.py`), and frames are resampled to square pixels
+   before detection with boxes mapped back (`perception/ml_detector.square_pixels`).
+   Single-look recall 0.42 &rarr; 0.66, best-of-6-views wall recall
+   0.88 &rarr; 1.00 (dev seeds).
+4. **The close-up viewpoints were the wrong distance for this detector.**
+   Single-look recall by standoff (dev seeds, conf 0.25): **0.47 at 0.8 m,
+   0.85 at 1.3 m, 0.97 at 1.8 m, 0.99 at 2.2 m.** MBDD2025 is UAV photography
+   taken from a distance, so a 0.8 m close-up of a fraction of a defect is
+   far off its training distribution. `planning/viewpoints.py` now uses a
+   1.3 m inspection tier plus a **2.2 m survey tier** (replacing 0.8 m; same
+   54 viewpoints, fits inside both buildings, frames a wall's full height).
+5. **Detections were attributed to the wrong surface.** `geometry.localize_on_wall`
+   intersected the camera ray with the wall's *infinite plane* and never
+   checked the hit was on the wall itself, so anything sharing the frame --
+   an adjacent wall, the ground, a prop -- was blamed on the inspected wall.
+   On dev seeds this was **51-75% of all false-positive detections, versus 1
+   of 1,369 true positives.** Fixed: a hit outside the wall's physical
+   rectangle (+5 cm) is rejected.
+
+Plus one reporting policy, chosen on dev: **a defect is reported once seen in
+3 separate looks (counted across missions -- the persistent memory carries
+the count) or once at confidence &ge; 0.45**, identical for every planner.
+This is the "detect &rarr; reinspect &rarr; confirm" loop the proposal
+describes, made explicit.
+
+**Dev-seed progression (UW-TIG, P / R / F1, best confirmation rule at each
+stage):** original 0.76 / 0.63 / 0.65 &rarr; fixes 1-3: 0.88 / 0.78 / 0.82
+&rarr; + survey viewpoints: 0.86 / 0.96 / 0.90 &rarr; + on-wall check:
+**0.95 / 0.99 / 0.97**.
+
+**Final test-seed results** (seeds 0-4, mean over static / uncertain /
+multi-defect, growing excluded as before; `bash run_full_sweep.sh 5 16 3`,
+all 5 seeds succeeded first try). "Confirmed" is the headline (the system's
+report); "single-look" counts any detection as reported; "legacy" is the old,
+unit-mismatched formula on these same runs:
+
+| planner | P (confirmed) | R (confirmed) | F1 (confirmed) | P / R / F1 single-look | P legacy | loc. err (m) | flight (m) | coverage | ECE |
+|---|---|---|---|---|---|---|---|---|---|
+| random | 0.921 | 0.837 | 0.873 | 0.782 / 0.837 / 0.800 | 0.548 | 0.85 | 394.9 | 1.00 | 0.31 |
+| isler_nbv | 0.890 | 0.556 | 0.671 | 0.844 / 0.556 / 0.649 | 0.507 | 0.94 | 30.7 | 0.44 | 0.33 |
+| **uwtig** | **0.949** | **0.967** | **0.953** | **0.917 / 0.978 / 0.939** | 0.668 | 0.71 | 125.2 | 1.00 | 0.30 |
+| uwtig_no_uncertainty | 0.949 | 0.967 | 0.953 | 0.917 / 0.978 / 0.939 | 0.668 | 0.71 | 124.7 | 1.00 | 0.30 |
+| uwtig_no_temporal | 0.949 | 0.967 | 0.953 | 0.917 / 0.978 / 0.939 | 0.668 | 0.70 | 125.1 | 1.00 | 0.30 |
+| uwtig_no_staleness | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.730 | 0.58 | 80.6 | 1.00 | 0.29 |
+| uwtig_no_coverage_first | 0.911 | 0.556 | 0.680 | 0.911 / 0.556 / 0.680 | 0.575 | 0.81 | 13.4 | 0.44 | 0.31 |
+| uwtig_no_lookahead | 0.967 | 0.956 | 0.958 | 0.917 / 0.978 / 0.939 | 0.731 | 0.59 | 87.1 | 1.00 | 0.29 |
+
+Per scenario (UW-TIG, confirmed P / R / F1): static 0.964 / 0.933 / 0.940;
+uncertain **0.893** / 0.967 / 0.925; multi-defect 0.989 / 1.000 / 0.995.
+Per-seed UW-TIG F1: 0.943, **0.890**, 1.000, 1.000, 0.933.
+
+**Stated plainly:**
+
+- **UW-TIG clears 0.90 on all three averaged metrics, and is the only
+  planner that does.** Random reaches 0.921 precision but 0.837 recall;
+  Isler-NBV, still capped at 4 of 9 walls by its cost/coverage scale, reaches
+  0.556 recall.
+- **Not every slice clears 0.90:** the deliberately faint "uncertain"
+  scenario's precision is 0.893, and one of five seeds has F1 0.890. The
+  averages are above 0.90; the floor is not.
+- **A large share of the gain is measurement, not planning.** Fixes 1-2 and
+  5 make the score reflect what the system actually reports; fixes 3-4 stop
+  the simulator from distorting the defects. They apply identically to every
+  planner -- Random and Isler-NBV improved too.
+- **Two ablations now beat the full planner.** Without the staleness term
+  or without the lookahead, precision is 0.967 (vs. 0.949), localization
+  error 0.58 m (vs. 0.71 m) and flight ~35% shorter. Once a single survey
+  look is ~99% reliable, revisiting for staleness or planning two steps ahead
+  adds flying without adding accuracy. The uncertainty and temporal ablations
+  are now *identical* to the full planner -- in this configuration those terms
+  no longer change any decision. The coverage-guarantee phase remains the
+  decisive component (F1 0.953 with it, 0.680 without). Whether staleness
+  and lookahead should stay on by default is an open question these numbers
+  raise, not one this pass settled.
+- **Growing scenario: still 0 recall** -- unchanged known limitation
+  (Limitation 1, synthetic texture the real-photo detector doesn't recognise).
+- **Calibration is still poor** (ECE 0.30) and the uncertainty gap is still
+  negative (-0.11) -- Limitation 8 stands.
 
 ## Flagship real-flight demo
 

@@ -1,5 +1,14 @@
-# Virtual environment (1.3GB+, platform-specific — never commit)
+# Virtual environments (1.3GB+, platform-specific — never commit). venv_gpu
+# holds a CUDA PyTorch build used only for local detector retraining.
 drone-sim-today/venv/
+drone-sim-today/venv_gpu/
+
+# Scratch diagnostic stdout captures
+drone-sim-today/diag_out*.txt
+drone-sim-today/dev_run*.txt
+drone-sim-today/gpu_install.txt
+drone-sim-today/train_*.txt
+drone-sim-today/sweep_*.txt
 
 # Third-party library clone (installed via `pip install -e`, not our code —
 # see README.md setup steps to reproduce)
@@ -24,7 +33,7 @@ drone-sim-today/datasets/
 
 # Base pretrained checkpoint auto-downloaded by ultralytics, and its own
 # validation-run cache dir -- both regenerable, not our artifacts
-drone-sim-today/yolov8n.pt
+drone-sim-today/yolo*.pt
 drone-sim-today/runs/
 
 # Redundant duplicate of best.pt from the last training epoch

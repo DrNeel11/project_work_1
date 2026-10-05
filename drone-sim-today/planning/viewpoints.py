@@ -10,7 +10,15 @@ import numpy as np
 
 import geometry as geo
 
-STANDOFFS = [0.8, 1.3]
+# 1.3 m inspection + 2.2 m survey tier. The original close-up tier (0.8 m) was
+# replaced after a planner-independent, dev-seed-only detection diagnostic
+# (experiments/diagnose_detection.py, seeds 100-102): single-look recall of
+# the real-photo-trained detector was 0.47 at 0.8 m, 0.85 at 1.3 m and 0.99 at
+# 2.2 m -- MBDD2025 is UAV photography taken at distance, so an extreme
+# close-up of a fraction of a defect is far off its training distribution,
+# while 2.2 m frames a whole wall's height (~0.0-2.4 m) in one look. Same
+# viewpoint count (54) and fits inside both buildings.
+STANDOFFS = [1.3, 2.2]
 LATERAL_FRACS = [-0.55, 0.0, 0.55]  # fraction of half-width, keeps FOV within the wall
 FLIGHT_Z = 1.2
 
