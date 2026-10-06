@@ -3,13 +3,23 @@ detect(bgr) -> [{bbox, label, confidence, uncertainty}] interface used by
 experiments/mission.py and demo_uwtig_flight.py.
 
 Uncertainty is a test-time-augmentation (TTA) ensemble variance, NOT true
-MC-Dropout -- stock YOLOv8 has no dropout retained at inference. K
-photometric-only variants (brightness/contrast/noise/blur -- nothing that
-moves box geometry, so no re-alignment is needed) are run through the same
-model; for each detection in the original frame, its confidence's standard
-deviation across the ensemble (0 counted for variants where no matching box
-is found) is reported as `uncertainty`. This is the documented substitute
-described in RESULTS.md.
+MC-Dropout -- stock YOLOv8/v11 detection models have no dropout layer
+anywhere in the architecture (confirmed directly: `ultralytics.nn.modules`
+exposes no Dropout class for the detect task; it exists only in the
+classification-head variant, which isn't what's used here). Real MC-Dropout
+would mean splicing `nn.Dropout` into the neck/head via a custom model YAML
+(not a supported ultralytics flag for detection), a full retrain since
+dropout changes training dynamics, and no guarantee it fixes calibration --
+dropout variance is known to track correctness poorly on well-converged,
+confident detectors, which is this project's exact failure mode (see
+RESULTS.md's calibration section). Logged as a future-work item (NOVELTY.md,
+RESULTS.md), not attempted in this pass. K photometric-only variants
+(brightness/contrast/noise/blur -- nothing that moves box geometry, so no
+re-alignment is needed) are run through the same model instead; for each
+detection in the original frame, its confidence's standard deviation across
+the ensemble (0 counted for variants where no matching box is found) is
+reported as `uncertainty`. This is the documented substitute described in
+RESULTS.md.
 """
 import os
 

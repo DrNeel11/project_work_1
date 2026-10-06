@@ -712,8 +712,20 @@ uses, just run three times with three planners and spliced together.
    need either a small amount of synthetic data mixed into training, or a
    longitudinal real dataset — out of scope here.
 2. **Detection uncertainty is TTA ensemble variance, not literal MC-Dropout**
-   — stock YOLOv8 has no dropout retained at inference; this is a standard,
-   documented substitute, not a hidden shortcut.
+   — checked directly, not assumed: stock YOLOv8/v11 detection models have
+   no dropout layer anywhere in the architecture (`ultralytics.nn.modules`
+   exposes no Dropout class for the detect task; it exists only in the
+   unused classification-head variant). This is a standard, documented
+   substitute, not a hidden shortcut. Switching to real MC-Dropout is a
+   genuine architecture change, not a config flag — `nn.Dropout` would need
+   to be spliced into the neck/head via a custom model YAML (not a
+   supported ultralytics path for detection), followed by a full retrain
+   since dropout changes training dynamics. It's also not a guaranteed fix:
+   dropout variance is known in the literature to track correctness poorly
+   on well-converged, confident detectors — this project's exact failure
+   mode (ECE 0.29-0.33, negative uncertainty gap). Logged in "What's Next"
+   as a concrete next step (prototype dropout-spliced MC-Dropout, or try
+   the lighter temperature-scaling fix first), not attempted in this pass.
 3. ~~**The trained model is CPU-budget-limited**~~ **Resolved**: the
    original CPU checkpoint (30 epochs, 320px, batch 8, mAP50=0.685) was
    real but not the ceiling a longer GPU run or larger image size would

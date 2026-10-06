@@ -243,7 +243,7 @@ function pageFoot(s) {
     ["02", "Literature Survey", "8+ planning papers, 3 simulation-engine papers, positioned precisely"],
     ["03", "The Novelty", "Five literature-grounded additions to the base paper, each independently ablated"],
     ["04", "Results", "A real 5-seed statistical sweep, perception benchmark, honest calibration check"],
-    ["05", "Limitations & Future Work", "Stated plainly -- what's unresolved and what's next"],
+    ["05", "What's Next", "The concrete next step for each open gap, plus the broader roadmap"],
   ];
   const top = 1.55, rowH = 1.0;
   items.forEach((it, i) => {
@@ -678,44 +678,44 @@ pres.addSection({ title: "Results" });
 }
 
 // ============================================================ SECTION 5
-pres.addSection({ title: "Limitations & Future Work" });
+pres.addSection({ title: "What's Next" });
 {
-  const s = addSlide("SECTION", "Limitations & Future Work");
+  const s = addSlide("SECTION", "What's Next");
   s.addText("SECTION 5", { placeholder: "kicker" });
-  s.addText("Limitations & Future Work", { placeholder: "title" });
+  s.addText("What's Next", { placeholder: "title" });
   pageFoot(s);
 }
 
-// ---- Limitations
+// ---- Closing the measured gaps
 {
-  const s = addSlide("CONTENT", "Limitations & Future Work");
-  title(s, "Limitations, Stated Plainly");
+  const s = addSlide("CONTENT", "What's Next");
+  title(s, "Closing the Gaps the Numbers Point To");
   const uncP = meanOf("uwtig", "precision_confirmed", ["uncertain"]);
   bulletList(s, [
-    { text: `Averages clear 0.90, the floor does not: the faint “uncertain” scenario's precision is ${f3(uncP)}`, bold: true },
-    { text: "The “growing” scenario's recall is ~0% -- a synthetic texture the real-photo detector doesn't recognize", bold: true },
-    { text: "Part of the gain is measurement, not planning: the scoring and geometry fixes lifted every planner", bold: true },
-    { text: "The old scoring formula on these same runs gives UW-TIG precision " + f3(M("uwtig", "precision_legacy")), level: 1 },
-    { text: "Literature planners are re-implemented at the selection-rule level, not as full systems", bold: true },
-    ...(HAS("ruckin_ipp") ? [{ text: "UW-TIG's edge over the best published rule is flight cost, not detection quality", bold: true },
-      { text: `Rückin et al. IPP: F1 ${f3(M("ruckin_ipp", "f1_confirmed"))} vs ${f3(M("uwtig", "f1_confirmed"))}, and higher precision (${f3(M("ruckin_ipp", "precision_confirmed"))} vs ${f3(M("uwtig", "precision_confirmed"))})`, level: 1 }] : []),
-    { text: "Uncertainty is TTA-ensemble variance (not MC-Dropout), poorly calibrated, and its gap is negative", bold: true },
-  ], { y: 1.55, fontSize: 14, spaceAfter: 9 });
+    { text: `Push the “uncertain” scenario's precision past 0.90`, bold: true },
+    { text: `Currently ${f3(uncP)} -- the one slice below the averaged target; next: scenario-specific confirmation-rule tuning`, level: 1 },
+    { text: "Close the “growing” scenario's domain gap", bold: true },
+    { text: "Recall is ~0% -- the real-photo-trained detector doesn't recognize the synthetic corrosion texture; next: mix in synthetic training data, or acquire a longitudinal real dataset", level: 1 },
+    ...(HAS("ruckin_ipp") ? [{ text: "Decide whether UW-TIG's flight-cost edge is the right thing to lead on", bold: true },
+      { text: `Rückin et al. IPP ties F1 (${f3(M("ruckin_ipp", "f1_confirmed"))} vs ${f3(M("uwtig", "f1_confirmed"))}) and beats precision (${f3(M("ruckin_ipp", "precision_confirmed"))} vs ${f3(M("uwtig", "precision_confirmed"))}); next: explore re-weighting the utility terms to close that gap too`, level: 1 }] : []),
+    { text: "Upgrade the uncertainty estimate past TTA-ensemble variance", bold: true },
+    { text: "ECE 0.29-0.33 and a negative uncertainty gap; true MC-Dropout needs dropout layers spliced into YOLO's detection head (not native to the architecture) plus a full retrain -- next: prototype that, or try temperature scaling as a lighter first step", level: 1 },
+    { text: "Decide whether staleness and lookahead stay on by default", bold: true },
+    { text: "Both ablations now match or slightly beat the full planner; next: more seeds to separate the effect from noise", level: 1 },
+  ], { y: 1.5, fontSize: 13, spaceAfter: 7 });
   pageFoot(s);
 }
 
-// ---- Future work
+// ---- Broader roadmap
 {
-  const s = addSlide("CONTENT", "Limitations & Future Work");
-  title(s, "Further Work");
+  const s = addSlide("CONTENT", "What's Next");
+  title(s, "Roadmap Beyond This Capstone");
   const items = [
-    "Decide whether staleness and lookahead stay on by default -- their ablations now match or beat the full planner",
-    "Raise the “uncertain” scenario's precision above 0.90 -- the one slice still below the target",
-    "Close the growing-scenario domain gap -- mix in synthetic defect imagery, or acquire a longitudinal real dataset",
-    "Re-implement the literature baselines at full-system fidelity (RRT sampling, 3D mapping, online retraining)",
-    "Replace TTA-ensemble variance with a calibration-validated uncertainty estimate -- MC-Dropout, or temperature scaling",
-    "Complete the SDNET2018 crack-class augmentation (converter built, download pending)",
+    "Re-implement the literature baselines at full-system fidelity -- RRT sampling, 3D mapping, online retraining, where each paper uses them, not just the selection rule",
+    "If the yolo11m GPU retrain (running now) beats the current detector on the held-out test set, make it the default and re-run the full sweep",
+    "Complete the SDNET2018 crack-class augmentation -- converter built, download still pending (gated behind Cloudflare/login on every mirror checked)",
     "Move toward pipeline segments and truss rigs as first-class inspectable geometry",
+    "Push PyBullet's own rendering ceiling further, or revisit Unity/Unreal if the project's scope grows beyond this testbed",
   ];
   bulletList(s, items, { y: 1.55, fontSize: 14, spaceAfter: 13 });
   pageFoot(s);
