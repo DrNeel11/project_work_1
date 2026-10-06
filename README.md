@@ -3,8 +3,13 @@
 A simulated (PyBullet + gym-pybullet-drones) autonomous inspection drone that
 closes the loop the underlying research proposal is about: **detect → assess
 uncertainty → replan → reinspect**, with a persistent cross-mission defect
-memory, and a quantitative comparison against a naive baseline and the
-closest base paper (Isler et al. 2016, information-gain NBV).
+memory, and a quantitative, same-testbed head-to-head against a naive
+baseline, the closest base paper (Isler et al. 2016, information-gain NBV),
+and four more re-implemented published planners (Bircher et al. 2016,
+Dhami et al.'s GATSBI, Rückin et al. 2022-23, Alamdari/Fata/Smith 2014).
+UW-TIG (**P 0.949 / R 0.967 / F1 0.953** on held-out test seeds) ties the
+strongest of those five on detection quality while flying 39% less — see
+RESULTS.md's "Head-to-head vs. published planners".
 
 All project code lives under [`drone-sim-today/`](drone-sim-today/). Full
 methodology and results: [`drone-sim-today/RESULTS.md`](drone-sim-today/RESULTS.md).
@@ -39,13 +44,23 @@ matching) and Neo4j (the defect identity graph: `(:Defect)-[:OBSERVED_IN]->
 `docker/docker-compose.yml`. This is the "digital twin" linking a defect's
 location, identity, and history across missions.
 
-**Planning** (`planning/`) — planners sharing one candidate-viewpoint
-graph (`planning/viewpoints.py`) over the house scene:
+**Planning** (`planning/`) — 12 planners sharing one candidate-viewpoint
+graph (`planning/viewpoints.py`) over the house scene (`PLANNER_REGISTRY`
+in `planning/planners.py`):
 - `RandomPlanner` — naive baseline.
 - `IslerNBVPlanner` — cost-normalized entropy-based next-best-view, adapted
   from Isler et al. (2016)'s volumetric information-gain formulation to a
   2D wall-surface coverage grid. Deliberately geometry-only, no defect
   semantics — the literature gap the proposal identifies for this base paper.
+- Four more published planners, re-implemented at the viewpoint-selection-rule
+  level (not full systems — no RRT sampling, 3D mapping, or online model
+  retraining) and run through the exact same sweep for a real same-testbed
+  comparison: `BircherRHNBVPlanner` (Bircher et al. 2016, receding-horizon
+  NBV), `GATSBIPlanner` (Dhami et al., GTSP-routed tour over the
+  least-inspected walls), `RuckinIPPPlanner` (Rückin et al. 2022-23,
+  uncertainty-acquisition / visit-count), `AlamdariLatencyPlanner`
+  (Alamdari, Fata & Smith 2014, max-latency persistent monitoring). See
+  RESULTS.md's "Head-to-head vs. published planners" for the full table.
 - `UWTIGPlanner` (**novel**) — Uncertainty-Weighted Temporal Information Gain:
   the same coverage term, plus detection-uncertainty and temporal-growth
   terms sourced from persistent memory, and a persistent-monitoring
@@ -73,7 +88,7 @@ statistical comparison across 4 scenarios (`scenarios.py`: static, uncertain,
 growing, multiple defects — static/uncertain/multi-defect use real MBDD2025
 photos as wall textures directly; growing uses a procedural generator since
 a single-timepoint photo dataset has no repeated-visit growth sequence) ×
-8 planners × multiple seeds × sequential missions. Besides
+12 planners × multiple seeds × sequential missions. Besides
 precision/recall/f1/localization-error/flight-distance/coverage/
 reinspection-rate, `evaluate.py` also reports two calibration-style metrics
 added after a deeper pass through the informative-path-planning literature
@@ -189,7 +204,11 @@ checked by extracting and looking at frames, not assumed.
 
 ## Caveats (stated plainly, see RESULTS.md for the full writeup)
 
-- Detection uncertainty is TTA ensemble variance, not literal MC-Dropout.
+- Detection uncertainty is TTA ensemble variance, not literal MC-Dropout —
+  checked directly (not assumed) that switching is a real architecture
+  change, not a config flag: stock YOLOv8/v11 detection models have no
+  dropout layer anywhere in the architecture. Logged as a concrete next
+  step in RESULTS.md, not silently deferred.
 - The original CPU-trained checkpoint was budget-limited (small epoch count,
   320px images) -- resolved by the GPU retrain now used by default, though
   that in turn hasn't been tried past yolov8s/640px (e.g. yolov8m/l, 1280px).
@@ -200,10 +219,12 @@ checked by extracting and looking at frames, not assumed.
 - Postgres/Neo4j run as local Docker containers with dev-only credentials.
 - The "growing defect" scenario is procedurally synthesized (severity scaled
   over missions with known ground truth) since MBDD2025 is single-timepoint.
-- The closed-loop planner comparison (precision/recall/coverage/ECE/etc.)
-  can only honestly be compared against the in-house Isler-NBV/Random
-  reimplementations in the same table -- no cited paper reports that metric
-  set for this kind of planner. The detector itself *is* comparable in kind
+- The closed-loop planner comparison (precision/recall/coverage/ECE/etc.) can
+  only honestly be compared against the five other planners *re-implemented
+  in this same testbed* (Random, Isler-NBV, Bircher-RHNBV, GATSBI, Rückin-IPP,
+  Alamdari-latency) -- no cited paper reports that metric set for this kind
+  of planner, and these are selection-rule re-implementations, not the
+  authors' full systems. The detector itself *is* comparable in kind
   to other defect-detection papers, and on that comparison this project's
   numbers are lower than two narrower/private-dataset papers -- see
   RESULTS.md's "How this compares to numbers reported elsewhere in the
