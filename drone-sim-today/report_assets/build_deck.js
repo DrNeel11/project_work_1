@@ -213,18 +213,20 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 
 // ============================================================ 4. LITERATURE SURVEY
 {
-  const s = slide("Literature Survey");
+  const s = slide("Literature Survey (2023 - 2026)");
   const rows = [
-    ["Isler et al., ICRA 2016\nInformation-gain NBV (base paper)", "Entropy-based, cost-normalised next-best-view", "Principled view selection; our base formulation", "Geometry only -- no defects, no memory"],
-    ["Bircher et al., ICRA 2016\nReceding-horizon NBV", "Tree search, execute first step, replan", "Plans beyond one greedy step", "Built for exploration, not defect inspection"],
-    ["Alamdari, Fata & Smith, IJRR 2014\nPersistent monitoring", "Maximum-latency revisit scheduling", "Guarantees regular revisits", "Revisits by time alone; no perception"],
-    ["Dhami et al. (GATSBI), 2023 / 2024\nTargeted bridge inspection", "GTSP routing + defect detector (2024)", "Cost-aware routing with a real detector", "Single session; no uncertainty, no memory"],
-    ["Rückin et al., IEEE T-RO 2023\nInformative path planning", "MC-Dropout uncertainty drives the path", "Real model uncertainty guides planning", "Single session; goal is retraining the model"],
-    ["Moon et al. (IA-TIGRIS), IEEE T-RO 2026\nIncremental informative planning", "Sampling-based planner, reuses past plans", "Adapts online; fixed-wing and multirotor", "Generic information gain; no defect history"],
-    ["Zha et al. (MBDD2025), Scientific Data 2025\nUAV building-defect dataset", "14,471 images, 5 classes, 35 detectors benchmarked", "Large, public, real UAV defect data", "Single time-point; no growth sequences"],
+    ["Isler et al., ICRA 2016 -- base paper\nInformation-gain next-best-view", "Entropy-based, cost-normalised view selection", "Principled view choice; our starting point", "Geometry only; no defects, no memory"],
+    ["Dhami et al. (GATSBI), ICUAS 2023\nTargeted bridge inspection", "GTSP routing over target surfaces; detector added 2024", "Cost-aware and inspection-specific", "One session; no uncertainty, no memory"],
+    ["Rückin et al., IEEE T-RO 2023\nInformative path planning", "Model uncertainty (MC-Dropout) drives the path", "Real learned uncertainty in planning", "One session; goal is retraining the model"],
+    ["Vashisth et al., IEEE RA-L 2024\nAdaptive IPP with deep RL", "Reinforcement learning on dynamic graphs", "Learns to balance exploring and targets", "Needs training; no defect history"],
+    ["Petit & Lussier Desbiens (MOAR), ICRA 2024\nRisk-aware inspection planning", "Multi-objective, risk-aware path planning", "Adapts to weather, battery and safety", "No perception or defect awareness"],
+    ["Svystun et al., 2024\nWind-turbine UAV inspection", "Segmentation-guided trajectory adaptation", "78% shorter inspection time", "One structure type; no revisits"],
+    ["Jin et al., 2025\nAdaptive surface inspection", "Global coverage + local reactive replanning", "Handles obstacles missing from the map", "Coverage only; no defect detection"],
+    ["Moon et al. (IA-TIGRIS), IEEE T-RO 2026\nIncremental informative planning", "Sampling-based planner that reuses past plans", "Fast online replanning", "Generic information gain; no defects"],
+    ["Li et al., RSS 2026\nMotion-uncertainty-aware NBV", "View selection under motion and measurement uncertainty", "Plans over uncertain futures", "Reconstruction task, not defect inspection"],
   ];
   table(s, ["Paper, authors & year", "Technique", "Advantages", "Limitations"], rows,
-    { x: X0, y: 1.35, w: CW, colW: [4.0, 2.75, 2.69, 2.69], fontSize: 11, rowH: 0.7, leftCols: [1, 2, 3] });
+    { x: X0, y: 1.32, w: CW, colW: [4.0, 2.85, 2.64, 2.64], fontSize: 10.5, rowH: 0.555, leftCols: [1, 2, 3] });
 }
 
 // ============================================================ 5. INFERENCES & NOVELTY
@@ -232,11 +234,11 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const s = slide("Inferences & Proposed Novelty");
   card(s, X0, 1.4, 5.7, 4.9, "Inferences from the survey");
   bullets(s, [
-    "Information-gain planners choose views well, but none know what a defect is.",
-    "Uncertainty-driven planning exists (Rückin et al.), but only within one flight and to retrain a model.",
-    "Revisit scheduling exists (Alamdari et al.), but by elapsed time, not by what was seen.",
-    "No reviewed work combines detector uncertainty, memory across missions and defect growth in one planner.",
-  ], { x: X0 + 0.25, y: 2.25, w: 5.2, h: 3.9, fontSize: 15, gap: 16 });
+    "Recent planners (2023-2026) add risk, learning and adaptivity, but plan for coverage or information gain -- none plan around detected defects.",
+    "Uncertainty-driven planning (Rückin 2023, Li 2026) uses model or motion uncertainty within a single session.",
+    "No reviewed work re-inspects the same defect across missions; 2025 reviews (Nikkhah et al.; Vivaldini, Pěnička & Saska) still list perception-driven flight planning as open.",
+    "Recent YOLO detectors report 0.91-0.98 precision, mostly on single-class or private data.",
+  ], { x: X0 + 0.25, y: 2.25, w: 5.2, h: 3.9, fontSize: 13.5, gap: 12 });
 
   card(s, 6.53, 1.4, 6.2, 4.9, "UW-TIG: what is new");
   bullets(s, [
@@ -246,6 +248,45 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     { lead: "Staleness --", text: "areas not seen for a while gain priority (after Alamdari et al.)." },
     { lead: "Two-step lookahead --", text: "plans one move ahead instead of pure greedy (after Bircher et al.)." },
   ], { x: 6.78, y: 2.25, w: 5.75, h: 3.95, fontSize: 14, gap: 12 });
+}
+
+// ============================================================ 6. NOVELTY IN DETAIL
+{
+  const s = slide("Novelty in Detail: How UW-TIG Decides Where to Fly");
+  s.addShape("rect", { x: X0, y: 1.3, w: CW, h: 0.58, fill: { color: CARD }, line: { color: CARD, width: 0 } });
+  text(s, [
+    { text: "Score of a viewpoint v:  ", options: { bold: true } },
+    { text: "1.0·InfoGain(v) + 1.5·Uncertainty(v) + 2.0·Growth(v) + 1.0·Staleness(v) − 0.4·Cost(v)" },
+    { text: "   (54 views re-scored after every move)", options: { color: G2 } },
+  ], { x: X0 + 0.25, y: 1.3, w: CW - 0.5, h: 0.58, fontSize: 12, valign: "middle" });
+
+  const pct = (a, b) => Math.round(100 * (1 - M(a, "total_flight_dist_m") / M(b, "total_flight_dist_m")));
+  const rows = [
+    ["1. Coverage guarantee",
+     "While any wall is still unseen this mission, choose only among unseen walls' views, scored by InfoGain − 0.4·Cost; full score takes over once all 9 walls are seen.",
+     "The base paper's score never pays to fly to the far building -- it stopped at 4 of 9 walls on every seed.",
+     `Recall ${f3(M("uwtig_no_coverage_first", "recall_confirmed"))} → ${f3(UW.r)}; F1 ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} → ${f3(UW.f)}. The decisive addition.`],
+    ["2. Detector uncertainty",
+     "Each frame is run 5 times (original + 4 brightness / noise / blur variants); the spread of confidence is the uncertainty, faded as a spot is viewed more.",
+     "An unsure detection should earn a second look instead of being trusted or dropped.",
+     "Real but small next to the other terms: shifts the route by under 1 m, no metric changes."],
+    ["3. Cross-mission memory & growth",
+     "Each detection is ray-cast to 3-D and matched to a known defect (Postgres + pgvector); Neo4j keeps its history. Growth = size now − size last time.",
+     "A drone that forgets is re-learning every flight; worsening defects need tracking.",
+     "Looks count across missions: a defect is reported after 3 looks or one at confidence ≥ 0.45. Growth is ~0 here (test scenarios don't grow)."],
+    ["4. Staleness",
+     "Priority rises with time since a spot was last seen: 1 − e^(−0.15 · steps since last view). Adapted from Alamdari et al.",
+     "Keeps the drone from fixating on one wall while others go unchecked.",
+     `Removing it: F1 ${f3(M("uwtig_no_staleness", "f1_confirmed"))}, ${pct("uwtig_no_staleness", "uwtig")}% less flight -- currently adds flying, not accuracy.`],
+    ["5. Two-step lookahead",
+     "Each view is scored with the best follow-up view after it (weight 0.5); only the first step is flown, then it replans. Adapted from Bircher et al.",
+     "Pure greedy choice can walk into dead ends.",
+     `Removing it: F1 ${f3(M("uwtig_no_lookahead", "f1_confirmed"))}, ${pct("uwtig_no_lookahead", "uwtig")}% less flight -- an open tuning question.`],
+  ];
+  table(s, ["Component", "How it works", "Why it is needed", "Measured effect"], rows,
+    { x: X0, y: 2.0, w: CW, colW: [2.15, 4.05, 2.85, 3.08], fontSize: 10.5, rowH: [0.4, 0.82, 0.82, 0.82, 0.82, 0.82], leftCols: [1, 2, 3] });
+  text(s, "Setting all new weights to zero and switching off the coverage phase and lookahead gives back the base paper (Isler et al. 2016) exactly -- so every gain is measured against it, not against a different algorithm.",
+    { x: X0, y: 6.58, w: CW, h: 0.42, fontSize: 11, color: G2 });
 }
 
 // ============================================================ 6. ARCHITECTURE
@@ -323,24 +364,33 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 // ============================================================ 8. DETECTION MODEL & EVALUATION
 {
   const s = slide("Detection Model & Evaluation");
-  card(s, X0, 1.4, 4.6, 4.75, "Model");
-  bullets(s, [
-    { lead: "Architecture:", text: "YOLOv8s, 640 px input" },
-    { lead: "Training:", text: "100 epochs on an NVIDIA L4, bulge oversampled" },
-    { lead: "Baseline:", text: "YOLOv8n, 320 px, 30 epochs on CPU -- mAP50 0.685" },
-    { lead: "Uncertainty:", text: "spread of confidence across the TTA views" },
-    { lead: "Retrain:", text: "YOLO11m reached mAP50 0.890 but lower precision (0.869); not yet adopted" },
-  ], { x: X0 + 0.25, y: 2.25, w: 4.15, h: 3.8, fontSize: 13.5, gap: 12 });
+  s.addShape("rect", { x: X0, y: 1.32, w: CW, h: 0.55, fill: { color: CARD }, line: { color: CARD, width: 0 } });
+  text(s, [
+    { text: "Model: ", options: { bold: true } },
+    { text: "YOLOv8s  ·  640 px  ·  100 epochs on an NVIDIA L4  ·  bulge oversampled ~4x  ·  uncertainty = spread of confidence across TTA views" },
+  ], { x: X0 + 0.25, y: 1.32, w: CW - 0.5, h: 0.55, fontSize: 13, valign: "middle" });
 
   const cls = [["Crack", 0.84, 0.75], ["Leakage", 0.90, 0.92], ["Abscission", 0.87, 0.78], ["Corrosion", 0.83, 0.79], ["Bulge", 0.95, 0.96]];
   const rows = cls.map(([c, p, r]) => [c, p.toFixed(2), r.toFixed(2), (2 * p * r / (p + r)).toFixed(2)]);
-  rows.push(["Mean (all classes)", "0.87", "0.84", "0.86"]);
-  text(s, "Held-out test set: 1,448 images", { x: 5.45, y: 1.4, w: 7.3, h: 0.3, fontSize: 12, color: G2 });
+  rows.push(["Mean", "0.87", "0.84", "0.86"]);
+  text(s, "Our detector -- held-out test set (1,448 images)", { x: X0, y: 2.1, w: 5.3, h: 0.3, fontSize: 12.5, bold: true });
   table(s, ["Class", "Precision", "Recall", "F1"], rows,
-    { x: 5.45, y: 1.75, w: 7.28, colW: [2.98, 1.43, 1.43, 1.44], fontSize: 13, rowH: 0.43, boldRow: 5 });
-  text(s, "mAP50 0.884   ·   mAP50-95 0.506", { x: 5.45, y: 4.85, w: 7.28, h: 0.35, fontSize: 14, bold: true });
-  text(s, "Calibration check: expected calibration error is 0.29-0.33, and uncertainty is slightly lower on wrong detections than right ones -- so uncertainty is used only to rank views within a mission, never as a probability.",
-    { x: 5.45, y: 5.35, w: 7.28, h: 1.3, fontSize: 12, color: G1 });
+    { x: X0, y: 2.45, w: 5.3, colW: [2.0, 1.1, 1.1, 1.1], fontSize: 12, rowH: 0.4, boldRow: 5 });
+  text(s, "mAP50 0.884  ·  mAP50-95 0.506", { x: X0, y: 5.35, w: 5.3, h: 0.35, fontSize: 13, bold: true });
+
+  const rx = 6.25, rw = 6.48;
+  text(s, "Recent detectors (2023 - 2026)", { x: rx, y: 2.1, w: rw, h: 0.3, fontSize: 12.5, bold: true });
+  table(s, ["Paper", "Task / data", "P", "R", "mAP50"], [
+    ["Ours (YOLOv8s)", "5 classes, public MBDD2025", "0.874", "0.842", "0.884"],
+    ["Huang et al. 2025 (YOLOv11)", "Concrete crack, 1 class", "0.913", "0.766", "0.864"],
+    ["Li, Shi & Sun 2026 (YOLOv11)", "Utility tunnel, private data", "0.932", "0.924", "0.926"],
+    ["Inam et al. 2023 (YOLOv5m)", "Bridge crack, 1 class", "0.977", "0.967", "0.993"],
+  ], { x: rx, y: 2.45, w: rw, colW: [2.35, 2.2, 0.62, 0.62, 0.69], fontSize: 11.5, rowH: 0.5, boldRow: 0, leftCols: [1] });
+  text(s, "Also reviewed: TinyDef-DETR (Shen et al. 2025, transformer, power-line defects) and a saliency-guided YOLOX bridge detector (Hebbache et al. 2025) -- neither reports a comparable number. Higher scores above come from single-class or private datasets; ours is 5-class on public data.",
+    { x: rx, y: 5.0, w: rw, h: 0.95, fontSize: 11, color: G1 });
+
+  text(s, "Calibration check: expected calibration error 0.29-0.33, and uncertainty is slightly lower on wrong detections than right ones -- so uncertainty is used only to rank views within a mission, never as a probability.",
+    { x: X0, y: 6.15, w: CW, h: 0.6, fontSize: 11.5, color: G2 });
 }
 
 // ============================================================ 9. PLANNER & CLOSED-LOOP RESULTS
