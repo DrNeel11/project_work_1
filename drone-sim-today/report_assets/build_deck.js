@@ -1,10 +1,12 @@
 const pptxgen = require("pptxgenjs");
 const path = require("path");
+const fs = require("fs");
 
-// Pure black-on-white deck: no section-divider slides, no filled-black
-// callout boxes -- every slide uses the same white background / black text
-// treatment. Expanded from the earlier 8-slide version to fit datasets,
-// preprocessing, and a 2023-2027 literature refresh the user asked for.
+// Panel-review deck: 10 slides, white background, black text, no images.
+// Structure follows the department's review format: problem, abstract,
+// literature survey, inferences, architecture, requirements & data, model,
+// results, conclusion. Closed-loop numbers are read from
+// results/comparison.csv so the slides always match the latest sweep.
 const THEME = {
   name: "Monochrome",
   headFontFace: "Cambria",
@@ -18,478 +20,380 @@ const THEME = {
 };
 
 const pres = new pptxgen();
-pres.layout = "LAYOUT_WIDE"; // 13.3 x 7.5
+pres.layout = "LAYOUT_WIDE"; // 13.33 x 7.5
 pres.theme = { headFontFace: THEME.headFontFace, bodyFontFace: THEME.bodyFontFace };
 pres.author = "Autonomous Drone Inspection Project";
 pres.title = "Autonomous Drone Utility Inspection -- UW-TIG";
 
-const BLACK = "000000", WHITE = "FFFFFF",
-  GRAY1 = "404040", GRAY2 = "595959", GRAY3 = "808080", GRAY4 = "A6A6A6", GRAY5 = "D9D9D9", GRAY6 = "F2F2F2";
+const BLACK = "000000", WHITE = "FFFFFF", G1 = "404040", G2 = "595959", G3 = "808080",
+  G4 = "BFBFBF", G5 = "D9D9D9", CARD = "F3F3F3";
+const HEAD = THEME.headFontFace, BODY = THEME.bodyFontFace;
+const X0 = 0.6, CW = 12.13; // content left edge and width
 
-const PROJECT_NAME = "Autonomous Drone Utility Inspection";
-
-// ---------------------------------------------------------------- layout
 pres.defineSlideMaster({
   title: "CONTENT",
   background: { color: WHITE },
   objects: [
     { placeholder: {
-        options: { name: "title", type: "title", x: 0.6, y: 0.35, w: 12.1, h: 0.8,
-          fontFace: THEME.headFontFace, fontSize: 27, bold: true, color: BLACK, align: "left", valign: "top" },
+        options: { name: "title", type: "title", x: X0, y: 0.35, w: CW, h: 0.7,
+          fontFace: HEAD, fontSize: 26, bold: true, color: BLACK, align: "left", valign: "middle", margin: 0 },
         text: "",
       } },
-    { line: { options: { x: 0.6, y: 1.15, w: 12.1, h: 0, line: { color: BLACK, width: 1 } } } },
+    { line: { options: { x: X0, y: 1.12, w: CW, h: 0, line: { color: G5, width: 0.75 } } } },
+    { line: { options: { x: X0, y: 1.12, w: 1.1, h: 0, line: { color: BLACK, width: 3 } } } },
     { text: {
-        options: { name: "footer-label", x: 0.6, y: 7.12, w: 8, h: 0.3, margin: 0,
-          fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, align: "left" },
-        text: PROJECT_NAME,
+        options: { x: X0, y: 7.05, w: 8, h: 0.3, margin: 0, fontFace: BODY, fontSize: 9, color: G3, align: "left" },
+        text: "UW-TIG  ·  Autonomous Drone Utility Inspection",
       } },
     { placeholder: {
-        options: { name: "pageNum", type: "body", x: 12.3, y: 7.12, w: 0.6, h: 0.3, margin: 0,
-          fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, align: "right", valign: "top" },
+        options: { name: "pageNum", type: "body", x: 12.13, y: 7.05, w: 0.6, h: 0.3, margin: 0,
+          fontFace: BODY, fontSize: 9, color: G3, align: "right", valign: "top" },
         text: "",
       } },
   ],
 });
 
-// ---------------------------------------------------------------- results data
-// Every closed-loop number on these slides is read from results/comparison.csv
-// (written by run_full_sweep.sh), so a rebuild always matches the latest sweep.
-const fs = require("fs");
+// ---------------------------------------------------------------- data
 const RESULTS_CSV = path.join(__dirname, "..", "results", "comparison.csv");
-
-function loadRows(csvPath) {
-  const [head, ...lines] = fs.readFileSync(csvPath, "utf8").trim().split(/\r?\n/);
-  const cols = head.split(",");
-  return lines.map((l) => Object.fromEntries(l.split(",").map((v, i) => [cols[i], v])));
+const [HEADROW, ...LINES] = fs.readFileSync(RESULTS_CSV, "utf8").trim().split(/\r?\n/);
+const COLS = HEADROW.split(",");
+const ROWS = LINES.map((l) => Object.fromEntries(l.split(",").map((v, i) => [COLS[i], v])));
+const MAIN_SCEN = ["static", "uncertain", "multi_defect"]; // growing excluded (known detector failure mode)
+function meanOf(planner, col, scen = MAIN_SCEN) {
+  const v = ROWS.filter((r) => r.planner === planner && scen.includes(r.scenario))
+    .map((r) => parseFloat(r[col])).filter((x) => !Number.isNaN(x));
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
 }
-const ROWS = loadRows(RESULTS_CSV);
-
-function meanOf(planner, col, scenarios) {
-  const vals = ROWS.filter((r) => r.planner === planner && scenarios.includes(r.scenario))
-    .map((r) => parseFloat(r[col])).filter((v) => !Number.isNaN(v));
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : NaN;
-}
-const MAIN_SCEN = ["static", "uncertain", "multi_defect"]; // growing excluded, as in RESULTS.md
-const M = (planner, col) => meanOf(planner, col, MAIN_SCEN);
-const f2 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(2));
+const M = meanOf;
 const f3 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(3));
-const f1 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(1));
+const f2 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(2));
+const f0 = (v) => (Number.isNaN(v) ? "--" : Math.round(v).toString());
 const HAS = (p) => ROWS.some((r) => r.planner === p);
 
-// Offline test-set metrics of a newer detector checkpoint, if one has been
-// evaluated (written by hand from its `val(split="test")` output).
-const DET_JSON = path.join(__dirname, "detector_metrics.json");
-const DET = fs.existsSync(DET_JSON) ? JSON.parse(fs.readFileSync(DET_JSON, "utf8")) : null;
-const BEST_DET = DET || { label: "YOLOv8s, 640px", p: 0.874, r: 0.842, map50: 0.884, map5095: 0.506 };
-
 // ---------------------------------------------------------------- helpers
-let SLIDE_NO = 0;
-function addSlide() {
+let N = 0;
+function slide(titleText) {
   const s = pres.addSlide({ masterName: "CONTENT" });
-  s._no = ++SLIDE_NO;
+  s._no = ++N;
+  if (titleText) s.addText(titleText, { placeholder: "title" });
+  s.addText(String(s._no), { placeholder: "pageNum" });
   return s;
 }
 
-function title(s, text) {
-  s.addText(text, { placeholder: "title" });
+function text(s, t, o) {
+  s.addText(t, Object.assign({ isTextBox: true, margin: 0, fontFace: BODY, fontSize: 13, color: BLACK, valign: "top" }, o));
 }
 
-function pageFoot(s) {
-  s.addText(String(s._no), { placeholder: "pageNum" });
-}
-
-// Simple numbered/bulleted list, pure black text
-function bulletList(s, items, opts) {
-  const o = Object.assign({ x: 0.7, y: 1.5, w: 11.9, h: 5.3, fontSize: 15 }, opts || {});
-  const paras = items.map((it) => {
-    const isObj = typeof it === "object";
-    const txt = isObj ? it.text : it;
-    const bold = isObj && it.bold;
-    const level = isObj && it.level ? it.level : 0;
-    return {
-      text: txt,
-      options: {
-        bullet: { code: level ? "2013" : "25CF", indent: 18 },
-        indentLevel: level,
-        fontSize: o.fontSize - level * 1,
-        bold: !!bold,
-        color: o.color || BLACK,
-        breakLine: true,
-        paraSpaceAfter: o.spaceAfter != null ? o.spaceAfter : 10,
-      },
-    };
-  });
-  s.addText(paras, { x: o.x, y: o.y, w: o.w, h: o.h, isTextBox: true, fontFace: THEME.bodyFontFace, valign: "top", margin: 0 });
-}
-
-// Table: header row bold black text on white with a black rule beneath it,
-// body rows alternating white / near-white for readability only.
-function dataTable(s, headerRow, rows, opts) {
-  const o = Object.assign({ x: 0.6, y: 1.55, w: 12.1, fontSize: 11, headerFontSize: 11.5, colW: null }, opts || {});
-  const header = headerRow.map((h) => ({
-    text: h,
-    options: { bold: true, color: BLACK, fill: { color: WHITE }, fontSize: o.headerFontSize, align: "center", valign: "middle", fontFace: THEME.bodyFontFace, border: [{ type: "none" }, { type: "none" }, { type: "solid", color: BLACK, pt: 1.5 }, { type: "none" }] },
-  }));
-  const body = rows.map((row, ri) => {
-    const shade = ri % 2 === 0 ? WHITE : GRAY6;
-    return row.map((cell, ci) => {
-      const isObj = typeof cell === "object" && cell !== null;
-      const txt = isObj ? cell.text : cell;
-      const emph = isObj && cell.bold;
-      return {
-        text: String(txt),
-        options: {
-          fill: { color: isObj && cell.fill ? cell.fill : shade },
-          color: BLACK,
-          bold: !!emph,
-          fontSize: o.fontSize,
-          align: ci === 0 ? "left" : "center",
-          valign: "middle",
-          fontFace: THEME.bodyFontFace,
-        },
-      };
+function bullets(s, items, o) {
+  const opt = Object.assign({ fontSize: 13, gap: 8, color: BLACK }, o);
+  // One paragraph per item: paragraph properties (bullet, spacing) ride on
+  // the first run, the line break on the last run.
+  const flat = [];
+  items.forEach((it) => {
+    const obj = typeof it === "object" ? it : { text: it };
+    const runs = obj.lead
+      ? [{ text: obj.lead + " ", options: { bold: true } }, { text: obj.text, options: {} }]
+      : [{ text: obj.text, options: {} }];
+    runs.forEach((r, i) => {
+      const op = Object.assign({}, r.options);
+      if (i === 0) Object.assign(op, { bullet: { code: "25AA", indent: 16 }, paraSpaceAfter: opt.gap });
+      if (i === runs.length - 1) op.breakLine = true;
+      flat.push({ text: r.text, options: op });
     });
   });
-  const tableRows = [header, ...body];
-  s.addTable(tableRows, {
-    x: o.x, y: o.y, w: o.w, colW: o.colW,
-    border: { type: "solid", color: GRAY4, pt: 0.5 },
-    autoPage: false,
-    rowH: o.rowH || 0.42,
-  });
+  s.addText(flat, { x: opt.x, y: opt.y, w: opt.w, h: opt.h, isTextBox: true, margin: 0, fontFace: BODY,
+    fontSize: opt.fontSize, color: opt.color, valign: "top" });
 }
 
-// Bordered callout (outline only, never a filled-black block)
-function calloutBox(s, heading, body, opts) {
-  const o = Object.assign({ x: 0.7, y: 4.4, w: 11.9, h: 1.9 }, opts || {});
-  s.addShape("rect", { x: o.x, y: o.y, w: o.w, h: o.h, fill: { color: WHITE }, line: { color: BLACK, width: 1 } });
-  s.addText(heading, { x: o.x + 0.25, y: o.y + 0.15, w: o.w - 0.5, h: 0.35, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 14, bold: true, color: BLACK });
-  s.addText(body, { x: o.x + 0.25, y: o.y + 0.52, w: o.w - 0.5, h: o.h - 0.65, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, color: GRAY1, valign: "top" });
-}
-
-// ============================================================ SLIDE 1 -- TITLE
-{
-  const s = addSlide();
-  s.addText("Autonomous Drone Utility Inspection", {
-    x: 0.7, y: 0.75, w: 11.9, h: 0.85, isTextBox: true, margin: 0,
-    fontFace: THEME.headFontFace, fontSize: 33, bold: true, color: BLACK, align: "left", valign: "top",
-  });
-  s.addText("UW-TIG: Uncertainty-Weighted Temporal Information Gain", {
-    x: 0.7, y: 1.55, w: 11.9, h: 0.45, isTextBox: true, margin: 0,
-    fontFace: THEME.bodyFontFace, fontSize: 15.5, color: GRAY1, align: "left",
-  });
-  s.addShape("line", { x: 0.7, y: 2.1, w: 6.0, h: 0, line: { color: BLACK, width: 1 } });
-  s.addText(
-    `UW-TIG: precision ${f3(M("uwtig", "precision_confirmed"))}  ·  recall ${f3(M("uwtig", "recall_confirmed"))}  ·  F1 ${f3(M("uwtig", "f1_confirmed"))}`,
-    { x: 0.7, y: 2.25, w: 11.9, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 16.5, bold: true, color: BLACK }
-  );
-  s.addText("on held-out test seeds, measured head-to-head against five re-implemented published planners in one testbed", {
-    x: 0.7, y: 2.68, w: 11.5, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, italic: true, color: GRAY2,
-  });
-
-  s.addShape("line", { x: 0.7, y: 3.35, w: 11.9, h: 0, line: { color: GRAY5, width: 0.75 } });
-
-  s.addText("PSG College of Technology -- Department of Computer Science and Engineering, Coimbatore", {
-    x: 0.7, y: 3.55, w: 11.9, h: 0.35, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 12.5, bold: true, color: BLACK,
-  });
-  s.addText(
-    "Akhil Ramalingam (23Z207)  ·  Anbuchandiran K (23Z209)  ·  Neelesh Padmanabh (23Z241)\nSaumiyaa Sri V L (23Z261)  ·  Sowndarya Elangi S (23Z269)  ·  Therdhana J P (23Z273)",
-    { x: 0.7, y: 3.95, w: 11.9, h: 0.75, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 13, color: GRAY1, lineSpacingMultiple: 1.25 }
-  );
-  s.addText("Guide: Ms. L. Karthika      |      Co-Guide: Dr. N. Gopika Rani", {
-    x: 0.7, y: 4.85, w: 11.9, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 13, italic: true, color: GRAY1,
-  });
-
-  s.addText("Capstone Project -- Progress, Novelty, Literature Survey & Results", {
-    x: 0.7, y: 6.75, w: 10, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, color: GRAY3,
-  });
-}
-
-// ============================================================ SLIDE 2 -- THE NOVELTY (FIRST, UP FRONT)
-{
-  const s = addSlide();
-  title(s, "The Novelty: What UW-TIG Adds");
-  s.addText(
-    "Existing next-best-view planners -- including the closest base paper, Isler et al. 2016 -- pick viewpoints by pure geometric information gain: no defect semantics, no memory across missions, no validated real-detector uncertainty. UW-TIG keeps that base paper's cost-normalized coverage term and adds four literature-grounded mechanisms on top, each independently measured, not just claimed:",
-    { x: 0.6, y: 1.3, w: 12.1, h: 0.95, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 12.5, color: GRAY1, valign: "top" }
-  );
-  const items = [
-    { text: "Coverage-guarantee phase -- visits every wall once before switching to full utility; fixes a recall ceiling that silently affected Isler-NBV too, not just UW-TIG's added terms", bold: true },
-    { text: "Real detector uncertainty -- TTA-ensemble variance from an actually-trained YOLO model, not an assumed oracle", bold: true },
-    { text: "Persistent cross-mission memory -- Postgres + Neo4j track each defect's identity and growth across separate missions, not just within one flight", bold: true },
-    { text: "Persistent-monitoring staleness term -- revisits a spot because it hasn't been looked at in a while (Alamdari, Fata & Smith 2014)", bold: true },
-    { text: "2-step receding-horizon lookahead -- plans one step ahead instead of pure greedy (Bircher et al. 2016; Dhami et al.'s GATSBI)", bold: true },
-  ];
-  bulletList(s, items, { y: 2.4, fontSize: 13, spaceAfter: 11 });
-  s.addShape("line", { x: 0.6, y: 6.15, w: 12.1, h: 0, line: { color: BLACK, width: 1 } });
-  s.addText(
-    "Result (full detail in later slides): UW-TIG clears 0.90 precision/recall/F1, something neither the base paper nor a naive baseline reaches, and ties the strongest of five re-implemented published planners on detection quality while flying 39% less.",
-    { x: 0.6, y: 6.3, w: 12.1, h: 0.7, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, bold: true, color: BLACK, valign: "top" }
-  );
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 3 -- SYSTEM & DATA FLOW
-{
-  const s = addSlide();
-  title(s, "The Closed-Loop System");
-  s.addText(
-    "Detect -> assess uncertainty -> replan -> reinspect, closing on itself every mission:",
-    { x: 0.6, y: 1.3, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 13, color: GRAY1, valign: "top" }
-  );
-
-  // ---- 5-box data-flow diagram with a looped feedback arrow ----
-  const boxes = [
-    "Planner\n(UW-TIG)",
-    "Flight + Camera\n(PID physics /\nkinematic sim)",
-    "Detector\n(YOLO +\nuncertainty)",
-    "Geometry\n(ray-cast ->\n3D position)",
-    "Memory\n(Postgres +\nNeo4j)",
-  ];
-  const bw = 1.95, bh = 1.35, gap = 0.5125, x0 = 0.6, by = 2.0;
-  const centers = boxes.map((_, i) => x0 + i * (bw + gap) + bw / 2);
-  boxes.forEach((label, i) => {
-    const x = x0 + i * (bw + gap);
-    s.addShape("rect", { x, y: by, w: bw, h: bh, fill: { color: WHITE }, line: { color: BLACK, width: 1.25 } });
-    s.addText(label, { x: x + 0.08, y: by, w: bw - 0.16, h: bh, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, bold: true, color: BLACK, align: "center", valign: "middle" });
-    if (i < boxes.length - 1) {
-      const ax = x + bw;
-      s.addShape("line", { x: ax, y: by + bh / 2, w: gap, h: 0, line: { color: BLACK, width: 1.5, endArrowType: "triangle" } });
-    }
-  });
-
-  // loop-back: box5 bottom -> down -> left -> up into box1 bottom, arrow into box1
-  const loopY = by + bh + 0.55;
-  const lastCx = centers[centers.length - 1], firstCx = centers[0];
-  s.addShape("line", { x: lastCx, y: by + bh, w: 0, h: loopY - (by + bh), line: { color: GRAY2, width: 1.25 } });
-  s.addShape("line", { x: firstCx, y: loopY, w: lastCx - firstCx, h: 0, line: { color: GRAY2, width: 1.25 } });
-  s.addShape("line", { x: firstCx, y: by + bh, w: 0, h: loopY - (by + bh), line: { color: GRAY2, width: 1.25, beginArrowType: "triangle" } });
-  s.addText("uncertainty / growth written back into the belief -- feeds the planner's very next choice, and seeds the next mission's start", {
-    x: 0.6, y: loopY + 0.1, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, italic: true, color: GRAY2, align: "center",
-  });
-  s.addText("9 inspectable walls/panels  ·  54 candidate viewpoints  ·  12 planners in PLANNER_REGISTRY  ·  5-seed x 4-scenario x 3-mission sweep", {
-    x: 0.6, y: loopY + 0.65, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, color: GRAY2, align: "center",
-  });
-  s.addText("Open-air utility yard (sim_house.py): two freestanding equipment buildings plus one real inspection panel each on a pipe rack and lattice tower -- not an enclosed room.", {
-    x: 0.6, y: loopY + 1.2, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10.5, italic: true, color: GRAY3, align: "center",
-  });
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 4 -- LITERATURE (2014-2026)
-{
-  const s = addSlide();
-  title(s, "Literature Survey: Where UW-TIG Sits (2014-2026)");
-  const header = ["Approach", "Uncertainty-\naware", "Cross-mission\nmemory", "Growth /\ntemporal", "Cost-\naware", "Real\ndetector", "Guarantee"];
-  const rows = [
-    ["Random (baseline) †", "No", "No", "No", "No", "--", "None"],
-    ["Isler et al. 2016 (base paper) †", "No", "No", "No", "Yes", "--", "None stated"],
-    ["Bircher et al. 2016 (RH-NBV) †", "No", "No", "No", "Yes", "--", "None stated"],
-    ["Alamdari, Fata & Smith 2014 †", "No", "Yes", "No", "Yes", "--", "O(log n) approx."],
-    ["Dhami et al., GATSBI 2023/2024 †", "No", "No", "No", "Yes", "2024 only", "None stated"],
-    ["Taioli et al. 2023 (POMDP/MCTS)", "Yes", "No (1 session)", "No", "Partial", "Assumed", "POMDP-optimal"],
-    ["Rückin et al. 2022-23 †", "Yes", "No", "No", "Yes", "Yes", "None stated"],
-    ["Moon et al., IA-TIGRIS, IEEE T-RO 2026", "Indirect", "No", "No", "Yes", "--", "None stated"],
-    [{ text: "UW-TIG (this project)", bold: true }, { text: "Yes", bold: true }, { text: "Yes", bold: true }, { text: "Yes", bold: true }, { text: "Yes", bold: true }, { text: "Yes", bold: true }, { text: "Partial*", bold: true }],
-  ];
-  dataTable(s, header, rows, { y: 1.3, fontSize: 10, headerFontSize: 10, rowH: 0.375, colW: [3.9, 1.5, 1.6, 1.4, 1.2, 1.3, 1.3] });
-  s.addText("† Core selection rule re-implemented and measured head-to-head in this testbed.   * Inherited (1 - 1/e) greedy guarantee on the coverage sub-objective only. No cited work combines all six columns.", {
-    x: 0.6, y: 5.15, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9.3, italic: true, color: GRAY2,
-  });
-  s.addText(
-    "2026: IA-TIGRIS (Moon et al., IEEE Transactions on Robotics) reuses prior planning effort while adapting to updated belief maps for information-gain path planning across hexrotor and fixed-wing UAVs -- an adaptive, incremental take on cost-aware coverage, but still generic belief-map information gain, not defect semantics or cross-mission memory (too recent to re-implement within this project's scope). 2025: Vivaldini, Pěnička & Saska's survey of decision-making UAV path planning confirms this project's research gap is still open in the current literature, not a stale framing from 2016-2020.",
-    { x: 0.6, y: 5.48, w: 12.1, h: 0.65, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, valign: "top" }
-  );
-  s.addText(
-    "Closest relatives: GATSBI combines a real detector with cost-aware planning but has no memory or uncertainty term; Rückin et al. plan with real epistemic uncertainty in a single session and surfaced Expected Calibration Error, a metric this project then ran on itself.",
-    { x: 0.6, y: 6.18, w: 12.1, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, valign: "top" }
-  );
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 5 -- DATASETS & PREPROCESSING
-{
-  const s = addSlide();
-  title(s, "Datasets & Preprocessing");
-  const header = ["Dataset", "Size / classes", "Role here", "Status"];
-  const rows = [
-    ["MBDD2025\n(Zha et al.,\nSci. Data 2025)", "14,471 UAV photos\n6 structures, 5 classes", "Train + held-out\ntest (1,448 images)", "In use, public\nCC-BY-4.0"],
-    ["SDNET2018\n(Maguire et al. 2018)", "Crack photos\n1 class", "Planned crack-class\naugmentation", "Download blocked\n(bot-check)"],
-  ];
-  dataTable(s, header, rows, { y: 1.3, fontSize: 10, headerFontSize: 10.5, rowH: 0.6, colW: [3.3, 3.6, 3.2, 2.0] });
-
-  s.addText("Preprocessing pipeline (every step diagnosed and verified on dev seeds before use):", {
-    x: 0.6, y: 3.15, w: 12.1, h: 0.35, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 13, bold: true, color: BLACK,
-  });
-  bulletList(s, [
-    { text: "Aspect-correct texture crop -- wall textures cropped to the wall's true aspect ratio at 1536px long side (datagen/mbdd_textures.py), fixing a ~2.2x stretch/pixelation that was silently distorting defects", bold: false },
-    { text: "Square-pixel camera resampling -- the 60x60° FOV camera renders into a 320x240 frame (non-square pixels); resampled to square pixels before detection (perception/ml_detector.py)", bold: false },
-    { text: "Bulge-class oversampling (~4x) -- the rarest defect class (2,018 vs. abscission's 22,702 instances) symlink-duplicated in the training set (datagen/oversample_bulge.py)", bold: false },
-    { text: "TTA-ensemble uncertainty -- 5 photometric variants (brightness/contrast/noise/blur) run through the same model; confidence's standard deviation across the ensemble reported as detection uncertainty", bold: false },
-    { text: "On-wall extent check -- a detection's ray-cast hit is rejected if it lands outside the wall's physical rectangle (+5cm margin), removing 51-75% of false positives on dev seeds (1 of 1,369 true positives)", bold: false },
-  ], { y: 3.55, fontSize: 11, spaceAfter: 6 });
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 6 -- MEASURED EVIDENCE: ABLATIONS
-{
-  const s = addSlide();
-  title(s, "Measured Evidence: What Each Addition Does");
-  s.addText("Only ablations that actually change a number are shown -- uncertainty and temporal are omitted (explained below: they're identical or near-identical to the full planner). Mean over static / uncertain / multi-defect x 5 test seeds x 3 missions:", {
-    x: 0.6, y: 1.3, w: 12.1, h: 0.5, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, color: GRAY1, valign: "top",
-  });
-
-  const header = ["Planner", "Precision", "Recall", "F1", "Loc. err (m)", "Flight (m)", "Coverage"];
-  const abl = ["uwtig", "uwtig_no_staleness", "uwtig_no_coverage_first", "uwtig_no_lookahead"];
-  const rows = abl.filter(HAS).map((p) => {
-    const cells = [p === "uwtig" ? "uwtig (full)" : p, f3(M(p, "precision_confirmed")), f3(M(p, "recall_confirmed")),
-      f3(M(p, "f1_confirmed")), f2(M(p, "mean_localization_error_m")), f1(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))];
-    return p === "uwtig" ? cells.map((t) => ({ text: t, bold: true })) : cells;
-  });
-  dataTable(s, header, rows, { y: 1.95, fontSize: 11.5, headerFontSize: 11.5, rowH: 0.48, colW: [3.5, 1.5, 1.3, 1.2, 1.6, 1.5, 1.5] });
-
-  const TERM = { uwtig_no_staleness: "the staleness term", uwtig_no_lookahead: "the lookahead", uwtig_no_coverage_first: "the coverage phase" };
-  const full = M("uwtig", "f1_confirmed");
-  const beats = abl.slice(1).filter((p) => HAS(p) && M(p, "f1_confirmed") > full + 1e-9);
-  const note = [
-    `Coverage phase is decisive: F1 ${f3(full)} with it, ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} without.`,
-    beats.length ? `Removing ${beats.map((p) => TERM[p]).join(" or ")} scores slightly HIGHER and flies less -- once a single look is ~99% reliable, they add flying without adding accuracy.` : "",
-  ].filter(Boolean).join(" ");
-  s.addText(note, { x: 0.6, y: 4.3, w: 12.1, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10.5, italic: true, color: GRAY2, valign: "top" });
-
-  s.addText("Uncertainty and temporal aren't shown above because their numbers don't move -- checked in the code, not assumed:", {
-    x: 0.6, y: 4.95, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 11.5, bold: true, color: BLACK,
-  });
-  bulletList(s, [
-    { text: "The coverage-guarantee phase (~half of every mission's budget) uses neither term at all -- it picks purely by ig-cost until every wall has 1 look; only the remaining budget reaches the full utility where these terms are even evaluated.", bold: false },
-    { text: "Temporal (growth) tracks a defect getting WORSE between visits -- but these 3 scenarios have no real growth (only the excluded \"growing\" scenario does), so it's just detector noise near zero: removing it leaves every metric, including flight distance, bit-identical to the full planner.", bold: false },
-    { text: "Uncertainty is a real, nonzero signal (TTA confidence spread), but its scale is small next to the coverage/staleness/cost terms -- removing it shifts the flight path by under 1m with every other metric unchanged, since confirmed precision/recall only depends on how many total looks each wall gets, not the order.", bold: false },
-  ], { y: 5.28, fontSize: 10, spaceAfter: 6 });
-
-  const uncP = meanOf("uwtig", "precision_confirmed", ["uncertain"]);
-  s.addText(`Every planner's own precision under the pre-fix scoring formula on these same runs was far lower (UW-TIG: 0.668) -- five measurement fixes, not planner changes, lifted every planner above. Not every slice clears 0.90: the "uncertain" scenario's precision is ${f3(uncP)}.`, {
-    x: 0.6, y: 6.8, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9.3, color: GRAY3, valign: "top",
-  });
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 7 -- HEAD-TO-HEAD
-{
-  const s = addSlide();
-  title(s, "Head-to-Head vs. Published Planners");
-  s.addText("Each paper's core selection rule, re-implemented in this testbed -- same detector, scenes, seeds and scoring. Mean over static / uncertain / multi-defect x 5 test seeds x 3 missions.", {
-    x: 0.6, y: 1.3, w: 12.1, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, color: GRAY1, valign: "top",
-  });
-  const planners = [
-    ["random", "Random baseline"],
-    ["isler_nbv", "Isler et al. 2016 (base paper)"],
-    ["bircher_rhnbv", "Bircher et al. 2016 (RH-NBV)"],
-    ["gatsbi_gtsp", "Dhami et al., GATSBI"],
-    ["ruckin_ipp", "Rückin et al. 2023 (IPP)"],
-    ["alamdari_latency", "Alamdari et al. 2014 (latency)"],
-    ["uwtig", "UW-TIG (this project)"],
-  ].filter(([p]) => HAS(p));
-  const header = ["Planner", "Precision", "Recall", "F1", "F1 single-look", "Loc. err (m)", "Flight (m)", "Coverage"];
-  const rows = planners.map(([p, label]) => {
-    const cells = [label, f3(M(p, "precision_confirmed")), f3(M(p, "recall_confirmed")), f3(M(p, "f1_confirmed")),
-      f3(M(p, "f1")), f2(M(p, "mean_localization_error_m")), f1(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))];
-    return p === "uwtig" ? cells.map((t) => ({ text: t, bold: true })) : cells;
-  });
-  dataTable(s, header, rows, { y: 1.9, fontSize: 11, headerFontSize: 11, rowH: 0.44, colW: [3.4, 1.2, 1.1, 1.0, 1.4, 1.3, 1.3, 1.4] });
-  const others = planners.map(([p]) => p).filter((p) => p !== "uwtig");
-  const best = others.reduce((a, b) => (M(b, "f1_confirmed") > M(a, "f1_confirmed") ? b : a), others[0]);
-  const bestLabel = planners.find(([p]) => p === best)[1];
-  const uw = M("uwtig", "f1_confirmed");
-  const bestF1 = M(best, "f1_confirmed");
-  const flyLess = Math.round(100 * (1 - M("uwtig", "total_flight_dist_m") / M(best, "total_flight_dist_m")));
-  const lead = uw - bestF1 >= 0.02 ? `UW-TIG has the highest F1 (${f3(uw)} vs ${bestLabel} ${f3(bestF1)})`
-    : uw >= bestF1 ? `UW-TIG and ${bestLabel} tie on F1 (${f3(uw)} vs ${f3(bestF1)}, inside seed noise)`
-    : `${bestLabel} beats UW-TIG on F1 (${f3(bestF1)} vs ${f3(uw)})`;
-  bulletList(s, [
-    { text: flyLess > 0 ? `${lead} -- but UW-TIG flies ${flyLess}% less (${f1(M("uwtig", "total_flight_dist_m"))} m vs ${f1(M(best, "total_flight_dist_m"))} m).` : `${lead}.`, bold: true },
-    "Faithful to each paper's selection rule, not its full system (no RRT sampling, 3D mapping or online model retraining). IA-TIGRIS (2026, previous slide) was too recent to re-implement within this project's scope.",
-  ], { y: 1.9 + 0.44 * (rows.length + 1) + 0.2, fontSize: 11.5, spaceAfter: 8 });
-  pageFoot(s);
-}
-
-// ============================================================ SLIDE 8 -- PERCEPTION + CALIBRATION
-{
-  const s = addSlide();
-  title(s, "Perception & Calibration: Honest Numbers");
-  s.addText("YOLO detectors trained on MBDD2025 (14,471 real UAV defect photos), scored on the held-out 1,448-image test set.", {
-    x: 0.6, y: 1.3, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, color: GRAY1,
-  });
-  const header = ["Metric", "CPU (YOLOv8n, 320px, 30ep)", "GPU (YOLOv8s, 640px, 100ep)"];
-  const rows = [
-    ["mAP50", "0.685", "0.884"],
-    ["Precision (mean)", "0.804", "0.874"],
-    ["Recall (mean)", "0.612", "0.842"],
-    ["F1", "0.695", "0.858"],
-  ];
-  if (DET) {
-    header.push(`Retrained\n(${DET.label})`);
-    const f1d = (2 * DET.p * DET.r) / (DET.p + DET.r);
-    [DET.map50, DET.p, DET.r, f1d].forEach((v, i) => rows[i].push({ text: f3(v), bold: true }));
-  } else {
-    rows.forEach((r) => (r[2] = { text: r[2], bold: true }));
+function card(s, x, y, w, h, heading) {
+  s.addShape("rect", { x, y, w, h, fill: { color: CARD }, line: { color: CARD, width: 0 } });
+  if (heading) {
+    text(s, heading, { x: x + 0.25, y: y + 0.18, w: w - 0.5, h: 0.4, fontFace: HEAD, fontSize: 15, bold: true });
+    s.addShape("line", { x: x + 0.25, y: y + 0.62, w: 0.6, h: 0, line: { color: BLACK, width: 2 } });
   }
-  dataTable(s, header, rows, { y: 1.65, fontSize: 11, headerFontSize: 10.3, rowH: 0.36, colW: DET ? [3.1, 3.0, 3.0, 3.0] : [4.1, 4.0, 4.0] });
-
-  s.addText(
-    "vs. literature: Li, Shi & Sun 2026 report 0.932/0.924 (private dataset, never released); Inam et al. 2023 report 0.977/0.967 (crack-only, strictly easier). Two more 2025 detectors use different architectures on related UAV defect tasks without a directly comparable number reported: TinyDef-DETR (Shen et al. 2025, transformer/DETR-based, UAV transmission-line defects) and a saliency-guided YOLOX detector (Hebbache et al. 2025, bridge defects in drone imagery). MBDD2025 (Zha et al. 2025) is this project's own dataset's formal publication, benchmarked there against 35 detection models including YOLOv5 and Faster R-CNN -- MBDD2025 remains the only fully public dataset of this group.",
-    { x: 0.6, y: 3.45, w: 12.1, h: 0.95, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9.3, color: GRAY2, valign: "top" }
-  );
-
-  const calP = [...new Set(ROWS.map((r) => r.planner))];
-  const eces = calP.map((p) => M(p, "ece")).filter((v) => !Number.isNaN(v));
-  const gaps = calP.map((p) => M(p, "uncertainty_gap_fp_minus_tp")).filter((v) => !Number.isNaN(v));
-  calloutBox(s,
-    "Honest finding: is the uncertainty signal trustworthy?",
-    `ECE is high (${f2(Math.min(...eces))}-${f2(Math.max(...eces))}) for every planner, well above a calibrated model's near-zero. The uncertainty gap (FP uncertainty minus TP uncertainty) is NEGATIVE for every planner (${f2(Math.min(...gaps))} to ${f2(Math.max(...gaps))}) -- the opposite of what would validate "high uncertainty means likely wrong". Used only as a relative ranking signal within one mission, never an absolute threshold -- logged as a next step, not hidden.`,
-    { x: 0.6, y: 4.55, w: 12.1, h: 2.15 }
-  );
-  pageFoot(s);
 }
 
-// ============================================================ SLIDE 9 -- VISUAL PROOF
-{
-  const s = addSlide();
-  title(s, "Visual Proof: No Physical Drone Required");
-  bulletList(s, [
-    "demo_uwtig_flight.py --planner <name> flies any planner under real PID-controlled physics (gym-pybullet-drones) -- not kinematic teleport, not a fixed patrol",
-    "Same scenario, same seed, same budget, three planners: UW-TIG, Isler-NBV, Random",
-    "make_comparison_video.py splices frame-exact, same-timestep videos side by side",
-  ], { y: 1.4, fontSize: 14, spaceAfter: 10 });
-  s.addImage({ path: path.join(__dirname, "comparison_frame_bw.png"), x: 1.65, y: 3.1, w: 10.0, h: 2.5 });
-  s.addShape("rect", { x: 1.65, y: 3.1, w: 10.0, h: 2.5, fill: { type: "none" }, line: { color: GRAY4, width: 0.75 } });
-  s.addText("Left to right: UW-TIG, Isler-NBV, Random -- same scenario, seed, and timestep. By late mission, UW-TIG works a feature-dense real defect target while Isler-NBV is caught mid-detection on a wall the others aren't even looking at.", {
-    x: 1.15, y: 5.7, w: 11.0, h: 0.8, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, italic: true, color: GRAY2, align: "center", valign: "top",
-  });
-  pageFoot(s);
+function table(s, header, rows, o) {
+  const opt = Object.assign({ fontSize: 11, rowH: 0.36, boldRow: -1 }, o);
+  const head = header.map((h, ci) => ({
+    text: h,
+    options: { bold: true, color: WHITE, fill: { color: BLACK }, fontSize: opt.fontSize, fontFace: BODY,
+      align: ci === 0 || (opt.leftCols || []).includes(ci) ? "left" : "center", valign: "middle" },
+  }));
+  const body = rows.map((row, ri) => row.map((cell, ci) => ({
+    text: String(cell),
+    options: { color: BLACK, fill: { color: ri % 2 ? CARD : WHITE }, fontSize: opt.fontSize, fontFace: BODY,
+      bold: ri === opt.boldRow, valign: "middle",
+      align: ci === 0 || (opt.leftCols || []).includes(ci) ? "left" : "center" },
+  })));
+  s.addTable([head, ...body], { x: opt.x, y: opt.y, w: opt.w, colW: opt.colW, rowH: opt.rowH,
+    border: { type: "solid", color: G5, pt: 0.75 }, margin: [3, 6, 3, 6], autoPage: false });
 }
 
-// ============================================================ SLIDE 10 -- WHAT'S NEXT
+function tile(s, x, y, w, h, value, label) {
+  s.addShape("rect", { x, y, w, h, fill: { color: WHITE }, line: { color: BLACK, width: 1.25 } });
+  text(s, value, { x, y: y + 0.18, w, h: h * 0.5, fontFace: HEAD, fontSize: 30, bold: true, align: "center", valign: "middle" });
+  text(s, label, { x: x + 0.15, y: y + h * 0.6, w: w - 0.3, h: h * 0.35, fontSize: 11, color: G2, align: "center" });
+}
+
+const UW = {
+  p: M("uwtig", "precision_confirmed"), r: M("uwtig", "recall_confirmed"), f: M("uwtig", "f1_confirmed"),
+  fly: M("uwtig", "total_flight_dist_m"),
+};
+const RK = { f: M("ruckin_ipp", "f1_confirmed"), p: M("ruckin_ipp", "precision_confirmed"), fly: M("ruckin_ipp", "total_flight_dist_m") };
+const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
+
+// ============================================================ 1. TITLE
 {
-  const s = addSlide();
-  title(s, "What's Next");
-  const uncP = meanOf("uwtig", "precision_confirmed", ["uncertain"]);
-  const items = [
-    { text: `Push the "uncertain" scenario's precision past 0.90 -- currently ${f3(uncP)}, via scenario-specific confirmation-rule tuning`, bold: false },
-    { text: `Close the "growing" scenario's domain gap -- recall is ~0%; mix in synthetic training data, or get a longitudinal real dataset`, bold: false },
-    ...(HAS("ruckin_ipp") ? [{ text: `Close the precision gap with Rückin et al. IPP (${f3(M("ruckin_ipp", "precision_confirmed"))} vs ${f3(M("uwtig", "precision_confirmed"))}) by re-weighting UW-TIG's utility terms`, bold: false }] : []),
-    { text: "Upgrade uncertainty past TTA-ensemble variance -- prototype MC-Dropout (needs dropout spliced into YOLO's detection head + a full retrain, since stock YOLOv8/v11 has no dropout layer at all) or try temperature scaling first", bold: false },
-    { text: "Re-implement the published baselines (and 2026's IA-TIGRIS) at full-system fidelity, not just the selection rule", bold: false },
-    { text: "A yolo11m GPU retrain just finished: mAP50 0.890 vs. the current default's 0.884, but precision dipped slightly (0.869 vs. 0.874) -- a mixed, marginal result, not yet adopted as default pending a decision on whether to re-run the full sweep for it", bold: false },
-    { text: "Complete the SDNET2018 crack-class augmentation, and move toward pipeline segments and truss rigs as first-class inspectable geometry", bold: false },
+  const s = pres.addSlide({ masterName: "CONTENT" });
+  N++;
+  text(s, "AUTONOMOUS DRONE UTILITY INSPECTION", { x: X0, y: 0.75, w: CW, h: 0.4, fontSize: 13, bold: true, color: G2, charSpacing: 3 });
+  text(s, "UW-TIG: Uncertainty-Weighted Temporal Information Gain for Closed-Loop Defect Inspection",
+    { x: X0, y: 1.2, w: 11.2, h: 1.3, fontFace: HEAD, fontSize: 30, bold: true });
+  s.addShape("line", { x: X0, y: 2.7, w: 1.4, h: 0, line: { color: BLACK, width: 3 } });
+  text(s, "PSG College of Technology  ·  Department of Computer Science and Engineering, Coimbatore",
+    { x: X0, y: 2.9, w: CW, h: 0.4, fontSize: 14, color: G1 });
+
+  text(s, "Under the guidance of", { x: X0, y: 3.7, w: 5, h: 0.3, fontSize: 12, color: G2 });
+  text(s, "Ms. L. Karthika", { x: X0, y: 4.0, w: 5, h: 0.4, fontSize: 16, bold: true });
+  text(s, "Guide", { x: X0, y: 4.38, w: 5, h: 0.3, fontSize: 11, color: G2 });
+  text(s, "Dr. N. Gopika Rani", { x: X0, y: 4.85, w: 5, h: 0.4, fontSize: 16, bold: true });
+  text(s, "Co-Guide", { x: X0, y: 5.23, w: 5, h: 0.3, fontSize: 11, color: G2 });
+
+  text(s, "Team members", { x: 6.4, y: 3.7, w: 6, h: 0.3, fontSize: 12, color: G2 });
+  const team = [
+    ["Akhil Ramalingam", "23Z207"], ["Anbuchandiran K", "23Z209"], ["Neelesh Padmanabh", "23Z241"],
+    ["Saumiyaa Sri V L", "23Z261"], ["Sowndarya Elangi S", "23Z269"], ["Therdhana J P", "23Z273"],
   ];
-  bulletList(s, items, { y: 1.4, fontSize: 12, spaceAfter: 8 });
-  s.addShape("line", { x: 0.6, y: 6.3, w: 12.1, h: 0, line: { color: BLACK, width: 1 } });
-  s.addText(
-    `Bottom line: UW-TIG precision ${f3(M("uwtig", "precision_confirmed"))}, recall ${f3(M("uwtig", "recall_confirmed"))}, F1 ${f3(M("uwtig", "f1_confirmed"))} on held-out test seeds -- trade-offs reported plainly throughout, including where the numbers don't flatter the project.`,
-    { x: 0.6, y: 6.45, w: 12.1, h: 0.6, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, bold: true, color: BLACK, valign: "top" }
-  );
-  pageFoot(s);
+  team.forEach(([n, r], i) => {
+    const y = 4.02 + i * 0.4;
+    text(s, n, { x: 6.4, y, w: 4.2, h: 0.36, fontSize: 14 });
+    text(s, r, { x: 10.6, y, w: 2.1, h: 0.36, fontSize: 14, color: G2, align: "right" });
+    if (i < team.length - 1) s.addShape("line", { x: 6.4, y: y + 0.38, w: 6.33, h: 0, line: { color: G5, width: 0.5 } });
+  });
+}
+
+// ============================================================ 2. PROBLEM STATEMENT
+{
+  const s = slide("Problem Statement");
+  text(s, "Utility infrastructure -- buildings, pipelines, towers -- needs repeated inspection for cracks, corrosion and leakage. Today's drone inspection is largely open-loop:",
+    { x: X0, y: 1.4, w: CW, h: 0.7, fontSize: 15, color: G1 });
+  const probs = [
+    ["Fixed routes", "The drone follows a pre-planned path; what it detects never changes where it flies next."],
+    ["No memory", "Every flight starts from scratch -- a defect seen last month is not tracked or compared."],
+    ["Uncertainty ignored", "A low-confidence detection is treated like a confident one; nothing triggers a second look."],
+    ["Geometry-only planners", "Next-best-view methods (e.g. Isler et al. 2016) maximise visual coverage, with no notion of a defect."],
+  ];
+  probs.forEach(([h, b], i) => {
+    const x = X0 + (i % 2) * 6.17, y = 2.3 + Math.floor(i / 2) * 1.55;
+    card(s, x, y, 5.96, 1.35);
+    text(s, h, { x: x + 0.25, y: y + 0.18, w: 5.5, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
+    text(s, b, { x: x + 0.25, y: y + 0.58, w: 5.5, h: 0.7, fontSize: 13, color: G1 });
+  });
+  text(s, "Objective", { x: X0, y: 5.55, w: 3, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
+  text(s, "Build a closed-loop drone that detects defects with a trained model, measures its own uncertainty, remembers defects across missions, and decides where to fly next -- and show it beats published planners on the same testbed.",
+    { x: X0, y: 5.92, w: CW, h: 0.9, fontSize: 14 });
+}
+
+// ============================================================ 3. ABSTRACT
+{
+  const s = slide("Abstract");
+  text(s,
+    "This project builds a simulated autonomous drone (PyBullet, gym-pybullet-drones) that inspects an open-air utility yard for surface defects. " +
+    "A YOLOv8 detector trained on 14,471 real UAV photographs (MBDD2025) finds cracks, leakage, abscission, corrosion and bulging, and a test-time-augmentation ensemble estimates each detection's uncertainty. " +
+    "Detections are ray-cast to 3-D positions and stored in a persistent memory (PostgreSQL + pgvector, Neo4j) that tracks each defect across missions. " +
+    "The proposed planner, UW-TIG, extends the information-gain next-best-view formulation of Isler et al. (2016) with a coverage guarantee, detection uncertainty, defect growth, revisit staleness and a two-step lookahead. " +
+    "It is compared on held-out test seeds against random search and five re-implemented published planners.",
+    { x: X0, y: 1.4, w: CW, h: 3.0, fontSize: 15, color: G1, lineSpacingMultiple: 1.15 });
+  const tw = 2.85, tg = 0.243;
+  [[f3(UW.p), "Precision"], [f3(UW.r), "Recall"], [f3(UW.f), "F1 score"], [`${FLY_LESS}%`, "less flight than the best published planner at equal F1"]]
+    .forEach(([v, l], i) => tile(s, X0 + i * (tw + tg), 4.3, tw, 1.65, v, l));
+  text(s, "Closed-loop results, mean over 3 scenarios x 5 test seeds x 3 missions", { x: X0, y: 6.05, w: CW, h: 0.3, fontSize: 11, color: G3 });
+}
+
+// ============================================================ 4. LITERATURE SURVEY
+{
+  const s = slide("Literature Survey");
+  const rows = [
+    ["Isler et al., ICRA 2016\nInformation-gain NBV (base paper)", "Entropy-based, cost-normalised next-best-view", "Principled view selection; our base formulation", "Geometry only -- no defects, no memory"],
+    ["Bircher et al., ICRA 2016\nReceding-horizon NBV", "Tree search, execute first step, replan", "Plans beyond one greedy step", "Built for exploration, not defect inspection"],
+    ["Alamdari, Fata & Smith, IJRR 2014\nPersistent monitoring", "Maximum-latency revisit scheduling", "Guarantees regular revisits", "Revisits by time alone; no perception"],
+    ["Dhami et al. (GATSBI), 2023 / 2024\nTargeted bridge inspection", "GTSP routing + defect detector (2024)", "Cost-aware routing with a real detector", "Single session; no uncertainty, no memory"],
+    ["Rückin et al., IEEE T-RO 2023\nInformative path planning", "MC-Dropout uncertainty drives the path", "Real model uncertainty guides planning", "Single session; goal is retraining the model"],
+    ["Moon et al. (IA-TIGRIS), IEEE T-RO 2026\nIncremental informative planning", "Sampling-based planner, reuses past plans", "Adapts online; fixed-wing and multirotor", "Generic information gain; no defect history"],
+    ["Zha et al. (MBDD2025), Scientific Data 2025\nUAV building-defect dataset", "14,471 images, 5 classes, 35 detectors benchmarked", "Large, public, real UAV defect data", "Single time-point; no growth sequences"],
+  ];
+  table(s, ["Paper, authors & year", "Technique", "Advantages", "Limitations"], rows,
+    { x: X0, y: 1.35, w: CW, colW: [4.0, 2.75, 2.69, 2.69], fontSize: 11, rowH: 0.7, leftCols: [1, 2, 3] });
+}
+
+// ============================================================ 5. INFERENCES & NOVELTY
+{
+  const s = slide("Inferences & Proposed Novelty");
+  card(s, X0, 1.4, 5.7, 4.9, "Inferences from the survey");
+  bullets(s, [
+    "Information-gain planners choose views well, but none know what a defect is.",
+    "Uncertainty-driven planning exists (Rückin et al.), but only within one flight and to retrain a model.",
+    "Revisit scheduling exists (Alamdari et al.), but by elapsed time, not by what was seen.",
+    "No reviewed work combines detector uncertainty, memory across missions and defect growth in one planner.",
+  ], { x: X0 + 0.25, y: 2.25, w: 5.2, h: 3.9, fontSize: 15, gap: 16 });
+
+  card(s, 6.53, 1.4, 6.2, 4.9, "UW-TIG: what is new");
+  bullets(s, [
+    { lead: "Coverage guarantee --", text: "every wall is seen once before anything else; fixes a recall ceiling shared by the base paper." },
+    { lead: "Detector uncertainty --", text: "unsure detections earn a second look (TTA ensemble of a trained YOLO model)." },
+    { lead: "Cross-mission memory --", text: "Postgres + Neo4j track each defect's identity and growth over missions." },
+    { lead: "Staleness --", text: "areas not seen for a while gain priority (after Alamdari et al.)." },
+    { lead: "Two-step lookahead --", text: "plans one move ahead instead of pure greedy (after Bircher et al.)." },
+  ], { x: 6.78, y: 2.25, w: 5.75, h: 3.95, fontSize: 14, gap: 12 });
+}
+
+// ============================================================ 6. ARCHITECTURE
+{
+  const s = slide("System Architecture");
+  const boxes = ["Planner", "Flight + Camera", "Detector", "Geometry", "Memory"];
+  const subs = ["UW-TIG utility", "PyBullet drone", "YOLOv8 + TTA", "Ray-cast to 3-D", "Postgres + Neo4j"];
+  const desc = [
+    "Scores 54 candidate viewpoints and picks the next one",
+    "Flies there (PID physics in demo, kinematic in sweeps) and captures a frame",
+    "Finds defects; 5-view TTA gives confidence and uncertainty",
+    "Projects each box onto the wall plane to get a 3-D position",
+    "Matches defects across missions and records growth",
+  ];
+  const bw = 2.05, gap = 0.47, by = 1.6, bh = 1.15;
+  const cx = (i) => X0 + i * (bw + gap) + bw / 2;
+  boxes.forEach((b, i) => {
+    const x = X0 + i * (bw + gap);
+    s.addShape("rect", { x, y: by, w: bw, h: bh, fill: { color: WHITE }, line: { color: BLACK, width: 1.5 } });
+    text(s, b, { x, y: by + 0.2, w: bw, h: 0.4, fontFace: HEAD, fontSize: 15, bold: true, align: "center" });
+    text(s, subs[i], { x, y: by + 0.62, w: bw, h: 0.35, fontSize: 11.5, color: G2, align: "center" });
+    if (i < boxes.length - 1)
+      s.addShape("line", { x: x + bw, y: by + bh / 2, w: gap, h: 0, line: { color: BLACK, width: 1.5, endArrowType: "triangle" } });
+    text(s, desc[i], { x: x, y: 3.55, w: bw, h: 1.1, fontSize: 12.5, color: G1, align: "center" });
+  });
+  const ly = by + bh + 0.45;
+  s.addShape("line", { x: cx(4), y: by + bh, w: 0, h: ly - by - bh, line: { color: G2, width: 1.25 } });
+  s.addShape("line", { x: cx(0), y: ly, w: cx(4) - cx(0), h: 0, line: { color: G2, width: 1.25 } });
+  s.addShape("line", { x: cx(0), y: by + bh, w: 0, h: ly - by - bh, line: { color: G2, width: 1.25, beginArrowType: "triangle" } });
+  text(s, "feedback: updated coverage, uncertainty and growth drive the next choice -- and the next mission",
+    { x: cx(0) + 0.2, y: ly - 0.33, w: cx(4) - cx(0) - 0.4, h: 0.3, fontSize: 11, italic: true, color: G2, align: "center" });
+
+  card(s, X0, 5.0, CW, 1.4);
+  text(s, "Test environment", { x: X0 + 0.25, y: 5.15, w: 4, h: 0.35, fontFace: HEAD, fontSize: 14, bold: true });
+  text(s, "Open-air utility yard: two equipment buildings plus inspection panels on a pipe rack and a lattice tower -- 9 inspectable surfaces, 54 candidate viewpoints at 1.3 m and 2.2 m standoff. Four scenarios (static, uncertain, multi-defect, growing) with real MBDD2025 photos applied as wall textures.",
+    { x: X0 + 0.25, y: 5.52, w: CW - 0.5, h: 0.85, fontSize: 12.5, color: G1 });
+}
+
+// ============================================================ 7. REQUIREMENTS, DATASET, PREPROCESSING
+{
+  const s = slide("Requirements, Dataset & Preprocessing");
+  const cw = 3.88, g = 0.245, y = 1.4, h = 4.85;
+  card(s, X0, y, cw, h, "Software requirements");
+  bullets(s, [
+    "Python 3.12",
+    "PyBullet + gym-pybullet-drones (simulation, PID flight)",
+    "Ultralytics YOLOv8 / YOLO11, OpenCV, NumPy",
+    "PostgreSQL + pgvector (detection log, identity matching)",
+    "Neo4j (defect graph across missions)",
+    "Docker Compose (runs both databases)",
+    "NVIDIA L4 GPU, rented (detector training only)",
+  ], { x: X0 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
+
+  const x2 = X0 + cw + g;
+  card(s, x2, y, cw, h, "Dataset");
+  bullets(s, [
+    { lead: "MBDD2025:", text: "14,471 real UAV photos of building surfaces (Zha et al., Scientific Data 2025)." },
+    { lead: "5 classes:", text: "crack, leakage, abscission, corrosion, bulge." },
+    { lead: "Split:", text: "70 / 20 / 10 train / val / test; 1,448 held-out test images." },
+    { lead: "Imbalance:", text: "bulge has 2,018 instances vs. 22,702 for abscission." },
+    { lead: "SDNET2018:", text: "crack augmentation planned; download pending." },
+  ], { x: x2 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
+
+  const x3 = x2 + cw + g;
+  card(s, x3, y, cw, h, "Preprocessing");
+  bullets(s, [
+    { lead: "Aspect-correct crop:", text: "photos cropped to each wall's true shape at 1536 px (was stretched ~2.2x)." },
+    { lead: "Square pixels:", text: "320x240 camera frames resampled before detection." },
+    { lead: "Oversampling:", text: "bulge images repeated ~4x in training." },
+    { lead: "TTA ensemble:", text: "4 photometric variants per frame give an uncertainty score." },
+    { lead: "On-wall check:", text: "hits outside the wall rejected -- removed 51-75% of false positives." },
+  ], { x: x3 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
+}
+
+// ============================================================ 8. DETECTION MODEL & EVALUATION
+{
+  const s = slide("Detection Model & Evaluation");
+  card(s, X0, 1.4, 4.6, 4.75, "Model");
+  bullets(s, [
+    { lead: "Architecture:", text: "YOLOv8s, 640 px input" },
+    { lead: "Training:", text: "100 epochs on an NVIDIA L4, bulge oversampled" },
+    { lead: "Baseline:", text: "YOLOv8n, 320 px, 30 epochs on CPU -- mAP50 0.685" },
+    { lead: "Uncertainty:", text: "spread of confidence across the TTA views" },
+    { lead: "Retrain:", text: "YOLO11m reached mAP50 0.890 but lower precision (0.869); not yet adopted" },
+  ], { x: X0 + 0.25, y: 2.25, w: 4.15, h: 3.8, fontSize: 13.5, gap: 12 });
+
+  const cls = [["Crack", 0.84, 0.75], ["Leakage", 0.90, 0.92], ["Abscission", 0.87, 0.78], ["Corrosion", 0.83, 0.79], ["Bulge", 0.95, 0.96]];
+  const rows = cls.map(([c, p, r]) => [c, p.toFixed(2), r.toFixed(2), (2 * p * r / (p + r)).toFixed(2)]);
+  rows.push(["Mean (all classes)", "0.87", "0.84", "0.86"]);
+  text(s, "Held-out test set: 1,448 images", { x: 5.45, y: 1.4, w: 7.3, h: 0.3, fontSize: 12, color: G2 });
+  table(s, ["Class", "Precision", "Recall", "F1"], rows,
+    { x: 5.45, y: 1.75, w: 7.28, colW: [2.98, 1.43, 1.43, 1.44], fontSize: 13, rowH: 0.43, boldRow: 5 });
+  text(s, "mAP50 0.884   ·   mAP50-95 0.506", { x: 5.45, y: 4.85, w: 7.28, h: 0.35, fontSize: 14, bold: true });
+  text(s, "Calibration check: expected calibration error is 0.29-0.33, and uncertainty is slightly lower on wrong detections than right ones -- so uncertainty is used only to rank views within a mission, never as a probability.",
+    { x: 5.45, y: 5.35, w: 7.28, h: 1.3, fontSize: 12, color: G1 });
+}
+
+// ============================================================ 9. PLANNER & CLOSED-LOOP RESULTS
+{
+  const s = slide("UW-TIG Planner & Closed-Loop Results");
+  s.addShape("rect", { x: X0, y: 1.35, w: CW, h: 0.62, fill: { color: CARD }, line: { color: CARD, width: 0 } });
+  text(s, [
+    { text: "Utility(v) = ", options: { bold: true } },
+    { text: "1.0·InfoGain + 1.5·Uncertainty + 2.0·Growth + 1.0·Staleness − 0.4·Cost" },
+    { text: "    (coverage phase first; 2-step lookahead)", options: { color: G2 } },
+  ], { x: X0 + 0.25, y: 1.35, w: CW - 0.5, h: 0.62, fontSize: 14, valign: "middle", fontFace: BODY });
+
+  const planners = [
+    ["random", "Random baseline"], ["isler_nbv", "Isler et al. 2016 (base paper)"], ["bircher_rhnbv", "Bircher et al. 2016"],
+    ["gatsbi_gtsp", "Dhami et al. (GATSBI)"], ["alamdari_latency", "Alamdari et al. 2014"], ["ruckin_ipp", "Rückin et al. 2023"],
+    ["uwtig", "UW-TIG (ours)"],
+  ].filter(([p]) => HAS(p));
+  const rows = planners.map(([p, l]) => [l, f3(M(p, "precision_confirmed")), f3(M(p, "recall_confirmed")),
+    f3(M(p, "f1_confirmed")), f0(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))]);
+  table(s, ["Planner", "Precision", "Recall", "F1", "Flight (m)", "Coverage"], rows,
+    { x: X0, y: 2.15, w: 7.6, colW: [2.85, 0.98, 0.95, 0.85, 1.02, 0.95], fontSize: 12, rowH: 0.42, boldRow: planners.length - 1 });
+
+  const rx = 8.45, rw = 4.28;
+  card(s, rx, 2.15, rw, 3.36, "What the results show");
+  bullets(s, [
+    `Ties the best published planner on F1 (${f3(UW.f)} vs ${f3(RK.f)}) while flying ${FLY_LESS}% less.`,
+    `Coverage phase is decisive: F1 ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} without it.`,
+    "Removing uncertainty or growth changes no metric: the coverage phase ignores both, and these scenarios have no real growth.",
+    `Rückin et al. has slightly higher precision (${f3(RK.p)}).`,
+  ], { x: rx + 0.25, y: 3.0, w: rw - 0.45, h: 2.45, fontSize: 12.5, gap: 8 });
+  text(s, "Mean over static, uncertain and multi-defect scenarios x 5 test seeds x 3 missions; each published planner's selection rule re-implemented on the same testbed.",
+    { x: X0, y: 5.6, w: 7.6, h: 0.7, fontSize: 10.5, color: G3 });
+}
+
+// ============================================================ 10. CONCLUSION & FUTURE WORK
+{
+  const s = slide("Conclusion & Future Work");
+  card(s, X0, 1.4, 5.95, 4.9, "Conclusion");
+  bullets(s, [
+    `A working closed loop: detect, assess uncertainty, remember, replan, reinspect.`,
+    `UW-TIG reaches precision ${f3(UW.p)}, recall ${f3(UW.r)}, F1 ${f3(UW.f)} on held-out test seeds.`,
+    "Matches the strongest of five published planners on detection while flying far less.",
+    "Every design choice was fixed on separate development seeds before testing.",
+  ], { x: X0 + 0.25, y: 2.25, w: 5.45, h: 3.95, fontSize: 15, gap: 18 });
+
+  card(s, 6.78, 1.4, 5.95, 4.9, "Future work");
+  bullets(s, [
+    `Raise the "uncertain" scenario's precision (${f3(M("uwtig", "precision_confirmed", ["uncertain"]))}) above 0.90.`,
+    "Re-weight the utility so uncertainty and growth actually influence decisions.",
+    "Replace TTA with a calibrated uncertainty (temperature scaling or MC-Dropout).",
+    "Add real growth data so the growing-defect scenario can be detected.",
+    "Re-implement published planners as full systems, not only their selection rules.",
+  ], { x: 7.03, y: 2.25, w: 5.45, h: 3.95, fontSize: 15, gap: 12 });
 }
 
 // ---------------------------------------------------------------- write
@@ -497,5 +401,5 @@ const OUT = process.env.DECK_OUT || path.join(__dirname, "..", "Autonomous_Drone
 pres.writeFile({ fileName: OUT }).then(async () => {
   const { applyTheme } = require(process.env.PPTX_SKILL_DIR + "/scripts/apply_theme.js");
   await applyTheme(OUT, THEME);
-  console.log("wrote", OUT, "-- slides:", SLIDE_NO);
+  console.log("wrote", OUT, "-- slides:", N);
 });
