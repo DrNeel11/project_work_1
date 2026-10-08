@@ -347,7 +347,7 @@ function calloutBox(s, heading, body, opts) {
       f3(M(p, "f1_confirmed")), f2(M(p, "mean_localization_error_m")), f1(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))];
     return p === "uwtig" ? cells.map((t) => ({ text: t, bold: true })) : cells;
   });
-  dataTable(s, header, rows, { y: 1.95, fontSize: 10.5, headerFontSize: 10.8, rowH: 0.42, colW: [3.5, 1.5, 1.3, 1.2, 1.6, 1.5, 1.5] });
+  dataTable(s, header, rows, { y: 1.9, fontSize: 10, headerFontSize: 10.3, rowH: 0.38, colW: [3.5, 1.5, 1.3, 1.2, 1.6, 1.5, 1.5] });
 
   const TERM = { uwtig_no_uncertainty: "the uncertainty term", uwtig_no_temporal: "the temporal term",
     uwtig_no_staleness: "the staleness term", uwtig_no_lookahead: "the lookahead", uwtig_no_coverage_first: "the coverage phase" };
@@ -357,11 +357,20 @@ function calloutBox(s, heading, body, opts) {
     `Coverage phase is decisive: F1 ${f3(full)} with it, ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} without.`,
     beats.length ? `Removing ${beats.map((p) => TERM[p]).join(" or ")} scores slightly HIGHER and flies less -- once a single look is ~99% reliable, they add flying without adding accuracy.` : "",
   ].filter(Boolean).join(" ");
-  s.addText(note, { x: 0.6, y: 5.6, w: 12.1, h: 0.6, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, italic: true, color: GRAY2, valign: "top" });
+  s.addText(note, { x: 0.6, y: 4.65, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10, italic: true, color: GRAY2, valign: "top" });
+
+  s.addText("Why uncertainty/temporal show ZERO or near-zero change -- checked in the code, not assumed:", {
+    x: 0.6, y: 5.1, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 11.5, bold: true, color: BLACK,
+  });
+  bulletList(s, [
+    { text: "The coverage-guarantee phase (~half of every mission's budget) uses neither term at all -- it picks purely by ig-cost until every wall has 1 look; only the remaining budget reaches the full utility where these terms are even evaluated.", bold: false },
+    { text: "Temporal (growth) tracks a defect getting WORSE between visits -- but these 3 scenarios have no real growth (only the excluded \"growing\" scenario does), so it's just detector noise near zero. Confirmed, not assumed: removing it leaves flight distance bit-identical (125.1m both ways).", bold: false },
+    { text: "Uncertainty is a real, nonzero signal (TTA confidence spread) -- removing it does shift the path slightly (124.6m vs 125.1m), but its scale is small next to the coverage/staleness/cost terms, so it reorders visits without changing how many total looks each wall ends up with -- which is all confirmed precision/recall depends on.", bold: false },
+  ], { y: 5.42, fontSize: 9.3, spaceAfter: 4 });
 
   const uncP = meanOf("uwtig", "precision_confirmed", ["uncertain"]);
-  s.addText(`Every planner's own precision under the pre-fix scoring formula on these same runs was far lower (UW-TIG: 0.668) -- five measurement fixes (scoring units, ground-truth leakage, photo distortion, viewpoint distance, wrong-surface hits), not planner changes, lifted every planner above. Not every slice clears 0.90: the "uncertain" scenario's precision is ${f3(uncP)}.`, {
-    x: 0.6, y: 6.2, w: 12.1, h: 0.75, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10, color: GRAY3, valign: "top",
+  s.addText(`Every planner's own precision under the pre-fix scoring formula on these same runs was far lower (UW-TIG: 0.668) -- five measurement fixes, not planner changes, lifted every planner above. Not every slice clears 0.90: the "uncertain" scenario's precision is ${f3(uncP)}.`, {
+    x: 0.6, y: 6.85, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, valign: "top",
   });
   pageFoot(s);
 }
