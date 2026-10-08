@@ -336,41 +336,40 @@ function calloutBox(s, heading, body, opts) {
 {
   const s = addSlide();
   title(s, "Measured Evidence: What Each Addition Does");
-  s.addText("Every addition from the novelty slide is independently ablated in PLANNER_REGISTRY -- measured, not just claimed. Mean over static / uncertain / multi-defect x 5 test seeds x 3 missions:", {
-    x: 0.6, y: 1.3, w: 12.1, h: 0.5, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11.5, color: GRAY1, valign: "top",
+  s.addText("Only ablations that actually change a number are shown -- uncertainty and temporal are omitted (explained below: they're identical or near-identical to the full planner). Mean over static / uncertain / multi-defect x 5 test seeds x 3 missions:", {
+    x: 0.6, y: 1.3, w: 12.1, h: 0.5, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 11, color: GRAY1, valign: "top",
   });
 
   const header = ["Planner", "Precision", "Recall", "F1", "Loc. err (m)", "Flight (m)", "Coverage"];
-  const abl = ["uwtig", "uwtig_no_uncertainty", "uwtig_no_temporal", "uwtig_no_staleness", "uwtig_no_coverage_first", "uwtig_no_lookahead"];
+  const abl = ["uwtig", "uwtig_no_staleness", "uwtig_no_coverage_first", "uwtig_no_lookahead"];
   const rows = abl.filter(HAS).map((p) => {
     const cells = [p === "uwtig" ? "uwtig (full)" : p, f3(M(p, "precision_confirmed")), f3(M(p, "recall_confirmed")),
       f3(M(p, "f1_confirmed")), f2(M(p, "mean_localization_error_m")), f1(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))];
     return p === "uwtig" ? cells.map((t) => ({ text: t, bold: true })) : cells;
   });
-  dataTable(s, header, rows, { y: 1.9, fontSize: 10, headerFontSize: 10.3, rowH: 0.38, colW: [3.5, 1.5, 1.3, 1.2, 1.6, 1.5, 1.5] });
+  dataTable(s, header, rows, { y: 1.95, fontSize: 11.5, headerFontSize: 11.5, rowH: 0.48, colW: [3.5, 1.5, 1.3, 1.2, 1.6, 1.5, 1.5] });
 
-  const TERM = { uwtig_no_uncertainty: "the uncertainty term", uwtig_no_temporal: "the temporal term",
-    uwtig_no_staleness: "the staleness term", uwtig_no_lookahead: "the lookahead", uwtig_no_coverage_first: "the coverage phase" };
+  const TERM = { uwtig_no_staleness: "the staleness term", uwtig_no_lookahead: "the lookahead", uwtig_no_coverage_first: "the coverage phase" };
   const full = M("uwtig", "f1_confirmed");
   const beats = abl.slice(1).filter((p) => HAS(p) && M(p, "f1_confirmed") > full + 1e-9);
   const note = [
     `Coverage phase is decisive: F1 ${f3(full)} with it, ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} without.`,
     beats.length ? `Removing ${beats.map((p) => TERM[p]).join(" or ")} scores slightly HIGHER and flies less -- once a single look is ~99% reliable, they add flying without adding accuracy.` : "",
   ].filter(Boolean).join(" ");
-  s.addText(note, { x: 0.6, y: 4.65, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10, italic: true, color: GRAY2, valign: "top" });
+  s.addText(note, { x: 0.6, y: 4.3, w: 12.1, h: 0.45, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 10.5, italic: true, color: GRAY2, valign: "top" });
 
-  s.addText("Why uncertainty/temporal show ZERO or near-zero change -- checked in the code, not assumed:", {
-    x: 0.6, y: 5.1, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 11.5, bold: true, color: BLACK,
+  s.addText("Uncertainty and temporal aren't shown above because their numbers don't move -- checked in the code, not assumed:", {
+    x: 0.6, y: 4.95, w: 12.1, h: 0.3, isTextBox: true, margin: 0, fontFace: THEME.headFontFace, fontSize: 11.5, bold: true, color: BLACK,
   });
   bulletList(s, [
     { text: "The coverage-guarantee phase (~half of every mission's budget) uses neither term at all -- it picks purely by ig-cost until every wall has 1 look; only the remaining budget reaches the full utility where these terms are even evaluated.", bold: false },
-    { text: "Temporal (growth) tracks a defect getting WORSE between visits -- but these 3 scenarios have no real growth (only the excluded \"growing\" scenario does), so it's just detector noise near zero. Confirmed, not assumed: removing it leaves flight distance bit-identical (125.1m both ways).", bold: false },
-    { text: "Uncertainty is a real, nonzero signal (TTA confidence spread) -- removing it does shift the path slightly (124.6m vs 125.1m), but its scale is small next to the coverage/staleness/cost terms, so it reorders visits without changing how many total looks each wall ends up with -- which is all confirmed precision/recall depends on.", bold: false },
-  ], { y: 5.42, fontSize: 9.3, spaceAfter: 4 });
+    { text: "Temporal (growth) tracks a defect getting WORSE between visits -- but these 3 scenarios have no real growth (only the excluded \"growing\" scenario does), so it's just detector noise near zero: removing it leaves every metric, including flight distance, bit-identical to the full planner.", bold: false },
+    { text: "Uncertainty is a real, nonzero signal (TTA confidence spread), but its scale is small next to the coverage/staleness/cost terms -- removing it shifts the flight path by under 1m with every other metric unchanged, since confirmed precision/recall only depends on how many total looks each wall gets, not the order.", bold: false },
+  ], { y: 5.28, fontSize: 10, spaceAfter: 6 });
 
   const uncP = meanOf("uwtig", "precision_confirmed", ["uncertain"]);
   s.addText(`Every planner's own precision under the pre-fix scoring formula on these same runs was far lower (UW-TIG: 0.668) -- five measurement fixes, not planner changes, lifted every planner above. Not every slice clears 0.90: the "uncertain" scenario's precision is ${f3(uncP)}.`, {
-    x: 0.6, y: 6.85, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9, color: GRAY3, valign: "top",
+    x: 0.6, y: 6.8, w: 12.1, h: 0.4, isTextBox: true, margin: 0, fontFace: THEME.bodyFontFace, fontSize: 9.3, color: GRAY3, valign: "top",
   });
   pageFoot(s);
 }
