@@ -438,7 +438,7 @@ A real drone would test flight-hardware reliability, not planning novelty
 -- the actual novelty claim (Section 1) lives in the planner and memory
 logic, which this project validates the standard way this subfield
 validates a new planning algorithm: controlled comparison against a
-faithfully reimplemented base paper, in one testbed, with a real trained
+faithfully reimplemented classical baseline, in one testbed, with a real trained
 perception model in the loop (not assumed ground truth). That's the
 5-seed statistical sweep. What was previously missing was a way to *watch*
 that difference, not just read it off a table -- `demo_uwtig_flight.py`

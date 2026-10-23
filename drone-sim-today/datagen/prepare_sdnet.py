@@ -1,7 +1,7 @@
 """Merges a balanced subsample of SDNET2018 (Maguire, Dorafshan & Thomas,
 2018; CC-BY-4.0; https://doi.org/10.15142/T3TD19) into the existing
 MBDD2025 YOLO split (datagen/prepare_mbdd.py) -- the public benchmark
-Inam et al. (2023), one of the cited base papers, combines with their own
+Inam et al. (2023), one of the cited detection papers, combines with their own
 field data for crack detection. This repeats that combination: a real,
 differently-framed (perpendicular closeup on bridge decks/walls/pavements,
 not oblique UAV) but genuinely public, literature-cited data source

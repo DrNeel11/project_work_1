@@ -345,7 +345,7 @@ for t in [
     "planners decide where to look using geometry alone: they have no idea what a defect is, they forget everything between "
     "flights, and they never treat an unsure detection as a reason to look again. This project designs a planner that does.",
     "Our contribution is <b>UW-TIG (Uncertainty-Weighted Temporal Information Gain)</b>. It keeps the cost-normalised information-gain "
-    "formulation of Isler et al. (2016) and adds a coverage guarantee, detection uncertainty from a trained YOLO detector, "
+    "formulation common to recent uncertainty-driven planners (R\u00fcckin et al., 2023; Moon et al., 2026) and adds a coverage guarantee, detection uncertainty from a trained YOLO detector, "
     "persistent cross-mission defect memory with growth tracking, a persistent-monitoring staleness term, and a two-step "
     "receding-horizon lookahead. Because a physical drone and a real defective structure are not needed to show or measure this, "
     "the second major contribution is a <b>reproducible simulation testbed</b>: an open-air utility yard in PyBullet textured "
@@ -391,7 +391,7 @@ H2("1.1. Objective")
 P("The objectives of the project are:")
 B(["To design a planner, UW-TIG, that selects inspection viewpoints using detector uncertainty, defect growth recorded in "
    "persistent memory, revisit staleness and a short lookahead, in addition to the geometric information gain used by the "
-   "base paper of Isler et al. (2016).",
+   "planners of recent work (R\u00fcckin et al., 2023).",
    "To build a simulation testbed in which this planner and several published planners can be run on identical scenes, "
    "detectors, seeds and scoring, and in which the defect appearance is real (photographs), not synthetic.",
    "To measure the planner honestly: choose every parameter on development seeds, report once on separate test seeds, "
@@ -421,62 +421,59 @@ P("<b>Out of scope:</b> hardware flight; obstacle avoidance and dynamics beyond 
 # ================================================================ 2 LITERATURE SURVEY
 H1(2, "Literature Survey", "Literature Survey")
 H2("2.1. Literature Survey")
-H3("2.1.1. Next-best-view and informative path planning")
-P("Isler, Sabzevari, Delmerico and Scaramuzza [1] formulate next-best-view selection for volumetric 3-D reconstruction as "
-  "maximising an entropy-based information gain over a voxel grid, normalised by the cost of moving to the view. It is the base "
-  "paper of this work. The formulation is principled and cheap, but it is deliberately geometric: it has no concept of what "
-  "is in the volume, no uncertainty from a detector, and no memory beyond the current flight.")
-P("Bircher et al. [2] plan over a tree of candidate motions, execute only the first step and re-plan (a receding horizon), which "
-  "avoids the dead ends of purely greedy choice. Alamdari, Fata and Smith [3] address persistent monitoring: for a robot that must "
-  "keep revisiting locations, they minimise the maximum latency between observations, with approximation guarantees. They have "
-  "memory of <i>time</i> but no perception.")
-P("Dhami et al. introduced GATSBI [4, 5], an online algorithm that routes a UAV over target surfaces of a bridge with a "
-  "generalised travelling-salesman formulation; the 2024 extension adds a defect detector. It is the closest published system "
-  "to inspection-aware planning, but it plans within a single session and has neither a detection-uncertainty term nor memory "
-  "across sessions. Pred-NBV and MAP-NBV [6] use a learned shape-completion model to guide views, an indirect form of "
-  "uncertainty about geometry rather than about defects.")
-H3("2.1.2. Uncertainty-aware planning (2023 \u2013 2026)")
-P("R\u00fcckin et al. [7] plan UAV paths for active learning in semantic mapping, using a model\u2019s own epistemic uncertainty (MC-Dropout) "
-  "to decide where to look, normalised by travel cost. The structure is close to UW-TIG\u2019s utility, but the uncertainty is spent to "
-  "<i>improve the model</i> within one session, not to monitor a fixed defect set across sessions. Vashisth et al. [8] learn adaptive "
-  "informative path planning with deep reinforcement learning on dynamic graphs; Moon et al. (IA-TIGRIS) [9] present a sampling-based "
+H3("2.1.1. Uncertainty-aware informative path planning (2023 \u2013 2026)")
+P("R\u00fcckin et al. [1] plan UAV paths for active learning in semantic mapping, using a model\u2019s own epistemic uncertainty (MC-Dropout) "
+  "to decide where to look, normalised by travel cost. The structure is the closest to UW-TIG\u2019s utility, but the uncertainty is spent to "
+  "<i>improve the model</i> within one session, not to monitor a fixed defect set across sessions. Vashisth et al. [2] learn adaptive "
+  "informative path planning with deep reinforcement learning on dynamic graphs; Moon et al. (IA-TIGRIS) [3] present a sampling-based "
   "planner that reuses earlier planning effort and adapts to updated belief maps, evaluated on multirotor and fixed-wing UAVs; "
-  "Li et al. [10] select views under motion and measurement uncertainty for reconstructing moving objects. These works show the "
+  "Li et al. [4] select views under motion and measurement uncertainty for reconstructing moving objects. These works show the "
   "field moving toward learned and adaptive planners, but all of them reason about information gain over a generic belief, not "
   "about defects with an identity and a history.")
-H3("2.1.3. Inspection-specific planning (2023 \u2013 2025)")
-P("Petit and Lussier Desbiens [11] (MOAR) plan risk-aware, multi-objective paths for infrastructure inspection that adapt to "
-  "weather and battery state; Svystun et al. [12] adapt trajectories to the pitch of wind-turbine blades using segmentation, "
-  "reporting a 78% reduction in inspection time; Jin et al. [13] combine global coverage planning with local reactive "
+H3("2.1.2. Inspection-specific planning (2023 \u2013 2025)")
+P("Dhami et al. introduced GATSBI [8, 9], an online algorithm that routes a UAV over target surfaces of a bridge with a "
+  "generalised travelling-salesman formulation; the 2024 extension adds a defect detector. It is the closest published system "
+  "to inspection-aware planning, but it plans within a single session and has neither a detection-uncertainty term nor memory "
+  "across sessions. Pred-NBV and MAP-NBV [10] use a learned shape-completion model to guide views, an indirect form of "
+  "uncertainty about geometry rather than about defects.")
+P("Petit and Lussier Desbiens [5] (MOAR) plan risk-aware, multi-objective paths for infrastructure inspection that adapt to "
+  "weather and battery state; Svystun et al. [6] adapt trajectories to the pitch of wind-turbine blades using segmentation, "
+  "reporting a 78% reduction in inspection time; Jin et al. [7] combine global coverage planning with local reactive "
   "re-planning for surface inspection in partially unknown indoor environments. None of these plans around detected defects, and "
-  "none revisits a defect across missions. Two 2025 reviews [14, 15] of decision-making UAV path planning and of UAV infrastructure "
+  "none revisits a defect across missions. Two 2025 reviews [11, 12] of decision-making UAV path planning and of UAV infrastructure "
   "inspection both identify perception-driven flight planning, and fusion of detection with planning, as an open problem.")
+H3("2.1.3. Classical building blocks")
+P("The recent planners above rest on older ideas, three of which UW-TIG also uses as ingredients. Isler et al. [23] formulate "
+  "next-best-view selection as maximising an entropy-based information gain, normalised by travel cost; Bircher et al. [24] plan over "
+  "a tree of motions and execute only the first step (a receding horizon); Alamdari, Fata and Smith [25] minimise the maximum latency "
+  "between observations for persistent monitoring. We re-implement these three selection rules as baselines so that the comparison "
+  "spans both generations of planner, but they are not the reference point of this work: they have no notion of a defect, "
+  "and the contribution is measured primarily against the recent, perception-aware planners of Sections 2.1.1 and 2.1.2.")
 H3("2.1.4. Defect detection and datasets")
-P("Zha et al. [16] publish MBDD2025, 14,471 UAV photographs of building surfaces in six structure types and five defect classes "
+P("Zha et al. [13] publish MBDD2025, 14,471 UAV photographs of building surfaces in six structure types and five defect classes "
   "(crack, leakage, abscission, corrosion, bulge), with bounding-box annotations and a benchmark of 35 detectors; it is the dataset "
-  "used here. Recent detectors report high scores on narrower problems: Huang et al. [17] reach 0.913 precision, 0.766 recall and "
-  "0.864 mAP@50 for concrete cracks with an improved YOLOv11; Inam et al. [18] report 0.977 / 0.967 / 0.993 for bridge cracks "
-  "(one class); Li, Shi and Sun [19] report 0.932 / 0.924 / 0.926 on a private 5,000-image utility-tunnel dataset. Shen et al. "
-  "[20] propose TinyDef-DETR, a transformer detector for transmission-line defects, and Hebbache et al. [21] a saliency-guided "
+  "used here. Recent detectors report high scores on narrower problems: Huang et al. [14] reach 0.913 precision, 0.766 recall and "
+  "0.864 mAP@50 for concrete cracks with an improved YOLOv11; Inam et al. [15] report 0.977 / 0.967 / 0.993 for bridge cracks "
+  "(one class); Li, Shi and Sun [16] report 0.932 / 0.924 / 0.926 on a private 5,000-image utility-tunnel dataset. Shen et al. "
+  "[17] propose TinyDef-DETR, a transformer detector for transmission-line defects, and Hebbache et al. [18] a saliency-guided "
   "YOLOX detector for bridge defects. These results are not directly comparable to a five-class public benchmark, a point "
   "Chapter 6 returns to.")
 H3("2.1.5. Simulation platforms")
-P("AirSim [22] builds on Unreal Engine for high-fidelity rendering and physics; Flightmare [23] couples a Unity renderer with "
-  "a separate fast physics engine; GRaD-Nav [24] represents the frontier with 3-D Gaussian Splatting. All three address the gap "
-  "between rendered and real imagery when a model is <i>trained</i> on synthetic images. gym-pybullet-drones [25] provides "
+P("AirSim [19] builds on Unreal Engine for high-fidelity rendering and physics; Flightmare [20] couples a Unity renderer with "
+  "a separate fast physics engine; GRaD-Nav [21] represents the frontier with 3-D Gaussian Splatting. All three address the gap "
+  "between rendered and real imagery when a model is <i>trained</i> on synthetic images. gym-pybullet-drones [22] provides "
   "a PyBullet quadrotor with PID control and an onboard camera, and is the physics layer used here.")
 TABLE("2.1", "Summary of the reviewed planning literature", ["Paper, authors and year", "Technique", "Advantages", "Limitations"], [
-    ["Isler et al., ICRA 2016 [1]", "Entropy-based, cost-normalised NBV", "Principled, cheap; our base paper", "Geometry only; no defects, no memory"],
-    ["Bircher et al., ICRA 2016 [2]", "Receding-horizon tree search", "Plans beyond one greedy step", "Exploration task, not defects"],
-    ["Alamdari et al., IJRR 2014 [3]", "Max-latency revisit scheduling", "Guaranteed regular revisits", "Time only; no perception"],
-    ["Dhami et al. (GATSBI), 2023/24 [4,5]", "GTSP routing + detector", "Inspection-aware, cost-aware", "Single session; no uncertainty/memory"],
-    ["R\u00fcckin et al., T-RO 2023 [7]", "MC-Dropout uncertainty drives path", "Real model uncertainty in planning", "Single session; goal is retraining"],
-    ["Vashisth et al., 2024 [8]", "Deep RL on dynamic graphs", "Learned, adaptive", "Needs training; no defect history"],
-    ["Petit & Lussier Desbiens, ICRA 2024 [11]", "Risk-aware multi-objective planning", "Weather/battery adaptive", "No perception or defects"],
-    ["Svystun et al., 2024 [12]", "Segmentation-guided trajectories", "78% shorter inspection", "One structure type; no revisits"],
-    ["Jin et al., 2025 [13]", "Global coverage + local replanning", "Handles unmapped obstacles", "Coverage only"],
-    ["Moon et al., T-RO 2026 [9]", "Incremental sampling-based IPP", "Fast online replanning", "Generic gain; no defects"],
-    ["Li et al., RSS 2026 [10]", "NBV under motion uncertainty", "Plans over uncertain futures", "Reconstruction, not inspection"],
+    ["R\u00fcckin et al., T-RO 2023 [1]", "MC-Dropout uncertainty drives path", "Real model uncertainty in planning", "Single session; goal is retraining"],
+    ["Dhami et al. (GATSBI), 2023/24 [8,9]", "GTSP routing + detector", "Inspection-aware, cost-aware", "Single session; no uncertainty/memory"],
+    ["Vashisth et al., 2024 [2]", "Deep RL on dynamic graphs", "Learned, adaptive", "Needs training; no defect history"],
+    ["Petit & Lussier Desbiens, ICRA 2024 [5]", "Risk-aware multi-objective planning", "Weather/battery adaptive", "No perception or defects"],
+    ["Svystun et al., 2024 [6]", "Segmentation-guided trajectories", "78% shorter inspection", "One structure type; no revisits"],
+    ["Jin et al., 2025 [7]", "Global coverage + local replanning", "Handles unmapped obstacles", "Coverage only"],
+    ["Moon et al., T-RO 2026 [3]", "Incremental sampling-based IPP", "Fast online replanning", "Generic gain; no defects"],
+    ["Li et al., RSS 2026 [4]", "NBV under motion uncertainty", "Plans over uncertain futures", "Reconstruction, not inspection"],
+    ["Isler / Bircher, ICRA 2016 [23,24]", "Entropy-gain NBV; receding horizon", "Classical building blocks (baselines)", "Geometry only; no defects, no memory"],
+    ["Alamdari et al., IJRR 2014 [25]", "Max-latency revisit scheduling", "Guaranteed regular revisits", "Time only; no perception"],
 ], [4.6 * cm, 3.9 * cm, 3.4 * cm, 3.7 * cm], left=(0, 1, 2, 3))
 H2("2.2. Inference")
 P("Three patterns emerge from the survey. First, <b>planning has become more capable but not more defect-aware</b>: 2023\u20132026 "
@@ -579,7 +576,7 @@ H2("4.4. Candidate Viewpoint Graph")
 P("For each wall, the viewpoint generator creates stations at two <b>standoff distances</b>, 1.3 m and 2.2 m, and three lateral "
   "offsets (\u22120.55, 0 and +0.55 of the half-width), giving 54 viewpoints in all. Each viewpoint stores its pose and the "
   "<b>cells</b> of its wall that it can see. Surface coverage is discretised into cells of a fixed physical width of 1 m, so a 4 m "
-  "wall has four cells and a 1.2 m panel one. This choice, following the fixed voxel <i>size</i> of Isler et al., fixed a "
+  "wall has four cells and a 1.2 m panel one. This choice, following the fixed voxel <i>size</i> of classical volumetric planners [23], fixed a "
   "failure found early: with a fixed number of cells per wall, a narrow wall\u2019s single viewpoint saw all of its surface at once, "
   "earned a disproportionate information gain, and the planner froze on the small panels for an entire mission.")
 P("The 2.2 m standoff was added after a detection diagnostic on development seeds (Section 6.2). The cost of moving between "
@@ -625,7 +622,7 @@ FIG(os.path.join(FIGS, "planner_flow.png"), 13.0 * cm, "4.4", "UW-TIG decision f
 H3("4.9.1. The utility")
 PN("<b>U(v) = w<sub>ig</sub>\u00b7IG(v) + w<sub>u</sub>\u00b7Unc(v) + w<sub>g</sub>\u00b7Growth(v) + w<sub>s</sub>\u00b7Stale(v) \u2212 w<sub>c</sub>\u00b7Cost(v)</b>")
 PN("with w<sub>ig</sub> = 1.0, w<sub>u</sub> = 1.5, w<sub>g</sub> = 2.0, w<sub>s</sub> = 1.0 and w<sub>c</sub> = 0.4. The terms are as follows.")
-B(["<b>Information gain IG(v)</b> (from the base paper). Each cell has a belief <i>p</i> = 1 \u2212 0.5\u00b7e<super>\u22120.6\u00b7n</super> that "
+B(["<b>Information gain IG(v)</b> (the cost-normalised entropy term of [23], shared by the planners of Chapter 2). Each cell has a belief <i>p</i> = 1 \u2212 0.5\u00b7e<super>\u22120.6\u00b7n</super> that "
    "it is already adequately observed after <i>n</i> views; its entropy is highest (1 bit) before any view and falls with each view. "
    "IG(v) is the sum of entropies of the cells the viewpoint can see.",
    "<b>Uncertainty Unc(v).</b> For each visible cell, the uncertainty last recorded there by the detector (Section 4.6), faded by "
@@ -638,7 +635,7 @@ B(["<b>Information gain IG(v)</b> (from the base paper). Each cell has a belief 
    "<b>Cost Cost(v).</b> Distance from the current viewpoint plus the small rotation term of Section 4.4."])
 H3("4.9.2. The coverage guarantee")
 P("While any wall has not been visited <i>in this mission</i>, the planner restricts itself to the viewpoints of the unvisited "
-  "walls and scores them with the base paper\u2019s rule alone, IG(v) \u2212 0.4\u00b7Cost(v). Once every wall has been seen once, the "
+  "walls and scores them with the plain information-gain rule alone, IG(v) \u2212 0.4\u00b7Cost(v). Once every wall has been seen once, the "
   "full utility takes over. This was added after a surprising observation: Isler-NBV and every early UW-TIG variant stopped at "
   "exactly 4 of 9 walls on every seed. Since a planner with <i>none</i> of the new terms hit the same ceiling, no re-weighting of "
   "the new terms could fix it. In the cost-normalised greedy rule, flying to the far building is never worth its cost against the "
@@ -647,7 +644,7 @@ H3("4.9.3. Two-step lookahead")
 P("In the full-utility phase, each candidate <i>v</i><sub>1</sub> is scored as U(v<sub>1</sub>) + 0.5\u00b7max<sub>v<sub>2</sub></sub> U(v<sub>2</sub> | after v<sub>1</sub>), "
   "where the second step uses the view counts that would result from visiting <i>v</i><sub>1</sub> but the current uncertainty, growth and "
   "staleness (a future detection cannot be simulated). Only the first step is executed, after which the planner re-plans, in the "
-  "manner of a receding-horizon planner [2].")
+  "manner of a receding-horizon planner [24].")
 H3("4.9.4. Why the terms fade with repeated views")
 P("An early version let uncertainty and growth keep their full reward on every revisit. A real, persistent defect is re-detected on "
   "every look, so once found it earned its full reward again at no extra travel cost, and the lookahead exploited this so "
@@ -676,7 +673,7 @@ TABLE("4.2", "Re-implemented selection rules", ["Registry name", "Paper", "Selec
 ], [3.4 * cm, 3.6 * cm, 8.6 * cm], left=(0, 1, 2))
 H2("4.12. Why PyBullet and Not Unity or Unreal")
 P("A natural question is whether a game-engine or Gaussian-splatting renderer would make the simulation more convincing. A "
-  "literature check suggests the answer is no <i>for this project</i>. AirSim [22], Flightmare [23] and GRaD-Nav [24] exist to close "
+  "literature check suggests the answer is no <i>for this project</i>. AirSim [19], Flightmare [20] and GRaD-Nav [21] exist to close "
   "the gap between rendered and real imagery when a model is trained on synthetic images. Here the detector is trained and tested only on "
   "real photographs, applied as textures; the camera stays tightly framed on the wall under inspection and never sees the yard "
   "dressing. A better renderer would make the simulator prettier to watch but would not change one pixel that the detector learns "
@@ -822,7 +819,7 @@ B(["<b>The coverage phase never evaluates these terms.</b> While any wall is unv
 P("This is an open finding, not a vindication: it means that in the current configuration two of the four novel mechanisms do not yet "
   "influence the outcome, and that re-weighting them, or testing on scenarios with real growth, is the next step (Chapter 7).")
 H2("6.5. Head-to-Head with Published Planners")
-pl = [("random", "Random baseline"), ("isler_nbv", "Isler et al. 2016 (base paper)"), ("bircher_rhnbv", "Bircher et al. 2016"),
+pl = [("random", "Random baseline"), ("isler_nbv", "Isler-NBV (classical, 2016)"), ("bircher_rhnbv", "Bircher et al. 2016"),
       ("gatsbi_gtsp", "Dhami et al. (GATSBI)"), ("alamdari_latency", "Alamdari et al. 2014"), ("ruckin_ipp", "R\u00fcckin et al. 2023"),
       ("uwtig", "UW-TIG (ours)")]
 TABLE("6.4", "Planner comparison on test seeds 0\u20134 (confirmed reports)",
@@ -883,13 +880,13 @@ B(["<b>Make the novel terms matter.</b> Re-weight or normalise the uncertainty a
 
 # ================================================================ 8 CONCLUSION
 H1(8, "Conclusion", "Conclusion")
-P(f"This project built and measured a planner that knows what a defect is. UW-TIG extends the information-gain next-best-view rule "
-  f"of Isler et al. with a coverage guarantee, detector uncertainty, cross-mission defect memory with growth, revisit staleness and a "
+P(f"This project built and measured a planner that knows what a defect is. UW-TIG combines an information-gain term "
+  f"with a coverage guarantee, detector uncertainty, cross-mission defect memory with growth, revisit staleness and a "
   f"two-step lookahead, and was evaluated on a simulation testbed built for the purpose. On held-out test seeds it reaches precision "
-  f"{f3(UWp)}, recall {f3(UWr)} and F1 {f3(UWf)}, above 0.90 on all three, which neither the base paper nor random search reaches, "
+  f"{f3(UWp)}, recall {f3(UWr)} and F1 {f3(UWf)}, above 0.90 on all three, which neither the classical information-gain baseline nor random search reaches, "
   f"and it ties the strongest of five re-implemented published planners while flying {FLYLESS}% less.")
 P("Equally important is what the measurements say about the work. The coverage guarantee, not the more elaborate terms, "
-  "accounts for the large gain over the base paper; the uncertainty and growth terms do not yet change any reported number; much "
+  "accounts for the large gain over the plain information-gain baseline; the uncertainty and growth terms do not yet change any reported number; much "
   "of the improvement over the first sweep came from correcting five flaws in how the system was <i>measured</i>; the "
   "uncertainty signal is poorly calibrated; and the growing-defect scenario fails because of the detector, not the memory. We "
   "report these because a planner that is only shown where it wins cannot be trusted where it matters.")
@@ -902,12 +899,6 @@ story.append(SetHeader("Bibliography", ""))
 story.append(PageBreak())
 story.append(Paragraph("BIBLIOGRAPHY", S["chap"]))
 refs = [
-    "S. Isler, R. Sabzevari, J. Delmerico and D. Scaramuzza, \u201cAn information gain formulation for active volumetric 3D reconstruction,\u201d in <i>Proc. IEEE Int. Conf. Robotics and Automation (ICRA)</i>, 2016.",
-    "A. Bircher, M. Kamel, K. Alexis, H. Oleynikova and R. Siegwart, \u201cReceding horizon \u2018next-best-view\u2019 planner for 3D exploration,\u201d in <i>Proc. ICRA</i>, 2016, pp. 1462\u20131468.",
-    "S. Alamdari, E. Fata and S. L. Smith, \u201cPersistent monitoring in discrete environments: Minimizing the maximum weighted latency between observations,\u201d <i>Int. J. Robotics Research</i>, vol. 33, no. 1, pp. 138\u2013154, 2014.",
-    "H. K. Dhami, F. Yu, K. Williams, S. Vajipey and P. Tokekar, \u201cGATSBI: An online GTSP-based algorithm for targeted surface bridge inspection,\u201d in <i>Proc. Int. Conf. Unmanned Aircraft Systems (ICUAS)</i>, 2023.",
-    "H. K. Dhami, C. Reddy, V. D. Sharma, T. Williams and P. Tokekar, \u201cGATSBI: An online GTSP-based algorithm for targeted surface bridge inspection and defect detection,\u201d arXiv:2406.16625, 2024.",
-    "H. K. Dhami, V. D. Sharma and P. Tokekar, \u201cPred-NBV: Prediction-guided next-best-view for 3D object reconstruction,\u201d in <i>Proc. IROS</i>, 2023, arXiv:2304.11465; and \u201cMAP-NBV: Multi-agent prediction-guided next-best-view planning for active 3D object reconstruction,\u201d arXiv:2307.04004, 2023.",
     "J. R\u00fcckin, L. Jin, F. Magistri, C. Stachniss and M. Popovi\u0107, \u201cAn informative path planning framework for active learning in UAV-based semantic mapping,\u201d <i>IEEE Trans. Robotics</i>, vol. 39, pp. 4279\u20134296, 2023, arXiv:2302.03347.",
     "A. Vashisth, J. R\u00fcckin, F. Magistri, C. Stachniss and M. Popovi\u0107, \u201cDeep reinforcement learning with dynamic graphs for adaptive informative path planning,\u201d arXiv:2402.04894, 2024.",
     "B. Moon, N. Suvarna, A. Jong, S. Chatterjee, J. Yuan, M. Cao and S. Scherer, \u201cIA-TIGRIS: An incremental and adaptive sampling-based planner for online informative path planning,\u201d <i>IEEE Trans. Robotics</i>, 2026, arXiv:2502.15961.",
@@ -915,6 +906,9 @@ refs = [
     "L. Petit and A. Lussier Desbiens, \u201cMOAR Planner: Multi-objective and adaptive risk-aware path planning for infrastructure inspection with a UAV,\u201d in <i>Proc. ICRA</i>, 2024.",
     "S. Svystun, O. Melnychenko, P. Radiuk, O. Savenko, A. Sachenko and A. Lysyi, \u201cDynamic trajectory adaptation for efficient UAV inspections of wind energy units,\u201d arXiv:2411.17534, 2024.",
     "H. Jin, Z. Xu, H. Shen, X. Han, K. Ye and K. Shimada, \u201cAdaptive planning framework for UAV-based surface inspection in partially unknown indoor environments,\u201d arXiv:2504.09294, 2025.",
+    "H. K. Dhami, F. Yu, K. Williams, S. Vajipey and P. Tokekar, \u201cGATSBI: An online GTSP-based algorithm for targeted surface bridge inspection,\u201d in <i>Proc. Int. Conf. Unmanned Aircraft Systems (ICUAS)</i>, 2023.",
+    "H. K. Dhami, C. Reddy, V. D. Sharma, T. Williams and P. Tokekar, \u201cGATSBI: An online GTSP-based algorithm for targeted surface bridge inspection and defect detection,\u201d arXiv:2406.16625, 2024.",
+    "H. K. Dhami, V. D. Sharma and P. Tokekar, \u201cPred-NBV: Prediction-guided next-best-view for 3D object reconstruction,\u201d in <i>Proc. IROS</i>, 2023, arXiv:2304.11465; and \u201cMAP-NBV: Multi-agent prediction-guided next-best-view planning for active 3D object reconstruction,\u201d arXiv:2307.04004, 2023.",
     "K. C. Teixeira Vivaldini, R. Pe\u0148i\u010dka and M. Saska, \u201cDecision-making-based path planning for autonomous UAVs: A survey,\u201d arXiv:2508.09304, 2025.",
     "A. F. Nikkhah, D. Chen, B. Campbell, S. Asadi and A. Heydarian, \u201cUAV-based infrastructure inspections: A literature review and proposed framework for AEC+FM,\u201d in <i>Int. Conf. Computing in Civil Engineering (i3CE)</i>, 2025, arXiv:2601.11665.",
     "Q. Zha, Y. Yao, Y. Zheng, W. Ma and W. Zhang, \u201cA dataset of building surface defects collected by UAVs for machine learning-based detection,\u201d <i>Scientific Data</i>, Nov. 2025 (MBDD2025; Zenodo 10.5281/zenodo.15622584).",
@@ -927,6 +921,9 @@ refs = [
     "Y. Song, S. Naji, E. Kaufmann, A. Loquercio and D. Scaramuzza, \u201cFlightmare: A flexible quadrotor simulator,\u201d in <i>Conf. Robot Learning (CoRL)</i>, 2020.",
     "Y. Chen et al., GRaD-Nav (quadrotor navigation using 3-D Gaussian Splatting), 2025.",
     "J. Panerati, H. Zheng, S. Zhou, J. Xu, A. Prorok and A. P. Schoellig, \u201cLearning to fly \u2013 a gym environment with PyBullet physics for reinforcement learning of multi-agent quadcopter control,\u201d in <i>Proc. IROS</i>, 2021.",
+    "S. Isler, R. Sabzevari, J. Delmerico and D. Scaramuzza, \u201cAn information gain formulation for active volumetric 3D reconstruction,\u201d in <i>Proc. IEEE Int. Conf. Robotics and Automation (ICRA)</i>, 2016.",
+    "A. Bircher, M. Kamel, K. Alexis, H. Oleynikova and R. Siegwart, \u201cReceding horizon \u2018next-best-view\u2019 planner for 3D exploration,\u201d in <i>Proc. ICRA</i>, 2016, pp. 1462\u20131468.",
+    "S. Alamdari, E. Fata and S. L. Smith, \u201cPersistent monitoring in discrete environments: Minimizing the maximum weighted latency between observations,\u201d <i>Int. J. Robotics Research</i>, vol. 33, no. 1, pp. 138\u2013154, 2014.",
 ]
 for i, r in enumerate(refs, 1):
     story.append(Paragraph(f"[{i}]&nbsp;&nbsp;{r}", S["ref"]))

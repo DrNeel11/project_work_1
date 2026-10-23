@@ -182,7 +182,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     ["Fixed routes", "The drone follows a pre-planned path; what it detects never changes where it flies next."],
     ["No memory", "Every flight starts from scratch -- a defect seen last month is not tracked or compared."],
     ["Uncertainty ignored", "A low-confidence detection is treated like a confident one; nothing triggers a second look."],
-    ["Geometry-only planners", "Next-best-view methods (e.g. Isler et al. 2016) maximise visual coverage, with no notion of a defect."],
+    ["Single-session planners", "Recent planners (R\u00fcckin 2023, GATSBI 2023/24, Moon 2026) work within one session; none tracks a defect across missions."],
   ];
   probs.forEach(([h, b], i) => {
     const x = X0 + (i % 2) * 6.17, y = 2.3 + Math.floor(i / 2) * 1.55;
@@ -202,7 +202,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     "This project builds a simulated autonomous drone (PyBullet, gym-pybullet-drones) that inspects an open-air utility yard for surface defects. " +
     "A YOLOv8 detector trained on 14,471 real UAV photographs (MBDD2025) finds cracks, leakage, abscission, corrosion and bulging, and a test-time-augmentation ensemble estimates each detection's uncertainty. " +
     "Detections are ray-cast to 3-D positions and stored in a persistent memory (PostgreSQL + pgvector, Neo4j) that tracks each defect across missions. " +
-    "The proposed planner, UW-TIG, extends the information-gain next-best-view formulation of Isler et al. (2016) with a coverage guarantee, detection uncertainty, defect growth, revisit staleness and a two-step lookahead. " +
+    "The proposed planner, UW-TIG, builds on recent uncertainty-driven informative path planning (R\u00fcckin et al. 2023, Moon et al. 2026) and adds a coverage guarantee, detection uncertainty, defect growth, revisit staleness and a two-step lookahead. " +
     "It is compared on held-out test seeds against random search and five re-implemented published planners.",
     { x: X0, y: 1.4, w: CW, h: 3.0, fontSize: 15, color: G1, lineSpacingMultiple: 1.15 });
   const tw = 2.85, tg = 0.243;
@@ -215,7 +215,6 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 {
   const s = slide("Literature Survey (2023 - 2026)");
   const rows = [
-    ["Isler et al., ICRA 2016 -- base paper\nInformation-gain next-best-view", "Entropy-based, cost-normalised view selection", "Principled view choice; our starting point", "Geometry only; no defects, no memory"],
     ["Dhami et al. (GATSBI), ICUAS 2023\nTargeted bridge inspection", "GTSP routing over target surfaces; detector added 2024", "Cost-aware and inspection-specific", "One session; no uncertainty, no memory"],
     ["Rückin et al., IEEE T-RO 2023\nInformative path planning", "Model uncertainty (MC-Dropout) drives the path", "Real learned uncertainty in planning", "One session; goal is retraining the model"],
     ["Vashisth et al., IEEE RA-L 2024\nAdaptive IPP with deep RL", "Reinforcement learning on dynamic graphs", "Learns to balance exploring and targets", "Needs training; no defect history"],
@@ -242,7 +241,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 
   card(s, 6.53, 1.4, 6.2, 4.9, "UW-TIG: what is new");
   bullets(s, [
-    { lead: "Coverage guarantee --", text: "every wall is seen once before anything else; fixes a recall ceiling shared by the base paper." },
+    { lead: "Coverage guarantee --", text: "every wall is seen once before anything else; fixes the recall ceiling of cost-normalised greedy planners." },
     { lead: "Detector uncertainty --", text: "unsure detections earn a second look (TTA ensemble of a trained YOLO model)." },
     { lead: "Cross-mission memory --", text: "Postgres + Neo4j track each defect's identity and growth over missions." },
     { lead: "Staleness --", text: "areas not seen for a while gain priority (after Alamdari et al.)." },
@@ -264,7 +263,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const rows = [
     ["1. Coverage guarantee",
      "While any wall is still unseen this mission, choose only among unseen walls' views, scored by InfoGain − 0.4·Cost; full score takes over once all 9 walls are seen.",
-     "The base paper's score never pays to fly to the far building -- it stopped at 4 of 9 walls on every seed.",
+     "A plain information-gain score never pays to fly to the far building -- it stopped at 4 of 9 walls on every seed.",
      `Recall ${f3(M("uwtig_no_coverage_first", "recall_confirmed"))} → ${f3(UW.r)}; F1 ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} → ${f3(UW.f)}. The decisive addition.`],
     ["2. Detector uncertainty",
      "Each frame is run 5 times (original + 4 brightness / noise / blur variants); the spread of confidence is the uncertainty, faded as a spot is viewed more.",
@@ -285,7 +284,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   ];
   table(s, ["Component", "How it works", "Why it is needed", "Measured effect"], rows,
     { x: X0, y: 2.0, w: CW, colW: [2.15, 4.05, 2.85, 3.08], fontSize: 10.5, rowH: [0.4, 0.82, 0.82, 0.82, 0.82, 0.82], leftCols: [1, 2, 3] });
-  text(s, "Setting all new weights to zero and switching off the coverage phase and lookahead gives back the base paper (Isler et al. 2016) exactly -- so every gain is measured against it, not against a different algorithm.",
+  text(s, "Setting all new weights to zero and switching off the coverage phase and lookahead gives back a plain cost-normalised information-gain planner exactly -- so every gain is measured against it, not against a different algorithm.",
     { x: X0, y: 6.58, w: CW, h: 0.42, fontSize: 11, color: G2 });
 }
 
@@ -404,7 +403,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   ], { x: X0 + 0.25, y: 1.35, w: CW - 0.5, h: 0.62, fontSize: 14, valign: "middle", fontFace: BODY });
 
   const planners = [
-    ["random", "Random baseline"], ["isler_nbv", "Isler et al. 2016 (base paper)"], ["bircher_rhnbv", "Bircher et al. 2016"],
+    ["random", "Random baseline"], ["isler_nbv", "Isler-NBV (classical, 2016)"], ["bircher_rhnbv", "Bircher et al. 2016"],
     ["gatsbi_gtsp", "Dhami et al. (GATSBI)"], ["alamdari_latency", "Alamdari et al. 2014"], ["ruckin_ipp", "Rückin et al. 2023"],
     ["uwtig", "UW-TIG (ours)"],
   ].filter(([p]) => HAS(p));

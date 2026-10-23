@@ -1,4 +1,4 @@
-# Results: Base Paper (Isler-NBV) vs. Novelty (UW-TIG)
+# Results: Classical Baseline (Isler-NBV) vs. Novelty (UW-TIG)
 
 > **Current headline numbers** are in "Getting precision, recall and F1
 > above 0.90" further down: UW-TIG **P 0.949 / R 0.967 / F1 0.953** on test
@@ -226,7 +226,7 @@ separate, honest failure mode, not a comparable number.)
   seeds to separate cleanly.
 - **Isler-NBV vs. Random**: Isler-NBV's cost-normalized entropy term earns
   it a real efficiency win over Random (50m vs. 128m flight distance) for
-  the same coverage, confirming the base-paper adaptation is doing
+  the same coverage, confirming the classical-baseline adaptation is doing
   something sensible before UW-TIG's defect-aware terms are added on top.
 
 ## Updated 5-seed results (current planner + current environment + GPU-trained detector)
@@ -541,7 +541,7 @@ Per-seed UW-TIG F1: 0.943, **0.890**, 1.000, 1.000, 0.933.
 
 ## Head-to-head vs. published planners (same testbed, same test seeds)
 
-Until now the only external planner in the table was the base paper
+Until now the only external planner in the table was the classical baseline
 (Isler-NBV). Four more planners from the literature are now in
 `planning/planners.py`. Each re-implements that paper's **viewpoint-selection
 rule** over this project's viewpoint graph and belief, not the full published
@@ -564,7 +564,7 @@ ablation table above:
 | planner | P (confirmed) | R (confirmed) | F1 (confirmed) | F1 single-look | loc. err (m) | flight (m) | coverage |
 |---|---|---|---|---|---|---|---|
 | random | 0.921 | 0.837 | 0.873 | 0.800 | 0.85 | 394.9 | 1.00 |
-| isler_nbv (base paper) | 0.890 | 0.556 | 0.671 | 0.649 | 0.94 | 30.7 | 0.44 |
+| isler_nbv (classical baseline) | 0.890 | 0.556 | 0.671 | 0.649 | 0.94 | 30.7 | 0.44 |
 | bircher_rhnbv | 0.917 | 0.756 | 0.814 | 0.814 | 0.80 | 47.9 | 0.67 |
 | gatsbi_gtsp | 0.887 | 0.922 | 0.900 | 0.846 | 0.63 | 125.4 | 1.00 |
 | alamdari_latency | 0.924 | **0.967** | 0.941 | 0.909 | 0.73 | 167.7 | 1.00 |
@@ -643,7 +643,7 @@ across all 3 missions rather than touring every wall once, the active-
 reinspection behavior that is this project's central claim, running for
 real through the physics stack, not just in the kinematic comparison.
 
-## Visual proof: UW-TIG vs. the base paper vs. random, side by side
+## Visual proof: UW-TIG vs. the classical baseline vs. random, side by side
 
 The 5-seed sweep above is the real, statistical evidence for the novelty
 claim -- but a table of numbers doesn't make the *behavioral* difference
@@ -664,7 +664,7 @@ concatenation is frame-exact, not padded or guessed) into one
 side-by-side video per kind:
 
 - `output/comparison_flythrough_uwtig_vs_isler_nbv_vs_random.mp4` (and a
-  2-way `..._uwtig_vs_isler_nbv.mp4` for just the base-paper comparison)
+  2-way `..._uwtig_vs_isler_nbv.mp4` for just the classical-baseline comparison)
 - `output/comparison_inspection_uwtig_vs_isler_nbv_vs_random.mp4`
 
 **What's actually visible, checked directly by extracting and looking at

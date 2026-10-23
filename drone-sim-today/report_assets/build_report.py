@@ -133,7 +133,7 @@ story.append(Paragraph(
     "This report documents the fully implemented, simulated closed-loop inspection system "
     "described in the project proposal: real trained perception, 3D localization, persistent "
     "cross-mission defect memory, and an active-reinspection planner (UW-TIG) benchmarked "
-    "against a naive baseline and the closest base paper (Isler et al., 2016).", styles["MetaCenter"]))
+    "against a naive baseline and the classical information-gain baseline (Isler et al., 2016).", styles["MetaCenter"]))
 story.append(PageBreak())
 
 # ---------------------------------------------------------------- Executive summary
@@ -147,7 +147,7 @@ body(
     "localization, a persistent PostgreSQL+pgvector/Neo4j defect memory, and a novel planner "
     "(UW-TIG) that is benchmarked quantitatively against a random baseline and against "
     "implementations of five published planners, the closest being Isler et al. 2016's "
-    "information-gain next-best-view (the original base paper)."
+    "information-gain next-best-view (the classical baseline)."
 )
 body(
     "Every number in this report comes from an actual executed run &mdash; a 5-seed, 3-mission, "
@@ -171,7 +171,7 @@ body(
     "rather than rounded up."
 )
 body(
-    "This report also extends the original base-paper comparison with a wider literature sweep "
+    "This report also extends the original baseline comparison with a wider literature sweep "
     "(Section 1.1) and three further planner mechanisms motivated by that sweep and by this "
     "iteration &mdash; a persistent-monitoring staleness/latency term, a 2-step receding-horizon "
     "lookahead, and a coverage-guarantee phase (Section 3.4) &mdash; each independently ablatable "
@@ -199,7 +199,7 @@ body(
     "next and when to re-inspect &mdash; and does doing so measurably outperform geometry-only "
     "active-vision planning (the closest existing method) and naive random inspection?"
 )
-h2("Closest Base Paper")
+h2("Classical Baseline")
 body(
     "<b>Isler, Sabzevari, Delmerico &amp; Scaramuzza (ICRA 2016)</b>, “An Information Gain "
     "Formulation for Active Volumetric 3D Reconstruction,” is the closest prior method: a "
@@ -212,7 +212,7 @@ body(
 
 h2("1.1 Wider Literature Positioning")
 body(
-    "The base paper comparison above is deliberately narrow (one method, one axis: defect semantics). "
+    "The classical baseline comparison above is deliberately narrow (one method, one axis: defect semantics). "
     "A broader literature sweep across active next-best-view planning, persistent monitoring, and "
     "uncertainty-aware inspection was carried out to check the novelty claim more rigorously and to "
     "find concrete mechanisms this project's planner was still missing:"
@@ -220,7 +220,7 @@ body(
 table(
     ["Approach", "Uncertainty-<br/>aware", "Cross-mission<br/>memory", "Growth/<br/>temporal", "Cost-<br/>aware", "Real<br/>detector"],
     [
-        ["Isler et al. 2016 (base paper)", "No", "No", "No", "Yes", "N/A"],
+        ["Isler-NBV (classical baseline, 2016)", "No", "No", "No", "Yes", "N/A"],
         ["Bircher et al. 2016 (receding-horizon NBV)", "No", "No", "No", "Yes", "N/A"],
         ["Dhami et al., GATSBI (2023/2024)", "No", "No", "No", "Yes", "2024 only"],
         ["Dhami et al., Pred-NBV / MAP-NBV (2023)", "Indirect", "No", "No", "Yes", "N/A"],
@@ -385,11 +385,11 @@ body(
 )
 body(
     "A converter for a second real dataset, <b>SDNET2018</b> (Maguire, Dorafshan &amp; Thomas, 2018; "
-    "CC-BY-4.0; the public benchmark Inam et al. 2023 &mdash; one of the cited base papers &mdash; "
+    "CC-BY-4.0; the public benchmark Inam et al. 2023 &mdash; one of the cited detection papers &mdash; "
     "combines with their own field data) exists "
     "(<font face=\"Courier\">datagen/prepare_sdnet.py</font>, treating its whole-image "
     "cracked/uncracked classification labels as weak full-image detection boxes/negatives to enrich "
-    "the crack class exactly as that base paper does) but was never actually run in this project: "
+    "the crack class exactly as that paper does) but was never actually run in this project: "
     "SDNET2018.zip requires a manual, bot-blocked download (see README.md) that was not done. "
     "Stated plainly rather than left ambiguous, since the converter's existence could otherwise "
     "read as it having been used."
@@ -437,7 +437,7 @@ body(
     "spatially-distant detection correctly creates a new identity rather than merging."
 )
 
-h2("3.4 Planning &mdash; Base Paper and Novel Algorithm")
+h2("3.4 Planning &mdash; Classical Baseline and Novel Algorithm")
 body(
     "All planners share one candidate-viewpoint graph (54 stations across the 9 wall segments "
     "of the open-air utility yard, Section 3.5) and a shared coverage belief: each wall is discretized into a "
@@ -452,7 +452,7 @@ table(
     [
         ["Random", "Uniform random choice among unvisited viewpoints.", "Naive baseline"],
         ["Isler-NBV", "Cost-normalized Shannon-entropy information gain over the coverage grid "
-                       "&mdash; geometry only, no defect semantics.", "Base paper "
+                       "&mdash; geometry only, no defect semantics.", "Classical baseline "
                        "(Isler et al. 2016), adapted to 2D"],
         ["UW-TIG (novel)", "Same coverage term, <b>plus</b> a detection-uncertainty term, a "
                             "temporal-growth term sourced from persistent memory, and a "
@@ -478,7 +478,7 @@ body(
     "<font face=\"Courier\">w_ig=1.0, w_uncertainty=1.5, w_temporal=2.0, w_staleness=1.0, w_cost=0.4</font>. "
     "Setting <font face=\"Courier\">w_uncertainty=w_temporal=w_staleness=0</font> and disabling the "
     "lookahead recovers exactly the Isler-NBV baseline &mdash; UW-TIG is a strict generalization of "
-    "the base paper, not an unrelated alternative. <font face=\"Courier\">FlightCost</font> itself "
+    "the classical baseline, not an unrelated alternative. <font face=\"Courier\">FlightCost</font> itself "
     "combines translation distance with a small rotation-reorientation cost (Section 3.4.1)."
 )
 h2("3.4.1 Two Bugs Found and Fixed While Adding the Lookahead")
@@ -671,7 +671,7 @@ table(
     ["Planner", "Prec.", "Recall", "F1", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cov.", "ECE", "Unc. gap<br/>(fp&minus;tp)"],
     [
         ["Random", "0.921", "0.837", "0.873", "0.85", "394.9", "1.00", "0.31", "-0.08"],
-        ["Isler-NBV (base paper)", "0.890", "0.556", "0.671", "0.94", "30.7", "0.44", "0.33", "-0.09"],
+        ["Isler-NBV (classical baseline)", "0.890", "0.556", "0.671", "0.94", "30.7", "0.44", "0.33", "-0.09"],
         ["UW-TIG (novel, default)", "0.949", "0.967", "0.953", "0.70", "125.1", "1.00", "0.30", "-0.11"],
         ["UW-TIG, no uncertainty term", "0.949", "0.967", "0.953", "0.71", "124.6", "1.00", "0.30", "-0.11"],
         ["UW-TIG, no temporal term", "0.949", "0.967", "0.953", "0.70", "125.1", "1.00", "0.30", "-0.11"],
@@ -731,7 +731,7 @@ table(
     ["Planner", "Prec.", "Recall", "F1", "F1 single-<br/>look", "Loc. err<br/>(m)", "Flight<br/>(m)", "Cov."],
     [
         ["Random", "0.921", "0.837", "0.873", "0.800", "0.85", "394.9", "1.00"],
-        ["Isler et al. 2016 (base paper)", "0.890", "0.556", "0.671", "0.649", "0.94", "30.7", "0.44"],
+        ["Isler-NBV (classical baseline, 2016)", "0.890", "0.556", "0.671", "0.649", "0.94", "30.7", "0.44"],
         ["Bircher et al. 2016 (RH-NBV)", "0.917", "0.756", "0.814", "0.814", "0.80", "47.9", "0.67"],
         ["Dhami et al., GATSBI", "0.887", "0.922", "0.900", "0.846", "0.63", "125.4", "1.00"],
         ["Rückin et al. 2022-23 (IPP)", "0.959", "0.944", "0.950", "0.931", "0.86", "204.3", "1.00"],
@@ -835,7 +835,7 @@ body(
     "complete facility coverage first, concentrated reinspection of what matters once that's secured."
 )
 
-h2("4.3.1 Visual Proof: UW-TIG vs. the Base Paper vs. Random, Side by Side")
+h2("4.3.1 Visual Proof: UW-TIG vs. the Classical Baseline vs. Random, Side by Side")
 body(
     "The 5-seed sweep (Section 4.2) is the real statistical evidence, but a table doesn't make the "
     "<i>behavioral</i> difference immediately visible, and no physical drone is needed to show it: "
@@ -894,7 +894,7 @@ bullets([
     "that fixed a recall ceiling found to affect Isler-NBV and Bircher-RHNBV too, not just UW-TIG's "
     "added terms; and an uncertainty-acquisition term structurally comparable to Rückin et al.'s IPP, "
     "now that both run in the same testbed (Section 4.2.2).",
-    "<b>Base paper is strictly subsumed, not sidestepped:</b> zeroing UW-TIG's novel weight terms, "
+    "<b>The classical baseline is strictly subsumed, not sidestepped:</b> zeroing UW-TIG's novel weight terms, "
     "disabling the lookahead, and disabling the coverage-guarantee phase recovers the Isler-NBV "
     "baseline exactly, so the comparison is a true ablation of what the novel terms add, not two "
     "unrelated algorithms.",
@@ -979,9 +979,9 @@ h1("7. Conclusion &amp; Future Work")
 body(
     "This project delivers exactly what the proposal set out to build: a real, working, simulated "
     "closed loop from perception through persistent memory to active replanning, with a novel "
-    "planner (UW-TIG) that strictly generalizes the identified base paper and is shown, with real "
+    "planner (UW-TIG) that strictly generalizes the identified classical baseline and is shown, with real "
     "numbers from real runs, to clear 0.90 on precision, recall, and F1 simultaneously (0.949/0.967/"
-    "0.953, Section 4.2) &mdash; something neither the base paper nor a naive random baseline reaches "
+    "0.953, Section 4.2) &mdash; something neither the classical baseline nor a naive random baseline reaches "
     "&mdash; and, measured against four more re-implemented published planners (Section 4.2.2), to tie "
     "the strongest of them on detection quality while flying 39% less. The path to this result went "
     "through four iterations, each honestly reported rather than smoothed over: a literature-"

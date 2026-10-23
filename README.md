@@ -4,7 +4,7 @@ A simulated (PyBullet + gym-pybullet-drones) autonomous inspection drone that
 closes the loop the underlying research proposal is about: **detect → assess
 uncertainty → replan → reinspect**, with a persistent cross-mission defect
 memory, and a quantitative, same-testbed head-to-head against a naive
-baseline, the closest base paper (Isler et al. 2016, information-gain NBV),
+baseline, the classical information-gain baseline (Isler et al. 2016, information-gain NBV),
 and four more re-implemented published planners (Bircher et al. 2016,
 Dhami et al.'s GATSBI, Rückin et al. 2022-23, Alamdari/Fata/Smith 2014).
 UW-TIG (**P 0.949 / R 0.967 / F1 0.953** on held-out test seeds) ties the
@@ -51,7 +51,7 @@ in `planning/planners.py`):
 - `IslerNBVPlanner` — cost-normalized entropy-based next-best-view, adapted
   from Isler et al. (2016)'s volumetric information-gain formulation to a
   2D wall-surface coverage grid. Deliberately geometry-only, no defect
-  semantics — the literature gap the proposal identifies for this base paper.
+  semantics — the literature gap the proposal identifies for this classical baseline.
 - Four more published planners, re-implemented at the viewpoint-selection-rule
   level (not full systems — no RRT sampling, 3D mapping, or online model
   retraining) and run through the exact same sweep for a real same-testbed
@@ -154,7 +154,7 @@ cd .. && python datagen/prepare_mbdd.py         # builds datasets/mbdd_yolo/ (tr
 
 # 2. Optional: enrich the "crack" class with SDNET2018 (Maguire et al. 2018,
 #    CC-BY-4.0), the public benchmark Inam et al. (2023) -- one of the cited
-#    base papers -- combines with their own field data. Behind a bot-check
+#    papers -- combines with their own field data. Behind a bot-check
 #    that blocks scripted downloads, so grab it yourself:
 #    https://digitalcommons.usu.edu/all_datasets/48/ -> datasets/SDNET2018.zip
 python datagen/prepare_sdnet.py                  # merges a balanced subsample into datasets/mbdd_yolo/ (not yet done in this project -- SDNET2018.zip was never actually downloaded, see RESULTS.md)
@@ -186,7 +186,7 @@ python demo_uwtig_flight.py --missions 3 --budget 8
 
 **No physical drone needed to see the novelty in action.** `--planner`
 selects any planner from `PLANNER_REGISTRY` (e.g. `--planner isler_nbv` to
-fly the base paper instead, under identical real PID-controlled physics,
+fly the classical baseline instead, under identical real PID-controlled physics,
 same scenario/seed/budget), and `make_comparison_video.py` splices
 same-timestep videos from different planners side by side:
 

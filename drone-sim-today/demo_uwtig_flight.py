@@ -297,7 +297,7 @@ if __name__ == "__main__":
     ap.add_argument("--planner", default="uwtig", choices=list(PLANNER_REGISTRY.keys()),
                      help="Which planner drives this flight -- run the same scenario/seed with "
                           "different planners (e.g. uwtig vs. isler_nbv) for a direct, same-"
-                          "conditions video comparison of the novel planner vs. the base paper.")
+                          "conditions video comparison of the novel planner vs. the classical baseline.")
     ap.add_argument("--seed", type=int, default=7)
     args = ap.parse_args()
     run(n_missions=args.missions, budget_per_mission=args.budget, gui=args.gui,

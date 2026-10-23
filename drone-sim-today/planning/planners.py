@@ -9,7 +9,7 @@ one candidate viewpoint graph (planning/viewpoints.py):
   2D wall-surface setting (a coarse per-wall coverage grid replaces the
   voxel grid; entropy is over a "surface adequately observed" belief, not
   occupancy). Deliberately geometry/coverage-only, no defect semantics --
-  this is the literature gap the proposal identifies for this base paper.
+  this is the literature gap the proposal identifies for this classical baseline.
   The coverage-entropy objective it (and UWTIGPlanner's ig term) maximizes
   is a monotone submodular set function of "cells observed so far" (each
   additional look at a cell has non-increasing marginal entropy reduction,
