@@ -438,8 +438,8 @@ P("Dhami et al. introduced GATSBI [8, 9], an online algorithm that routes a UAV 
   "uncertainty about geometry rather than about defects.")
 P("Petit and Lussier Desbiens [5] (MOAR) plan risk-aware, multi-objective paths for infrastructure inspection that adapt to "
   "weather and battery state; Svystun et al. [6] adapt trajectories to the pitch of wind-turbine blades using segmentation, "
-  "reporting a 78% reduction in inspection time; Jin et al. [7] combine global coverage planning with local reactive "
-  "re-planning for surface inspection in partially unknown indoor environments. None of these plans around detected defects, and "
+  "reporting a 78% reduction in inspection time; Jin et al. [7], extended as ASIP-Planner (IROS 2026) [26], combine global coverage planning with local reactive "
+  "re-planning for surface inspection in partially unknown indoor environments; FC-Vision [27] (RA-L 2026) repairs viewpoints in real time when unexpected obstacles occlude a scan. None of these plans around detected defects, and "
   "none revisits a defect across missions. Two 2025 reviews [11, 12] of decision-making UAV path planning and of UAV infrastructure "
   "inspection both identify perception-driven flight planning, and fusion of detection with planning, as an open problem.")
 H3("2.1.3. Classical building blocks")
@@ -924,6 +924,10 @@ refs = [
     "S. Isler, R. Sabzevari, J. Delmerico and D. Scaramuzza, \u201cAn information gain formulation for active volumetric 3D reconstruction,\u201d in <i>Proc. IEEE Int. Conf. Robotics and Automation (ICRA)</i>, 2016.",
     "A. Bircher, M. Kamel, K. Alexis, H. Oleynikova and R. Siegwart, \u201cReceding horizon \u2018next-best-view\u2019 planner for 3D exploration,\u201d in <i>Proc. ICRA</i>, 2016, pp. 1462\u20131468.",
     "S. Alamdari, E. Fata and S. L. Smith, \u201cPersistent monitoring in discrete environments: Minimizing the maximum weighted latency between observations,\u201d <i>Int. J. Robotics Research</i>, vol. 33, no. 1, pp. 138\u2013154, 2014.",
+    "H. Jin, Z. Xu, H. Shen, X. Han, K. Ye and K. Shimada, “ASIP-Planner: Adaptive planning for UAV surface inspection in partially known indoor environments,” in <i>Proc. IROS</i>, 2026, arXiv:2605.11119.",
+    "C. Feng, Y. Xu and S. Shen, “FC-Vision: Real-time visibility-aware replanning for occlusion-free aerial target structure scanning in unknown environments,” <i>IEEE Robotics and Automation Letters</i>, 2026, arXiv:2602.13720.",
+    "C. Li, H. He, X. Wang, W. Lin and C. H. Lim, “UnGAP: Uncertainty-guided affine prompting for real-time crack segmentation,” arXiv:2605.02380, 2026.",
+    "J. Flotzinger, P. J. R\u00f6sch and T. Braml, “dacl10k: Benchmark for semantic bridge damage segmentation,” in <i>Proc. WACV</i>, 2024, arXiv:2309.00460.",
 ]
 for i, r in enumerate(refs, 1):
     story.append(Paragraph(f"[{i}]&nbsp;&nbsp;{r}", S["ref"]))
