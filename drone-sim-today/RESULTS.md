@@ -796,3 +796,34 @@ uses, just run three times with three planners and spliced together.
    as Rückin et al. use, or post-hoc temperature scaling) -- out of scope
    for this pass, which was about measuring and reporting the gap honestly,
    not fixing it.
+
+## Scale-up: 31-wall yard and multi-dataset detector (added)
+
+Reproduce: `UWTIG_YARD=large UWTIG_MEMORY=inmem python experiments/run_parallel_sweep.py --subdir large_base --budget 50`
+then `python experiments/analyze_scaleup.py` (writes `results/scaleup_summary.{json,md}`).
+All averages are over static / uncertain / multi_defect (growing excluded), test seeds 0-4, 3 missions.
+The 31-wall sweeps use the in-process memory store (`memory/store_mem.py`), a port of the Postgres matching rule.
+
+| Planner | F1, 9 walls | F1, 31 walls (95% CI over seeds) | Flight m (31 walls) |
+|---|---|---|---|
+| UW-TIG | 0.953 | 0.921 (0.906-0.938) | 480 |
+| Alamdari latency | 0.941 | 0.928 (0.912-0.947) | 570 |
+| GATSBI | 0.900 | 0.912 (0.894-0.927) | 471 |
+| Ruckin IPP | 0.950 | 0.903 (0.881-0.925) | 860 |
+| Random | 0.873 | 0.801 (0.772-0.836) | 2396 |
+| Bircher | 0.814 | 0.661 | 209 |
+| Isler-NBV | 0.671 | 0.466 | 177 |
+
+At 31 walls UW-TIG is statistically level with Alamdari and GATSBI, ahead of Ruckin (paired +0.018, CI +0.003..+0.035), at lower flight cost
+than Ruckin and Alamdari. Ablations repeat the 9-wall pattern (uncertainty/growth: no change; staleness/lookahead: shorter flight, same F1).
+
+Detector fine-tuned on MBDD2025 + dacl10k + Roboflow corrosion (`datagen/prepare_extra.py`, `datagen/eval_extra.py`; SDNET2018 was bot-blocked):
+
+| Test set | original | fine-tuned |
+|---|---|---|
+| MBDD2025 test, mAP50 | 0.884 | 0.886 |
+| dacl10k held-out (810 img), mAP50 | 0.004 | 0.184 |
+| concrete-crack crops, crack recall | 0.005 | 0.035 (check is out-of-distribution for both) |
+
+The fine-tuned detector did **not** improve the closed loop (UW-TIG F1 0.936 vs 0.953 at 9 walls, 0.883 vs 0.921 at 31 walls), so the original
+detector remains the default; the simulator's textures are MBDD photos, so dacl10k gains cannot appear there.

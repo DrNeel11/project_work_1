@@ -69,6 +69,9 @@ const f3 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(3));
 const f2 = (v) => (Number.isNaN(v) ? "--" : v.toFixed(2));
 const f0 = (v) => (Number.isNaN(v) ? "--" : Math.round(v).toString());
 const HAS = (p) => ROWS.some((r) => r.planner === p);
+const SC = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "scaleup_summary.json"), "utf8"));
+const DET = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "detector_extra.json"), "utf8"));
+const SP = (set, p, k) => SC[set].planners[p][k];
 
 // ---------------------------------------------------------------- helpers
 let N = 0;
@@ -336,18 +339,18 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     "PostgreSQL + pgvector (detection log, identity matching)",
     "Neo4j (defect graph across missions)",
     "Docker Compose (runs both databases)",
-    "NVIDIA L4 GPU, rented (detector training only)",
+    "NVIDIA L4 GPU on a rented 32-vCPU machine (training and the 31-wall sweeps)",
   ], { x: X0 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
 
   const x2 = X0 + cw + g;
-  card(s, x2, y, cw, h, "Dataset");
+  card(s, x2, y, cw, h, "Datasets");
   bullets(s, [
-    { lead: "MBDD2025:", text: "14,471 real UAV photos of building surfaces (Zha et al., Scientific Data 2025)." },
-    { lead: "5 classes:", text: "crack, leakage, abscission, corrosion, bulge." },
-    { lead: "Split:", text: "70 / 20 / 10 train / val / test; 1,448 held-out test images." },
-    { lead: "Imbalance:", text: "bulge has 2,018 instances vs. 22,702 for abscission." },
-    { lead: "SDNET2018:", text: "crack augmentation planned; download pending." },
-  ], { x: x2 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
+    { lead: "MBDD2025:", text: "14,471 UAV photos, 5 classes; detector training/test and the simulator's wall textures (1,448 held-out test images)." },
+    { lead: "dacl10k:", text: "real bridge-inspection photos (CC-BY-4.0); 5,362 train images added, 810 held out as a cross-dataset test." },
+    { lead: "Roboflow corrosion:", text: "851 corrosion/crack images added to training." },
+    { lead: "Concrete-crack crops:", text: "800 held-out images for an image-level check (never trained on)." },
+    { lead: "SDNET2018:", text: "planned, but its download is bot-blocked; replaced by the sets above." },
+  ], { x: x2 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12, gap: 7 });
 
   const x3 = x2 + cw + g;
   card(s, x3, y, cw, h, "Preprocessing");
@@ -388,8 +391,11 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   text(s, "Also reviewed: TinyDef-DETR (Shen et al. 2025, transformer, power-line defects) and a saliency-guided YOLOX bridge detector (Hebbache et al. 2025) -- neither reports a comparable number. Higher scores above come from single-class or private datasets; ours is 5-class on public data.",
     { x: rx, y: 5.0, w: rw, h: 0.95, fontSize: 11, color: G1 });
 
-  text(s, "Calibration check: expected calibration error 0.29-0.33, and uncertainty is slightly lower on wrong detections than right ones -- so uncertainty is used only to rank views within a mission, never as a probability.",
-    { x: X0, y: 6.15, w: CW, h: 0.6, fontSize: 11.5, color: G2 });
+  text(s, [
+    { text: "Extra datasets: ", options: { bold: true } },
+    { text: `fine-tuning on MBDD + dacl10k + Roboflow lifted held-out dacl10k mAP50 from ${f3(DET.old.dacl.map50)} to ${f3(DET.new.dacl.map50)}, left MBDD unchanged (${f3(DET.old.mbdd.map50)} vs ${f3(DET.new.mbdd.map50)}), and did not improve the closed loop -- so the original detector stays the default. ` },
+    { text: "Calibration: expected calibration error 0.29-0.33; uncertainty is used only to rank views, never as a probability.", options: { color: G2 } },
+  ], { x: X0, y: 6.0, w: CW, h: 0.9, fontSize: 11.5 });
 }
 
 // ============================================================ 9. PLANNER & CLOSED-LOOP RESULTS
@@ -424,6 +430,31 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     { x: X0, y: 5.6, w: 7.6, h: 0.7, fontSize: 10.5, color: G3 });
 }
 
+// ============================================================ 9b. SCALE-UP
+{
+  const s = slide("Scale-up: 31-Wall Yard & Statistics");
+  text(s, "Yard enlarged from 9 to 31 walls (186 viewpoints, budget 50). Same test seeds 0-4, 3 scored scenarios; F1 interval = 95% bootstrap over seeds.",
+    { x: X0, y: 1.3, w: CW, h: 0.55, fontSize: 13, color: G1 });
+  const order = [["uwtig", "UW-TIG (ours)"], ["alamdari_latency", "Alamdari 2014"], ["gatsbi_gtsp", "GATSBI"],
+    ["ruckin_ipp", "Rückin 2023"], ["random", "Random"], ["bircher_rhnbv", "Bircher 2016"], ["isler_nbv", "Isler-NBV"]];
+  const rows = order.map(([p, l]) => [l, f3(SP("large_old", p, "f1_confirmed")),
+    `${SP("large_old", p, "f1_ci")[0].toFixed(3)}-${SP("large_old", p, "f1_ci")[1].toFixed(3)}`,
+    f0(SP("large_old", p, "total_flight_dist_m")), f2(SP("large_old", p, "coverage_frac")), f3(SP("small_old", p, "f1_confirmed"))]);
+  table(s, ["Planner", "F1 (31 walls)", "95% CI", "Flight (m)", "Coverage", "F1 (9 walls)"], rows,
+    { x: X0, y: 1.95, w: 7.7, colW: [2.2, 1.25, 1.35, 1.0, 0.95, 0.95], fontSize: 12, rowH: 0.42, boldRow: 0 });
+  const d = (p) => SC.large_old.uwtig_vs[p];
+  const rx = 8.55, rw = 4.18;
+  card(s, rx, 1.95, rw, 3.9, "Reading the numbers");
+  bullets(s, [
+    `UW-TIG vs Alamdari: ${d("alamdari_latency").mean_diff.toFixed(3)} (CI ${d("alamdari_latency").ci[0].toFixed(3)} to ${d("alamdari_latency").ci[1].toFixed(3)}) -- a tie.`,
+    `vs Rückin: +${d("ruckin_ipp").mean_diff.toFixed(3)}, interval excludes 0; flies ${f0(SP("large_old", "uwtig", "total_flight_dist_m"))} m vs ${f0(SP("large_old", "ruckin_ipp", "total_flight_dist_m"))} m.`,
+    "Margins shrink as the yard grows; the coverage phase is still decisive.",
+    "Fine-tuned detector did not help the closed loop (UW-TIG F1 " + f3(SP("large_new", "uwtig", "f1_confirmed")) + " vs " + f3(SP("large_old", "uwtig", "f1_confirmed")) + ").",
+  ], { x: rx + 0.25, y: 2.8, w: rw - 0.45, h: 3.0, fontSize: 12, gap: 7 });
+  text(s, "Ablations repeat: removing uncertainty or growth changes F1 by <0.005; removing staleness/lookahead shortens the flight with no F1 loss.",
+    { x: X0, y: 5.95, w: CW, h: 0.6, fontSize: 11.5, color: G2 });
+}
+
 // ============================================================ 10. CONCLUSION & FUTURE WORK
 {
   const s = slide("Conclusion & Future Work");
@@ -431,7 +462,8 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   bullets(s, [
     `A working closed loop: detect, assess uncertainty, remember, replan, reinspect.`,
     `UW-TIG reaches precision ${f3(UW.p)}, recall ${f3(UW.r)}, F1 ${f3(UW.f)} on held-out test seeds.`,
-    "Matches the strongest of five published planners on detection while flying far less.",
+    "Matches the strongest published planners on detection at lower flight cost, in a 9-wall and a 31-wall yard.",
+    "Reported honestly: margins shrink at scale, and the fine-tuned detector was not adopted.",
     "Every design choice was fixed on separate development seeds before testing.",
   ], { x: X0 + 0.25, y: 2.25, w: 5.45, h: 3.95, fontSize: 15, gap: 18 });
 
