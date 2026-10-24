@@ -146,7 +146,6 @@ o, n = DET["old"], DET["new"]
 
 # ------------------------------------------------------------------ title block
 TEAM = ["Akhil Ramalingam", "Anbuchandiran K", "Neelesh Padmanabh", "Saumiyaa Sri V L", "Sowndarya Elangi S", "Therdhana J P"]
-GUIDES = ["Ms. L. Karthika (Guide)", "Dr. N. Gopika Rani (Co-Guide)"]
 AFF = "Dept. of CSE<br/>PSG College of Technology<br/>Coimbatore, India"
 
 
@@ -155,9 +154,9 @@ def au_cell(name):
 
 
 top = [Paragraph("UW-TIG: Uncertainty-Weighted Temporal Information Gain for Closed-Loop Drone Defect Inspection, Evaluated in a Scalable Simulation Testbed", st["title"])]
-names = TEAM + GUIDES
-rows = [[au_cell(x) for x in names[i:i + 4]] for i in range(0, 8, 4)]
-at = Table(rows, colWidths=[4.4 * cm] * 4)
+names = TEAM
+rows = [[au_cell(x) for x in names[i:i + 3]] for i in range(0, 6, 3)]
+at = Table(rows, colWidths=[5.6 * cm] * 3)
 at.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
 top.append(at)
 top.append(Spacer(1, 5))
@@ -331,8 +330,7 @@ P("We built a closed-loop inspection planner and a simulation testbed to measure
   "which is the reason for running them. Next we plan to texture the simulator with dacl10k-style imagery, re-tune the reporting rule for the broader detector, and add "
   "scenarios with real growth so that the uncertainty and growth terms can be tested.")
 story.append(Paragraph("ACKNOWLEDGMENT", st["h1"]))
-P("The authors thank their guide, Ms. L. Karthika, and co-guide, Dr. N. Gopika Rani, of the Department of Computer Science and Engineering, PSG College of Technology, "
-  "for their guidance. The code, results and figures are in the project repository.", first=True)
+P("The authors thank the Department of Computer Science and Engineering, PSG College of Technology, for its support. The code, results and figures are in the project repository.", first=True)
 
 # ------------------------------------------------------------------ references (built last so numbering is final)
 story.append(Paragraph("REFERENCES", st["h1"]))
@@ -345,7 +343,7 @@ def build():
     W, H = A4
     lm, rm, tm, bm, gap = 1.6 * cm, 1.6 * cm, 1.7 * cm, 1.8 * cm, 0.6 * cm
     cw = (W - lm - rm - gap) / 2
-    top_h = 6.5 * cm
+    top_h = 5.9 * cm
     first = PageTemplate("first", frames=[
         Frame(lm, H - tm - top_h, W - lm - rm, top_h, id="top", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
         Frame(lm, bm, cw, H - tm - top_h - bm, id="c1", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
@@ -355,7 +353,7 @@ def build():
         Frame(lm, bm, cw, H - tm - bm, id="c1", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
         Frame(lm + cw + gap, bm, cw, H - tm - bm, id="c2", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)])
     doc = BaseDocTemplate(OUT, pagesize=A4, pageTemplates=[first, later], title="UW-TIG: Uncertainty-Weighted Temporal Information Gain",
-                          author="A. Ramalingam, Anbuchandiran K, N. Padmanabh, S. S. V L, S. Elangi S, T. J P, L. Karthika, N. Gopika Rani")
+                          author="A. Ramalingam, Anbuchandiran K, N. Padmanabh, S. S. V L, S. Elangi S, T. J P")
     doc.build(story)
     print("wrote", OUT, "refs:", len(ORDER))
 
