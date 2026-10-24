@@ -285,7 +285,7 @@ story.append(Spacer(1, 0.3 * cm))
 story.append(Paragraph("Dissertation submitted in partial fulfillment of the requirements for the degree of<br/><b>BACHELOR OF ENGINEERING</b><br/>Branch : COMPUTER SCIENCE and ENGINEERING<br/>of Anna University<br/>" + DATE, S["center"]))
 story.append(Spacer(1, 0.9 * cm))
 sig = Table([["...................................", "...................................."],
-             [GUIDE, "Dr. G. Sudha Sadasivam"], ["Faculty guide", "Head of the Department"],
+             [GUIDE, "Dr. G. R. Karpagam"], ["Faculty guide", "Head of the Department"],
              [COGUIDE, ""], ["Co-guide", ""]], colWidths=[7.8 * cm, 7.8 * cm])
 sig.setStyle(TableStyle([("FONT", (0, 0), (-1, -1), "Times", 12), ("ALIGN", (0, 0), (-1, -1), "CENTER")]))
 story.append(sig)
@@ -331,9 +331,9 @@ story.append(PageBreak())
 # ================================================================ ACKNOWLEDGEMENT
 story.append(Paragraph("ACKNOWLEDGEMENT", S["front"]))
 for t in [
-    "We would like to extend our sincere thanks to our Principal, Dr. K. Prakasan, Professor, for providing us with the opportunity "
+    "We would like to extend our sincere thanks to our Principal (FAC - In Charge), Dr. G. Thilagavathi, for providing us with the opportunity "
     "to develop and complete our project in our field of interest.",
-    "We express our sincere thanks to our respectful Head of the Department, Dr. G. Sudha Sadasivam, Professor, for encouraging and "
+    "We express our sincere thanks to our respectful Head of the Department, Dr. G. R. Karpagam, for encouraging and "
     "allowing us to work on and present the project at our department for the partial fulfillment of the requirements leading to the "
     "award of the B.E. degree.",
     f"We take immense pleasure in conveying our thanks and a deep sense of gratitude to our faculty guide, {GUIDE}, Department of "
