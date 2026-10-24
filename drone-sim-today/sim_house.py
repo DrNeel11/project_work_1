@@ -55,6 +55,34 @@ WALL_SEGMENTS = [
     dict(name="Tower-Panel", x=-5.0, y=3.0, yaw=0, width=1.2, texture="clean_wall_1.png", label="clean"),
 ]
 
+# --- Large yard (UWTIG_YARD=large, the default): 31 inspectable surfaces
+# instead of 9 -- four more equipment buildings (C 4x4 m west of A, D 3.2x3.2 m
+# and E 3.2x3.2 m to the north, F 2.6x2.6 m north-west) and six more freestanding
+# inspection panels in the open yard. UWTIG_YARD=small restores the original
+# 9-wall yard used for every result reported before the scale-up.
+def _building(prefix, cx, cy, half, width, textures):
+    return [
+        dict(name=f"{prefix}-west", x=cx - half, y=cy, yaw=90, width=width, texture=textures[0], label="clean"),
+        dict(name=f"{prefix}-east", x=cx + half, y=cy, yaw=-90, width=width, texture=textures[1], label="clean"),
+        dict(name=f"{prefix}-south", x=cx, y=cy - half, yaw=180, width=width, texture=textures[2], label="clean"),
+        dict(name=f"{prefix}-north", x=cx, y=cy + half, yaw=0, width=width, texture=textures[3], label="clean"),
+    ]
+
+
+_CLEAN = ["clean_wall_1.png", "clean_wall_2.png", "clean_wall_3.png", "clean_wall_1.png"]
+EXTRA_WALL_SEGMENTS = (
+    _building("C", -12.0, 0.0, 2.0, 4.0, _CLEAN)
+    + _building("D", 0.0, 12.0, 1.6, 3.2, _CLEAN)
+    + _building("E", 14.0, 11.0, 1.6, 3.2, _CLEAN)
+    + _building("F", -12.0, 12.0, 1.3, 2.6, _CLEAN)
+    + [dict(name=f"Panel-{i}", x=x, y=y, yaw=yaw, width=1.2, texture="clean_wall_2.png", label="clean")
+       for i, (x, y, yaw) in enumerate([(6.0, -7.0, 0), (-6.0, -7.0, 0), (0.0, -11.0, 0),
+                                         (14.0, -6.0, 0), (-12.0, -8.0, 0), (7.0, 8.0, 180)], 1)]
+)
+YARD = os.environ.get("UWTIG_YARD", "large")
+if YARD == "large":
+    WALL_SEGMENTS = WALL_SEGMENTS + EXTRA_WALL_SEGMENTS
+
 # Patrol order: visit every panel in a sensible spatial loop. No special
 # transit waypoints needed now that structures are freestanding in open
 # space (no collision is modeled -- this is a kinematic-visual sim -- but
@@ -76,6 +104,7 @@ STANDOFF = {  # keyed by the wall name's first letter/token
     "B": 1.0,
     "P": 0.9,  # PipeRack-Panel
     "T": 0.9,  # Tower-Panel
+    "C": 1.2, "D": 1.2, "E": 1.2, "F": 1.2,  # large-yard buildings
 }
 
 

@@ -29,6 +29,19 @@ drone-sim-today/captures/
 drone-sim-today/results/*
 !drone-sim-today/results/comparison.csv
 !drone-sim-today/results/comparison.png
+# scale-up experiments (31-wall yard, fine-tuned detector): summaries and merged CSVs
+!drone-sim-today/results/scaleup_summary.json
+!drone-sim-today/results/scaleup_summary.md
+!drone-sim-today/results/detector_extra.json
+!drone-sim-today/results/large_base/
+drone-sim-today/results/large_base/*
+!drone-sim-today/results/large_base/comparison.csv
+!drone-sim-today/results/large_new/
+drone-sim-today/results/large_new/*
+!drone-sim-today/results/large_new/comparison.csv
+!drone-sim-today/results/small_new/
+drone-sim-today/results/small_new/*
+!drone-sim-today/results/small_new/comparison.csv
 
 # MBDD2025 dataset download + extracted/split copies (2.5GB+, real data --
 # see README.md "Getting a trained model" for the download/prepare steps)

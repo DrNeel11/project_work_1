@@ -1,0 +1,1242 @@
+{
+ "small_old": {
+  "n_rows": 180,
+  "planners": {
+   "alamdari_latency": {
+    "precision_confirmed": 0.9235019366598314,
+    "recall_confirmed": 0.9666666666666667,
+    "f1_confirmed": 0.9414879714879715,
+    "total_flight_dist_m": 167.7179702988354,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9111949311949312,
+     0.9748648648648649
+    ],
+    "f1_seed_std": 0.03736908828595801,
+    "per_scenario_f1": {
+     "multi_defect": 0.9891891891891892,
+     "static": 0.91,
+     "uncertain": 0.9252747252747252
+    }
+   },
+   "bircher_rhnbv": {
+    "precision_confirmed": 0.9166666666666666,
+    "recall_confirmed": 0.7555555555555555,
+    "f1_confirmed": 0.8135064935064935,
+    "total_flight_dist_m": 47.94398245761614,
+    "coverage_frac": 0.6666666666666666,
+    "f1_ci": [
+     0.7795382395382395,
+     0.8474747474747474
+    ],
+    "f1_seed_std": 0.04003777505799817,
+    "per_scenario_f1": {
+     "multi_defect": 0.9090909090909091,
+     "static": 0.9314285714285714,
+     "uncertain": 0.6
+    }
+   },
+   "gatsbi_gtsp": {
+    "precision_confirmed": 0.8870107085896559,
+    "recall_confirmed": 0.9222222222222223,
+    "f1_confirmed": 0.8999108714898189,
+    "total_flight_dist_m": 125.36432158743057,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.868127428127428,
+     0.9338257285625706
+    ],
+    "f1_seed_std": 0.03763812613548505,
+    "per_scenario_f1": {
+     "multi_defect": 0.9658864606233027,
+     "static": 0.8933333333333333,
+     "uncertain": 0.8405128205128205
+    }
+   },
+   "isler_nbv": {
+    "precision_confirmed": 0.8904761904761904,
+    "recall_confirmed": 0.5555555555555556,
+    "f1_confirmed": 0.6712116641528406,
+    "total_flight_dist_m": 30.660690154376944,
+    "coverage_frac": 0.4444444444444444,
+    "f1_ci": [
+     0.6375867269984916,
+     0.7048366013071895
+    ],
+    "f1_seed_std": 0.03911388728578708,
+    "per_scenario_f1": {
+     "multi_defect": 0.6666666666666666,
+     "static": 0.7623529411764707,
+     "uncertain": 0.5846153846153845
+    }
+   },
+   "random": {
+    "precision_confirmed": 0.9214417989417989,
+    "recall_confirmed": 0.837037037037037,
+    "f1_confirmed": 0.8725010965413442,
+    "total_flight_dist_m": 394.8985315004507,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8423971155550103,
+     0.9026914657410015
+    ],
+    "f1_seed_std": 0.03595538631841617,
+    "per_scenario_f1": {
+     "multi_defect": 0.8739064856711916,
+     "static": 0.9199604403164775,
+     "uncertain": 0.8236363636363636
+    }
+   },
+   "ruckin_ipp": {
+    "precision_confirmed": 0.9592592592592593,
+    "recall_confirmed": 0.9444444444444444,
+    "f1_confirmed": 0.9504474570264044,
+    "total_flight_dist_m": 204.2994549033147,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8902312599681022,
+     0.9925925925925926
+    ],
+    "f1_seed_std": 0.06230815340496941,
+    "per_scenario_f1": {
+     "multi_defect": 0.9777777777777777,
+     "static": 0.9644736842105264,
+     "uncertain": 0.9090909090909091
+    }
+   },
+   "uwtig": {
+    "precision_confirmed": 0.9486557302346776,
+    "recall_confirmed": 0.9666666666666667,
+    "f1_confirmed": 0.9532897732897733,
+    "total_flight_dist_m": 125.14539110001955,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9179051579051578,
+     0.9886743886743886
+    ],
+    "f1_seed_std": 0.04218632680843595,
+    "per_scenario_f1": {
+     "multi_defect": 0.9945945945945946,
+     "static": 0.9400000000000001,
+     "uncertain": 0.9252747252747252
+    }
+   },
+   "uwtig_no_coverage_first": {
+    "precision_confirmed": 0.9111111111111111,
+    "recall_confirmed": 0.5555555555555556,
+    "f1_confirmed": 0.6799999999999999,
+    "total_flight_dist_m": 13.379657514062608,
+    "coverage_frac": 0.4444444444444444,
+    "f1_ci": [
+     0.6399999999999999,
+     0.7111111111111111
+    ],
+    "f1_seed_std": 0.040612593072215736,
+    "per_scenario_f1": {
+     "multi_defect": 0.6666666666666666,
+     "static": 0.7733333333333333,
+     "uncertain": 0.6
+    }
+   },
+   "uwtig_no_lookahead": {
+    "precision_confirmed": 0.9669674185463659,
+    "recall_confirmed": 0.9555555555555556,
+    "f1_confirmed": 0.958046069625017,
+    "total_flight_dist_m": 85.21406650508261,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9215948963317384,
+     0.993069993069993
+    ],
+    "f1_seed_std": 0.04148843323368765,
+    "per_scenario_f1": {
+     "multi_defect": 0.9945945945945946,
+     "static": 0.9494736842105264,
+     "uncertain": 0.93006993006993
+    }
+   },
+   "uwtig_no_staleness": {
+    "precision_confirmed": 0.9669674185463659,
+    "recall_confirmed": 0.9555555555555556,
+    "f1_confirmed": 0.958046069625017,
+    "total_flight_dist_m": 80.6140665050826,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9215948963317384,
+     0.993069993069993
+    ],
+    "f1_seed_std": 0.04148843323368765,
+    "per_scenario_f1": {
+     "multi_defect": 0.9945945945945946,
+     "static": 0.9494736842105264,
+     "uncertain": 0.93006993006993
+    }
+   },
+   "uwtig_no_temporal": {
+    "precision_confirmed": 0.9486557302346776,
+    "recall_confirmed": 0.9666666666666667,
+    "f1_confirmed": 0.9532897732897733,
+    "total_flight_dist_m": 125.1397730192846,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9179051579051578,
+     0.9886743886743886
+    ],
+    "f1_seed_std": 0.04218632680843595,
+    "per_scenario_f1": {
+     "multi_defect": 0.9945945945945946,
+     "static": 0.9400000000000001,
+     "uncertain": 0.9252747252747252
+    }
+   },
+   "uwtig_no_uncertainty": {
+    "precision_confirmed": 0.9486557302346776,
+    "recall_confirmed": 0.9666666666666667,
+    "f1_confirmed": 0.9532897732897733,
+    "total_flight_dist_m": 124.55965091735419,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9179051579051578,
+     0.9886743886743886
+    ],
+    "f1_seed_std": 0.04218632680843595,
+    "per_scenario_f1": {
+     "multi_defect": 0.9945945945945946,
+     "static": 0.9400000000000001,
+     "uncertain": 0.9252747252747252
+    }
+   }
+  },
+  "uwtig_vs": {
+   "alamdari_latency": {
+    "mean_diff": 0.01180180180180177,
+    "ci": [
+     0.0,
+     0.028738738738738667
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "bircher_rhnbv": {
+    "mean_diff": 0.13978327978327973,
+    "ci": [
+     0.13695055695055697,
+     0.14141414141414138
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "gatsbi_gtsp": {
+    "mean_diff": 0.053378901799954394,
+    "ci": [
+     0.007738293001450814,
+     0.09580419580419577
+    ],
+    "seeds_won": 4,
+    "n": 5
+   },
+   "isler_nbv": {
+    "mean_diff": 0.28207810913693265,
+    "ci": [
+     0.26771241830065357,
+     0.29383613736554903
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "random": {
+    "mean_diff": 0.08078867674842907,
+    "ci": [
+     0.04231204639873367,
+     0.12420206762312029
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "ruckin_ipp": {
+    "mean_diff": 0.0028423162633688603,
+    "ci": [
+     -0.018918203918204,
+     0.0313633566265145
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_coverage_first": {
+    "mean_diff": 0.2732897732897732,
+    "ci": [
+     0.24683760683760675,
+     0.28867438867438866
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "uwtig_no_lookahead": {
+    "mean_diff": -0.004756296335243748,
+    "ci": [
+     -0.013547505126452596,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   },
+   "uwtig_no_staleness": {
+    "mean_diff": -0.004756296335243748,
+    "ci": [
+     -0.013547505126452596,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   },
+   "uwtig_no_temporal": {
+    "mean_diff": 0.0,
+    "ci": [
+     0.0,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   },
+   "uwtig_no_uncertainty": {
+    "mean_diff": 0.0,
+    "ci": [
+     0.0,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   }
+  }
+ },
+ "small_new": {
+  "n_rows": 180,
+  "planners": {
+   "alamdari_latency": {
+    "precision_confirmed": 0.8923232323232323,
+    "recall_confirmed": 0.9888888888888889,
+    "f1_confirmed": 0.9323353839143312,
+    "total_flight_dist_m": 167.7179702988354,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9057142857142857,
+     0.9523353839143314
+    ],
+    "f1_seed_std": 0.026632624324066708,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8837593984962406,
+     "uncertain": 0.9132467532467532
+    }
+   },
+   "bircher_rhnbv": {
+    "precision_confirmed": 0.8878787878787879,
+    "recall_confirmed": 0.7777777777777778,
+    "f1_confirmed": 0.8106493506493506,
+    "total_flight_dist_m": 47.94398245761614,
+    "coverage_frac": 0.6666666666666666,
+    "f1_ci": [
+     0.7789033189033189,
+     0.8385858585858585
+    ],
+    "f1_seed_std": 0.03352777754294208,
+    "per_scenario_f1": {
+     "multi_defect": 0.9090909090909091,
+     "static": 0.9228571428571428,
+     "uncertain": 0.6
+    }
+   },
+   "gatsbi_gtsp": {
+    "precision_confirmed": 0.8995670995670996,
+    "recall_confirmed": 0.9888888888888889,
+    "f1_confirmed": 0.9373826173826174,
+    "total_flight_dist_m": 125.36432158743057,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9206060606060606,
+     0.9501098901098901
+    ],
+    "f1_seed_std": 0.01748325450771884,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8742857142857142,
+     "uncertain": 0.9378621378621378
+    }
+   },
+   "isler_nbv": {
+    "precision_confirmed": 0.9011111111111111,
+    "recall_confirmed": 0.5555555555555556,
+    "f1_confirmed": 0.6767557932263815,
+    "total_flight_dist_m": 30.660690154376944,
+    "coverage_frac": 0.4444444444444444,
+    "f1_ci": [
+     0.6500653594771242,
+     0.703030303030303
+    ],
+    "f1_seed_std": 0.03244333877138129,
+    "per_scenario_f1": {
+     "multi_defect": 0.6666666666666666,
+     "static": 0.7545098039215686,
+     "uncertain": 0.609090909090909
+    }
+   },
+   "random": {
+    "precision_confirmed": 0.9266666666666666,
+    "recall_confirmed": 0.8666666666666667,
+    "f1_confirmed": 0.8874754399367403,
+    "total_flight_dist_m": 394.8985315004507,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8493686012416664,
+     0.9159519118652246
+    ],
+    "f1_seed_std": 0.03780621993040371,
+    "per_scenario_f1": {
+     "multi_defect": 0.9400420168067227,
+     "static": 0.8824708830900782,
+     "uncertain": 0.83991341991342
+    }
+   },
+   "ruckin_ipp": {
+    "precision_confirmed": 0.9175084175084175,
+    "recall_confirmed": 0.9777777777777777,
+    "f1_confirmed": 0.9422159975101152,
+    "total_flight_dist_m": 227.1680388292785,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8876003734827265,
+     0.980952380952381
+    ],
+    "f1_seed_std": 0.05415343412254644,
+    "per_scenario_f1": {
+     "multi_defect": 0.9882352941176471,
+     "static": 0.906984126984127,
+     "uncertain": 0.9314285714285714
+    }
+   },
+   "uwtig": {
+    "precision_confirmed": 0.898989898989899,
+    "recall_confirmed": 0.9888888888888889,
+    "f1_confirmed": 0.9358441558441558,
+    "total_flight_dist_m": 124.9713911340297,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9057142857142857,
+     0.9593073593073594
+    ],
+    "f1_seed_std": 0.02996021299239092,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8942857142857142,
+     "uncertain": 0.9132467532467532
+    }
+   },
+   "uwtig_no_coverage_first": {
+    "precision_confirmed": 0.8955555555555555,
+    "recall_confirmed": 0.5555555555555556,
+    "f1_confirmed": 0.6741414141414142,
+    "total_flight_dist_m": 13.567664248241119,
+    "coverage_frac": 0.4444444444444444,
+    "f1_ci": [
+     0.6422222222222221,
+     0.703030303030303
+    ],
+    "f1_seed_std": 0.036807615116414547,
+    "per_scenario_f1": {
+     "multi_defect": 0.6666666666666666,
+     "static": 0.7466666666666667,
+     "uncertain": 0.609090909090909
+    }
+   },
+   "uwtig_no_lookahead": {
+    "precision_confirmed": 0.9061327561327561,
+    "recall_confirmed": 0.9777777777777777,
+    "f1_confirmed": 0.932967032967033,
+    "total_flight_dist_m": 80.6140665050826,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9085714285714286,
+     0.9501098901098901
+    ],
+    "f1_seed_std": 0.024705052101758246,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8942857142857142,
+     "uncertain": 0.9046153846153846
+    }
+   },
+   "uwtig_no_staleness": {
+    "precision_confirmed": 0.9061327561327561,
+    "recall_confirmed": 0.9777777777777777,
+    "f1_confirmed": 0.932967032967033,
+    "total_flight_dist_m": 80.6140665050826,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9085714285714286,
+     0.9501098901098901
+    ],
+    "f1_seed_std": 0.024705052101758246,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8942857142857142,
+     "uncertain": 0.9046153846153846
+    }
+   },
+   "uwtig_no_temporal": {
+    "precision_confirmed": 0.898989898989899,
+    "recall_confirmed": 0.9888888888888889,
+    "f1_confirmed": 0.9358441558441558,
+    "total_flight_dist_m": 124.95796256745972,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9057142857142857,
+     0.9593073593073594
+    ],
+    "f1_seed_std": 0.02996021299239092,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8942857142857142,
+     "uncertain": 0.9132467532467532
+    }
+   },
+   "uwtig_no_uncertainty": {
+    "precision_confirmed": 0.898989898989899,
+    "recall_confirmed": 0.9888888888888889,
+    "f1_confirmed": 0.9358441558441558,
+    "total_flight_dist_m": 124.56222425540085,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9057142857142857,
+     0.9593073593073594
+    ],
+    "f1_seed_std": 0.02996021299239092,
+    "per_scenario_f1": {
+     "multi_defect": 1.0,
+     "static": 0.8942857142857142,
+     "uncertain": 0.9132467532467532
+    }
+   }
+  },
+  "uwtig_vs": {
+   "alamdari_latency": {
+    "mean_diff": 0.0035087719298245723,
+    "ci": [
+     0.0,
+     0.010526315789473717
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "bircher_rhnbv": {
+    "mean_diff": 0.12519480519480522,
+    "ci": [
+     0.10011544011544007,
+     0.14868686868686873
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "gatsbi_gtsp": {
+    "mean_diff": -0.001538461538461533,
+    "ci": [
+     -0.016996336996336958,
+     0.01619047619047618
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "isler_nbv": {
+    "mean_diff": 0.2590883626177744,
+    "ci": [
+     0.23422799422799426,
+     0.2839487310075546
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "random": {
+    "mean_diff": 0.04836871590741558,
+    "ci": [
+     0.014435107376283817,
+     0.0948579782790309
+    ],
+    "seeds_won": 4,
+    "n": 5
+   },
+   "ruckin_ipp": {
+    "mean_diff": -0.006371841665959321,
+    "ci": [
+     -0.04571428571428575,
+     0.041577115694762745
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_coverage_first": {
+    "mean_diff": 0.2617027417027417,
+    "ci": [
+     0.23422799422799426,
+     0.29015873015873017
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "uwtig_no_lookahead": {
+    "mean_diff": 0.0028771228771229175,
+    "ci": [
+     -0.01318681318681314,
+     0.021818181818181893
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_staleness": {
+    "mean_diff": 0.0028771228771229175,
+    "ci": [
+     -0.01318681318681314,
+     0.021818181818181893
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_temporal": {
+    "mean_diff": 0.0,
+    "ci": [
+     0.0,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   },
+   "uwtig_no_uncertainty": {
+    "mean_diff": 0.0,
+    "ci": [
+     0.0,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   }
+  }
+ },
+ "large_old": {
+  "n_rows": 180,
+  "planners": {
+   "alamdari_latency": {
+    "precision_confirmed": 0.9239760796180233,
+    "recall_confirmed": 0.9375,
+    "f1_confirmed": 0.9283286024982269,
+    "total_flight_dist_m": 570.3950337137002,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9124461569014957,
+     0.9469673714780098
+    ],
+    "f1_seed_std": 0.01886427468407936,
+    "per_scenario_f1": {
+     "multi_defect": 0.9611839261608847,
+     "static": 0.8699557274876424,
+     "uncertain": 0.9538461538461538
+    }
+   },
+   "bircher_rhnbv": {
+    "precision_confirmed": 0.8647591215973569,
+    "recall_confirmed": 0.5444444444444444,
+    "f1_confirmed": 0.6605305692646369,
+    "total_flight_dist_m": 209.39569017987787,
+    "coverage_frac": 0.5161290322580645,
+    "f1_ci": [
+     0.6304848484848484,
+     0.6881568318908996
+    ],
+    "f1_seed_std": 0.032838395178164906,
+    "per_scenario_f1": {
+     "multi_defect": 0.7003333333333334,
+     "static": 0.5696747967479675,
+     "uncertain": 0.7115835777126099
+    }
+   },
+   "gatsbi_gtsp": {
+    "precision_confirmed": 0.910080168235063,
+    "recall_confirmed": 0.9236111111111112,
+    "f1_confirmed": 0.9124710734803194,
+    "total_flight_dist_m": 471.2462038764189,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8937894598081491,
+     0.9270069926914312
+    ],
+    "f1_seed_std": 0.018910700691955135,
+    "per_scenario_f1": {
+     "multi_defect": 0.945878504849852,
+     "static": 0.8800275235961095,
+     "uncertain": 0.9115071919949969
+    }
+   },
+   "isler_nbv": {
+    "precision_confirmed": 0.8286124401913876,
+    "recall_confirmed": 0.3375,
+    "f1_confirmed": 0.4658489960768044,
+    "total_flight_dist_m": 176.928284375227,
+    "coverage_frac": 0.3225806451612903,
+    "f1_ci": [
+     0.3938473048292373,
+     0.5185337382352307
+    ],
+    "f1_seed_std": 0.07378884350168899,
+    "per_scenario_f1": {
+     "multi_defect": 0.47018768087110585,
+     "static": 0.32857142857142857,
+     "uncertain": 0.5987878787878788
+    }
+   },
+   "random": {
+    "precision_confirmed": 0.8454525819217249,
+    "recall_confirmed": 0.7666666666666667,
+    "f1_confirmed": 0.8010125509816743,
+    "total_flight_dist_m": 2395.5284874246795,
+    "coverage_frac": 0.9935483870967742,
+    "f1_ci": [
+     0.7724104895932583,
+     0.8362263293209585
+    ],
+    "f1_seed_std": 0.03695438870981465,
+    "per_scenario_f1": {
+     "multi_defect": 0.8610650997747772,
+     "static": 0.7773267308773648,
+     "uncertain": 0.7646458222928811
+    }
+   },
+   "ruckin_ipp": {
+    "precision_confirmed": 0.8802624653321947,
+    "recall_confirmed": 0.9328703703703703,
+    "f1_confirmed": 0.9030668989394668,
+    "total_flight_dist_m": 860.3635065842454,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8808696616766101,
+     0.9252641362023235
+    ],
+    "f1_seed_std": 0.02568363775212369,
+    "per_scenario_f1": {
+     "multi_defect": 0.9448831355114862,
+     "static": 0.864985754985755,
+     "uncertain": 0.8993318063211592
+    }
+   },
+   "uwtig": {
+    "precision_confirmed": 0.9177521733298496,
+    "recall_confirmed": 0.9319444444444445,
+    "f1_confirmed": 0.9213062353197251,
+    "total_flight_dist_m": 480.4298528152878,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9060908912103443,
+     0.937965791999235
+    ],
+    "f1_seed_std": 0.01820866852796537,
+    "per_scenario_f1": {
+     "multi_defect": 0.9671801796724863,
+     "static": 0.8380340728453936,
+     "uncertain": 0.9587044534412955
+    }
+   },
+   "uwtig_no_coverage_first": {
+    "precision_confirmed": 0.8504634254634255,
+    "recall_confirmed": 0.5111111111111111,
+    "f1_confirmed": 0.62494694835694,
+    "total_flight_dist_m": 181.05956717910703,
+    "coverage_frac": 0.5161290322580645,
+    "f1_ci": [
+     0.546060640784672,
+     0.7038332559292079
+    ],
+    "f1_seed_std": 0.08949954141265574,
+    "per_scenario_f1": {
+     "multi_defect": 0.6104421221965979,
+     "static": 0.5281395797185271,
+     "uncertain": 0.7362591431556949
+    }
+   },
+   "uwtig_no_lookahead": {
+    "precision_confirmed": 0.9141038676125784,
+    "recall_confirmed": 0.9319444444444445,
+    "f1_confirmed": 0.9192126850434539,
+    "total_flight_dist_m": 445.93884622098057,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9067813879365497,
+     0.9319440083725798
+    ],
+    "f1_seed_std": 0.014409679619747751,
+    "per_scenario_f1": {
+     "multi_defect": 0.9671801796724863,
+     "static": 0.8412271062271062,
+     "uncertain": 0.9492307692307692
+    }
+   },
+   "uwtig_no_staleness": {
+    "precision_confirmed": 0.9264046194922776,
+    "recall_confirmed": 0.9319444444444445,
+    "f1_confirmed": 0.9251469943664675,
+    "total_flight_dist_m": 420.6250774695952,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9157944032461908,
+     0.9345107893968578
+    ],
+    "f1_seed_std": 0.011104011738925142,
+    "per_scenario_f1": {
+     "multi_defect": 0.9671801796724863,
+     "static": 0.8590300341961472,
+     "uncertain": 0.9492307692307692
+    }
+   },
+   "uwtig_no_temporal": {
+    "precision_confirmed": 0.9170114325891089,
+    "recall_confirmed": 0.9319444444444445,
+    "f1_confirmed": 0.9208934386220987,
+    "total_flight_dist_m": 480.6820907153542,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9052793612822443,
+     0.9397300765402645
+    ],
+    "f1_seed_std": 0.019412865132758306,
+    "per_scenario_f1": {
+     "multi_defect": 0.9671801796724863,
+     "static": 0.841653982347656,
+     "uncertain": 0.9538461538461538
+    }
+   },
+   "uwtig_no_uncertainty": {
+    "precision_confirmed": 0.9224048073303097,
+    "recall_confirmed": 0.9319444444444445,
+    "f1_confirmed": 0.9237540065722524,
+    "total_flight_dist_m": 479.7827952475346,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.9060908912103443,
+     0.9428268362532709
+    ],
+    "f1_seed_std": 0.020932614987961267,
+    "per_scenario_f1": {
+     "multi_defect": 0.9671801796724863,
+     "static": 0.8453773866029751,
+     "uncertain": 0.9587044534412955
+    }
+   }
+  },
+  "uwtig_vs": {
+   "alamdari_latency": {
+    "mean_diff": -0.007022367178501865,
+    "ci": [
+     -0.01962323099995351,
+     0.007133886299611536
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "bircher_rhnbv": {
+    "mean_diff": 0.2607756660550882,
+    "ci": [
+     0.22569448790825017,
+     0.29585684420192615
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "gatsbi_gtsp": {
+    "mean_diff": 0.008835161839405603,
+    "ci": [
+     -0.006681473829244444,
+     0.02387911132997007
+    ],
+    "seeds_won": 3,
+    "n": 5
+   },
+   "isler_nbv": {
+    "mean_diff": 0.4554572392429207,
+    "ci": [
+     0.4036560585842521,
+     0.5246055729938
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "random": {
+    "mean_diff": 0.12029368433805077,
+    "ci": [
+     0.08766751175599168,
+     0.1524471732859835
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "ruckin_ipp": {
+    "mean_diff": 0.0182393363802583,
+    "ci": [
+     0.002610601165594262,
+     0.03457301359905192
+    ],
+    "seeds_won": 3,
+    "n": 5
+   },
+   "uwtig_no_coverage_first": {
+    "mean_diff": 0.29635928696278513,
+    "ci": [
+     0.21197699182082444,
+     0.38074158210474585
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "uwtig_no_lookahead": {
+    "mean_diff": 0.0020935502762712056,
+    "ci": [
+     -0.002128688921141775,
+     0.006396761133603213
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "uwtig_no_staleness": {
+    "mean_diff": -0.0038407590467424146,
+    "ci": [
+     -0.01449625950221447,
+     0.006315789473684186
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "uwtig_no_temporal": {
+    "mean_diff": 0.0004127966976263719,
+    "ci": [
+     -0.0036199095022625637,
+     0.00485829959514168
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_uncertainty": {
+    "mean_diff": -0.0024477712525272644,
+    "ci": [
+     -0.0049300407560734175,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   }
+  }
+ },
+ "large_new": {
+  "n_rows": 180,
+  "planners": {
+   "alamdari_latency": {
+    "precision_confirmed": 0.8500268802684963,
+    "recall_confirmed": 0.925,
+    "f1_confirmed": 0.8797457117388144,
+    "total_flight_dist_m": 570.3950337137002,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8543643615822543,
+     0.9010199935588717
+    ],
+    "f1_seed_std": 0.026297704420923843,
+    "per_scenario_f1": {
+     "multi_defect": 0.9242346904841086,
+     "static": 0.7965463457884309,
+     "uncertain": 0.9184560989439038
+    }
+   },
+   "bircher_rhnbv": {
+    "precision_confirmed": 0.8094022644022644,
+    "recall_confirmed": 0.5402777777777777,
+    "f1_confirmed": 0.6353207247447547,
+    "total_flight_dist_m": 209.39569017987787,
+    "coverage_frac": 0.5161290322580645,
+    "f1_ci": [
+     0.5948698877871388,
+     0.6659430286957169
+    ],
+    "f1_seed_std": 0.0421432814017663,
+    "per_scenario_f1": {
+     "multi_defect": 0.6652250712250712,
+     "static": 0.5492565405608884,
+     "uncertain": 0.6914805624483044
+    }
+   },
+   "gatsbi_gtsp": {
+    "precision_confirmed": 0.8205879453541717,
+    "recall_confirmed": 0.8962962962962963,
+    "f1_confirmed": 0.8515945298172453,
+    "total_flight_dist_m": 471.2462038764189,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8175362458631039,
+     0.8777068274822325
+    ],
+    "f1_seed_std": 0.034883706593387936,
+    "per_scenario_f1": {
+     "multi_defect": 0.889749531240155,
+     "static": 0.7888690971111821,
+     "uncertain": 0.8761649611003988
+    }
+   },
+   "isler_nbv": {
+    "precision_confirmed": 0.790940170940171,
+    "recall_confirmed": 0.3375,
+    "f1_confirmed": 0.46037310037310036,
+    "total_flight_dist_m": 176.928284375227,
+    "coverage_frac": 0.3225806451612903,
+    "f1_ci": [
+     0.385025025025025,
+     0.5127272727272727
+    ],
+    "f1_seed_std": 0.07413712787458361,
+    "per_scenario_f1": {
+     "multi_defect": 0.45999999999999996,
+     "static": 0.3356647556647557,
+     "uncertain": 0.5854545454545454
+    }
+   },
+   "random": {
+    "precision_confirmed": 0.8491752449480514,
+    "recall_confirmed": 0.7597222222222222,
+    "f1_confirmed": 0.7980710845499632,
+    "total_flight_dist_m": 2395.5284874246795,
+    "coverage_frac": 0.9935483870967742,
+    "f1_ci": [
+     0.780881757466244,
+     0.8155370595931071
+    ],
+    "f1_seed_std": 0.019888981752134556,
+    "per_scenario_f1": {
+     "multi_defect": 0.8478111503140958,
+     "static": 0.7605528210391432,
+     "uncertain": 0.7858492822966507
+    }
+   },
+   "ruckin_ipp": {
+    "precision_confirmed": 0.845262420872328,
+    "recall_confirmed": 0.9333333333333333,
+    "f1_confirmed": 0.8827506239950562,
+    "total_flight_dist_m": 879.2617450659146,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8729318350523284,
+     0.8938605527807566
+    ],
+    "f1_seed_std": 0.01184405900036882,
+    "per_scenario_f1": {
+     "multi_defect": 0.930697458455523,
+     "static": 0.8360645202750466,
+     "uncertain": 0.8814898932545991
+    }
+   },
+   "uwtig": {
+    "precision_confirmed": 0.8656827603155984,
+    "recall_confirmed": 0.9148148148148149,
+    "f1_confirmed": 0.883075365355774,
+    "total_flight_dist_m": 481.38959846472176,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8617064241254191,
+     0.9073504181436899
+    ],
+    "f1_seed_std": 0.0261737021985878,
+    "per_scenario_f1": {
+     "multi_defect": 0.9240812140094167,
+     "static": 0.8051335815588001,
+     "uncertain": 0.9200113004991054
+    }
+   },
+   "uwtig_no_coverage_first": {
+    "precision_confirmed": 0.7674592249855408,
+    "recall_confirmed": 0.5018518518518519,
+    "f1_confirmed": 0.5954458910689886,
+    "total_flight_dist_m": 184.86290405723085,
+    "coverage_frac": 0.5204301075268817,
+    "f1_ci": [
+     0.5283572056034007,
+     0.6625345765345766
+    ],
+    "f1_seed_std": 0.07831818643838524,
+    "per_scenario_f1": {
+     "multi_defect": 0.5796710240271884,
+     "static": 0.4805575432319618,
+     "uncertain": 0.7261091059478156
+    }
+   },
+   "uwtig_no_lookahead": {
+    "precision_confirmed": 0.8583908799399967,
+    "recall_confirmed": 0.9148148148148149,
+    "f1_confirmed": 0.8789014985035822,
+    "total_flight_dist_m": 445.95123600835245,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8593343590750292,
+     0.9019450127382846
+    ],
+    "f1_seed_std": 0.023922567002820614,
+    "per_scenario_f1": {
+     "multi_defect": 0.9240812140094167,
+     "static": 0.8021985710766198,
+     "uncertain": 0.9104247104247104
+    }
+   },
+   "uwtig_no_staleness": {
+    "precision_confirmed": 0.8687275802766972,
+    "recall_confirmed": 0.9148148148148149,
+    "f1_confirmed": 0.8841616185005444,
+    "total_flight_dist_m": 420.75522810148135,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8628952498324614,
+     0.905859818586474
+    ],
+    "f1_seed_std": 0.024902980099840148,
+    "per_scenario_f1": {
+     "multi_defect": 0.9240812140094167,
+     "static": 0.8179789310675062,
+     "uncertain": 0.9104247104247104
+    }
+   },
+   "uwtig_no_temporal": {
+    "precision_confirmed": 0.8635088472721202,
+    "recall_confirmed": 0.9148148148148149,
+    "f1_confirmed": 0.8816816371327775,
+    "total_flight_dist_m": 481.02767016730377,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8603126959024227,
+     0.9073504181436899
+    ],
+    "f1_seed_std": 0.02651484603128104,
+    "per_scenario_f1": {
+     "multi_defect": 0.9240812140094167,
+     "static": 0.8051335815588001,
+     "uncertain": 0.9158301158301159
+    }
+   },
+   "uwtig_no_uncertainty": {
+    "precision_confirmed": 0.8656827603155984,
+    "recall_confirmed": 0.9148148148148149,
+    "f1_confirmed": 0.883075365355774,
+    "total_flight_dist_m": 479.8380268193222,
+    "coverage_frac": 1.0,
+    "f1_ci": [
+     0.8617064241254191,
+     0.9073504181436899
+    ],
+    "f1_seed_std": 0.0261737021985878,
+    "per_scenario_f1": {
+     "multi_defect": 0.9240812140094167,
+     "static": 0.8051335815588001,
+     "uncertain": 0.9200113004991054
+    }
+   }
+  },
+  "uwtig_vs": {
+   "alamdari_latency": {
+    "mean_diff": 0.0033296536169596714,
+    "ci": [
+     -0.013260684968002012,
+     0.0155672697226378
+    ],
+    "seeds_won": 3,
+    "n": 5
+   },
+   "bircher_rhnbv": {
+    "mean_diff": 0.24775464061101943,
+    "ci": [
+     0.1957633954297023,
+     0.2997458857923365
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "gatsbi_gtsp": {
+    "mean_diff": 0.03148083553852878,
+    "ci": [
+     0.012918431952880028,
+     0.050713036001914125
+    ],
+    "seeds_won": 4,
+    "n": 5
+   },
+   "isler_nbv": {
+    "mean_diff": 0.42270226498267366,
+    "ci": [
+     0.36078734295607057,
+     0.5025272754623697
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "random": {
+    "mean_diff": 0.0850042808058108,
+    "ci": [
+     0.05824151868571006,
+     0.11176704292591153
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "ruckin_ipp": {
+    "mean_diff": 0.00032474136071780624,
+    "ci": [
+     -0.023666670790709544,
+     0.028598513331720032
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "uwtig_no_coverage_first": {
+    "mean_diff": 0.2876294742867854,
+    "ci": [
+     0.20522648119875084,
+     0.37071290870676493
+    ],
+    "seeds_won": 5,
+    "n": 5
+   },
+   "uwtig_no_lookahead": {
+    "mean_diff": 0.004173866852191743,
+    "ci": [
+     0.0,
+     0.008917996952971663
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "uwtig_no_staleness": {
+    "mean_diff": -0.001086253144770355,
+    "ci": [
+     -0.010520239993924197,
+     0.008347733704383487
+    ],
+    "seeds_won": 2,
+    "n": 5
+   },
+   "uwtig_no_temporal": {
+    "mean_diff": 0.0013937282229965265,
+    "ci": [
+     0.0,
+     0.004181184668989579
+    ],
+    "seeds_won": 1,
+    "n": 5
+   },
+   "uwtig_no_uncertainty": {
+    "mean_diff": 0.0,
+    "ci": [
+     0.0,
+     0.0
+    ],
+    "seeds_won": 0,
+    "n": 5
+   }
+  }
+ }
+}

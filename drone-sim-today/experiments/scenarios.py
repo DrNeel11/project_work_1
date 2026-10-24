@@ -19,7 +19,21 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datagen import mbdd_textures  # noqa: E402
 from scene import texture_gen  # noqa: E402
+import sim_house  # noqa: E402
 from sim_house import WALL_HEIGHT  # noqa: E402
+
+LARGE = sim_house.YARD == "large"
+
+
+def _spread(classes, n, seed, salt):
+    """Large yard: n defect walls drawn without replacement from all walls by a
+    per-(seed, scenario) RNG, classes cycled -- so defect placement varies by
+    seed instead of being a fixed hand-picked list."""
+    names = [w["name"] for w in sim_house.WALL_SEGMENTS]
+    rng = np.random.RandomState(1000 * salt + seed)
+    picks = rng.choice(len(names), size=n, replace=False)
+    return {names[i]: classes[k % len(classes)] for k, i in enumerate(sorted(picks))}
+
 
 CLEAN_WALLS_ALWAYS = True  # walls with no assigned defect stay "clean" every mission
 
@@ -83,6 +97,8 @@ class StaticScenario(Scenario):
     provider = mbdd_textures
 
     def _build_assignment(self):
+        if LARGE:
+            return _spread(["crack", "corrosion", "leakage", "abscission"], 8, self.seed, salt=1)
         return {"A-west": "crack", "A-east": "corrosion", "B-north": "leakage"}
 
     def severity_for(self, mission_index):
@@ -97,6 +113,8 @@ class UncertainScenario(Scenario):
     provider = mbdd_textures
 
     def _build_assignment(self):
+        if LARGE:
+            return _spread(["crack", "corrosion"], 6, self.seed, salt=2)
         return {"A-south": "crack", "B-east": "corrosion"}
 
     def severity_for(self, mission_index):
@@ -110,6 +128,8 @@ class GrowingScenario(Scenario):
     name = "growing"
 
     def _build_assignment(self):
+        if LARGE:
+            return _spread(["corrosion"], 2, self.seed, salt=3)
         return {"A-east": "corrosion"}
 
     def severity_for(self, mission_index):
@@ -123,6 +143,8 @@ class MultiDefectScenario(Scenario):
     provider = mbdd_textures
 
     def _build_assignment(self):
+        if LARGE:
+            return _spread(["crack", "corrosion", "leakage", "abscission"], 16, self.seed, salt=4)
         return {
             "A-west": "crack", "A-east": "corrosion", "A-south": "leakage",
             "B-west": "crack", "B-east": "corrosion", "B-north": "leakage",

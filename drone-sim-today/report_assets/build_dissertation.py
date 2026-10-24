@@ -47,6 +47,18 @@ def M(planner, col, scen=None):
 f3 = lambda v: f"{v:.3f}"
 f2 = lambda v: f"{v:.2f}"
 f1 = lambda v: f"{v:.1f}"
+import json as _json
+SC = _json.load(open(os.path.join(ROOT, "results", "scaleup_summary.json")))
+DET = _json.load(open(os.path.join(ROOT, "results", "detector_extra.json")))
+
+
+def SP(name, p, k):
+    return SC[name]["planners"][p][k]
+
+
+def SD(name, p):
+    d = SC[name]["uwtig_vs"][p]
+    return d["mean_diff"], d["ci"][0], d["ci"][1], d["seeds_won"], d["n"]
 
 TITLE = "UW-TIG: Uncertainty-Weighted Temporal Information Gain for Closed-Loop Defect Inspection"
 SUBTITLE = "A Novel Active-Reinspection Planner and Its Simulation Testbed"
@@ -349,11 +361,16 @@ for t in [
     "persistent cross-mission defect memory with growth tracking, a persistent-monitoring staleness term, and a two-step "
     "receding-horizon lookahead. Because a physical drone and a real defective structure are not needed to show or measure this, "
     "the second major contribution is a <b>reproducible simulation testbed</b>: an open-air utility yard in PyBullet textured "
-    "with real photographs from the MBDD2025 dataset, a 54-viewpoint candidate graph, four defect scenarios, a fast kinematic mode "
+    "with real photographs from the MBDD2025 dataset, a 54-viewpoint candidate graph (9 walls) that scales to a 186-viewpoint graph over 31 walls, four defect scenarios, a fast kinematic mode "
     "for statistics and a PID-flight mode for demonstration, and an evaluation harness with separate development and test seeds.",
-    f"On held-out test seeds the testbed reports UW-TIG at precision {f3(UWp)}, recall {f3(UWr)} and F1 {f3(UWf)}, compared "
-    f"with five re-implemented published planners. It ties the strongest of them on detection quality (F1 {f3(RKf)}) while flying "
-    f"{FLYLESS}% less. The report also documents what did not work, what was wrong with our own measurements, and the "
+    f"On held-out test seeds the original nine-wall yard gives UW-TIG a precision of {f3(UWp)}, a recall of {f3(UWr)} and an F1 of {f3(UWf)}, compared "
+    f"with five re-implemented published planners; it ties the strongest of them on detection quality (F1 {f3(RKf)}) while flying "
+    f"{FLYLESS}% less. To test whether this survives scale, the yard was enlarged to 31 inspectable walls and every planner re-run: "
+    f"UW-TIG reaches an F1 of {f3(SP('large_old', 'uwtig', 'f1_confirmed'))} there, statistically level with the best classical rule and ahead of "
+    f"R\u00fcckin\u2019s IPP, with fewer metres flown than IPP. The detector was also fine-tuned on two further public datasets (dacl10k and a "
+    f"Roboflow corrosion set): its score on held-out dacl10k images rose from {DET['old']['dacl']['map50']:.3f} to {DET['new']['dacl']['map50']:.3f} mAP50 "
+    f"without changing its MBDD2025 score, but it did not improve the closed loop, so the original detector remains the default. The report also documents what did not work, "
+    "what was wrong with our own measurements, and the limitations that remain.",
     "limitations that remain.",
 ]:
     story.append(Paragraph(t, ParagraphStyle("syn", alignment=TA_JUSTIFY, firstLineIndent=1 * cm, **dict(base, leading=20, spaceAfter=9))))
@@ -457,7 +474,10 @@ P("Zha et al. [13] publish MBDD2025, 14,471 UAV photographs of building surfaces
   "(one class); Li, Shi and Sun [16] report 0.932 / 0.924 / 0.926 on a private 5,000-image utility-tunnel dataset. Shen et al. "
   "[17] propose TinyDef-DETR, a transformer detector for transmission-line defects, and Hebbache et al. [18] a saliency-guided "
   "YOLOX detector for bridge defects. These results are not directly comparable to a five-class public benchmark, a point "
-  "Chapter 6 returns to.")
+  "Chapter 6 returns to. For bridges, Flotzinger et al. [28] released dacl10k (9,920 inspection photographs, 19 classes, segmentation-first), and "
+  "its 2025 follow-up [29] shows that rebalancing it with synthetic crack and cavity textures improves segmentation robustness by about two points; "
+  "Roboflow-100 [30] is a public multi-domain detection benchmark from which a corrosion set is taken here; and \u00d6zgenel and Sorgu\u00e7 [31] and "
+  "Dorafshan et al. [32] (SDNET2018) are the standard concrete-crack image collections.")
 H3("2.1.5. Simulation platforms")
 P("AirSim [19] builds on Unreal Engine for high-fidelity rendering and physics; Flightmare [20] couples a Unity renderer with "
   "a separate fast physics engine; GRaD-Nav [21] represents the frontier with 3-D Gaussian Splatting. All three address the gap "
@@ -506,8 +526,8 @@ H2("3.1. Hardware Requirements")
 B(["<b>Development machine:</b> Windows 11 workstation, multi-core x86-64 processor (sweeps run several seeds in parallel).",
    "<b>Memory:</b> enough for several parallel seed processes, each holding a PyBullet client, a YOLO model and the detection memory.",
    "<b>Storage:</b> several GB for the dataset (MBDD2025, 14,471 images and labels), model weights, results and logs.",
-   "<b>GPU (training only):</b> one NVIDIA L4 (24 GB), rented, used for the 100-epoch YOLOv8s training and for a later YOLO11m "
-   "retrain. Simulation and evaluation run on CPU."])
+   "<b>GPU:</b> one NVIDIA L4 (24 GB) on a rented 32-vCPU machine, used for the 100-epoch YOLOv8s training, a later YOLO11m "
+   "retrain, the fine-tuning on merged datasets, and the parallel planner sweeps of the 31-wall yard. The original nine-wall sweep ran on the Windows workstation."])
 H2("3.2. Software Requirements")
 TABLE("3.1", "Software stack", ["Component", "Tool / version", "Purpose"], [
     ["Language", "Python 3.12", "All simulation, planning, perception and analysis code"],
@@ -519,6 +539,28 @@ TABLE("3.1", "Software stack", ["Component", "Tool / version", "Purpose"], [
     ["Analysis and reporting", "matplotlib; ReportLab; pptxgenjs", "Charts, this report, the review deck"],
     ["Version control", "Git / GitHub", "Reproducibility of every reported number"],
 ], [3.5 * cm, 5.4 * cm, 6.7 * cm], left=(0, 1, 2))
+
+H2("3.3. Datasets")
+P("Four public datasets are used, each for a different purpose; a fifth, SDNET2018, was planned but could not be obtained. "
+  "Table 3.2 lists them. MBDD2025 provides both the detector\u2019s training data and, as wall textures, the defect appearance in the "
+  "simulation. The two further datasets were added to test whether a broader training set improves the detector, and the "
+  "concrete-crack crops provide an image-level check on data never trained on.")
+TABLE("3.2", "Datasets used", ["Dataset", "Content", "Use here", "Size used"], [
+    ["MBDD2025 [13]", "UAV photographs of building surfaces; 5 classes (crack, leakage, abscission, corrosion, bulge); boxes", "Detector training, validation and test; wall textures", "10,129 / 2,894 / 1,448 images (train / val / test); training adds 2,826 bulge duplicates"],
+    ["dacl10k [28]", "Real bridge-inspection photographs; 19 classes with polygon and box labels (CC-BY-4.0)", "Fine-tuning (train split); held-out cross-dataset test (validation split)", "5,362 train + 466 val; 810 held out"],
+    ["Roboflow-100 corrosion [30]", "Corrosion and crack boxes (CC-BY-4.0)", "Fine-tuning", "851 images"],
+    ["Concrete cracks (\u00d6zgenel) [31]", "227 \u00d7 227 crops, cracked or not (CC-BY-4.0)", "Image-level crack-presence check; never trained on", "400 cracked + 400 uncracked"],
+    ["SDNET2018 [32]", "56,000 concrete crack / no-crack crops", "Planned; download blocked by a bot check on every mirror we reached", "not used"],
+], [2.8 * cm, 4.9 * cm, 4.4 * cm, 3.6 * cm], left=(0, 1, 2, 3))
+P("<b>Class mapping.</b> dacl10k has 19 classes, MBDD2025 five. Crack and alligator crack map to <i>crack</i>; wet spot and efflorescence "
+  "to <i>leakage</i>; spalling and rock pocket to <i>abscission</i>; rust and exposed rebar to <i>corrosion</i>. dacl10k has no counterpart of "
+  "<i>bulge</i>, and its other classes are ignored. The mapping is a judgement, not a given: efflorescence in particular is a "
+  "water-related deposit rather than a leak, so the leakage labels are noisier than the others. The Roboflow set maps corrosion and "
+  "crack directly and drops its \u201cSlippage\u201d class. dacl10k boxes come from the dataset\u2019s own detection layer; its polygon "
+  "masks were not used.")
+P("<b>Held-out discipline.</b> MBDD2025\u2019s split is unchanged, so the MBDD test score remains comparable with every earlier result. "
+  "dacl10k\u2019s own validation split is never used for training or early stopping; 8% of its training split is held back for "
+  "validation instead.")
 
 # ================================================================ 4 SYSTEM DESIGN
 H1(4, "System Design", "System Design")
@@ -537,6 +579,14 @@ P("The environment is an <b>open-air utility yard</b> (Fig. 4.2). It replaced an
   "procedurally generated concrete ground texture and small props (crates, barrels) dress the scene.")
 FIG(os.path.join(FIGS, "yard_plan.png"), 14.2 * cm, "4.2", "Plan view of the yard: nine inspectable surfaces and the 54 candidate viewpoints")
 FIG(os.path.join(HERE, "establishing_shot.png"), 8.6 * cm, "4.3", "Establishing shot of the simulated yard rendered with PyBullet")
+H3("4.2.0. Two layouts: nine walls and thirty-one")
+P("Every result up to Section 6.7 was produced in the nine-wall yard described above. A fair objection is that nine walls and a 16-step "
+  "budget are an easy problem: a planner that visits every wall once has nearly solved it. The yard was therefore enlarged "
+  "(selected with the environment variable UWTIG_YARD=large) to <b>31 inspectable surfaces</b>: four more equipment buildings "
+  "(C 4 m \u00d7 4 m, D and E 3.2 m \u00d7 3.2 m, F 2.6 m \u00d7 2.6 m) and six more freestanding inspection panels, spread over roughly "
+  "34 m \u00d7 28 m. The candidate graph grows from 54 to <b>186 viewpoints</b> (six per wall) and the mission budget from 16 to 50 "
+  "steps, keeping the ratio of budget to walls near 1.7. Fig. 4.4 shows the layout.")
+FIG(os.path.join(FIGS, "yard_large.png"), 14.2 * cm, "4.4", "Plan view of the 31-wall yard (buildings A\u2013F, the pipe rack, the tower and six panels) and its 186 viewpoints")
 H3("4.2.1. Walls as textured quads")
 P("Every inspectable surface is a flat quadrilateral mesh with a texture bound to it. A wall is defined by its centre, its yaw "
   "and its width; the plane it lies on, its outward normal and its in-plane axes follow from these (geometry.wall_plane). Using "
@@ -592,7 +642,9 @@ TABLE("4.1", "The four defect scenarios", ["Scenario", "Defects", "Severity", "P
 ], [2.6 * cm, 6.4 * cm, 2.9 * cm, 3.7 * cm], left=(0, 1, 3))
 P("Three scenarios use real photographs. The fourth, <i>growing</i>, needs a defect whose true size changes by a known amount "
   "between missions; no single-time-point photograph dataset can provide that, so it uses a procedural texture. This is the one "
-  "scenario where the detector fails, for a reason documented in Section 6.7.")
+  "scenario where the detector fails, for a reason documented in Section 6.7. In the 31-wall yard the defect walls are not a fixed list: "
+  "each scenario draws its walls without replacement from all 31 by a random generator seeded with the scenario and seed "
+  "(8 walls for static, 6 for uncertain, 2 for growing, 16 for multi-defect, classes cycled), so defect placement varies from seed to seed.")
 H2("4.6. Perception")
 P("The detector is a YOLOv8s model at 640 px trained on MBDD2025 with a 70/20/10 split (Section 6.1). For each frame the system "
   "builds five inputs: the square-pixel frame and four photometric variants (brightness/contrast, additive noise, blur, and a "
@@ -614,11 +666,15 @@ P("Memory has two stores. <b>PostgreSQL with pgvector</b> holds an append-only l
   "detection matches a known defect, its <i>growth</i> is the difference between its current and previous physical size; "
   "otherwise a new defect is registered. At the start of every mission after the first, the planner\u2019s belief is seeded with "
   "each active defect\u2019s last uncertainty and its growth. Memory keys are namespaced per scenario, planner and seed, so that no "
-  "planner can see another\u2019s detections (Section 5.4).")
+  "planner can see another\u2019s detections (Section 5.4). The 31-wall sweeps ran on a rented machine without Docker, so a second, "
+  "in-process implementation of the same store was written (memory/store_mem.py). It ports the matching rule exactly \u2013 among the five "
+  "nearest detections of the same class on the same wall by cosine distance of the embedding, the nearest one within 0.35 m is the same defect \u2013 "
+  "but does not mirror the Neo4j graph, which no planner or metric reads. The two implementations were not run against each other on the "
+  "same sweep, so this is a faithful port, not a verified equivalent.")
 H2("4.9. The UW-TIG Planner")
 P("This section is the core of the contribution. The planner chooses the next viewpoint <i>v</i> from the 54 candidates. Its design "
   "has one front-end rule and one utility.")
-FIG(os.path.join(FIGS, "planner_flow.png"), 13.0 * cm, "4.4", "UW-TIG decision flow for one step")
+FIG(os.path.join(FIGS, "planner_flow.png"), 13.0 * cm, "4.5", "UW-TIG decision flow for one step")
 H3("4.9.1. The utility")
 PN("<b>U(v) = w<sub>ig</sub>\u00b7IG(v) + w<sub>u</sub>\u00b7Unc(v) + w<sub>g</sub>\u00b7Growth(v) + w<sub>s</sub>\u00b7Stale(v) \u2212 w<sub>c</sub>\u00b7Cost(v)</b>")
 PN("with w<sub>ig</sub> = 1.0, w<sub>u</sub> = 1.5, w<sub>g</sub> = 2.0, w<sub>s</sub> = 1.0 and w<sub>c</sub> = 0.4. The terms are as follows.")
@@ -738,7 +794,9 @@ B(["<b>Development / test split.</b> Every design choice (viewpoint standoffs, r
    "reported number was produced.",
    "<b>Process isolation.</b> A single long process running about 140 mission-runs crashed three times with three different symptoms "
    "(allocation failure, silent exit, segmentation fault), consistent with PyBullet\u2019s software renderer accumulating resources over "
-   "many render sessions. Each seed now runs in its own subprocess and the per-seed CSVs are merged (run_full_sweep.sh)."])
+   "many render sessions. Each seed now runs in its own subprocess and the per-seed CSVs are merged (run_full_sweep.sh).",
+   "<b>Parallel sweeps.</b> For the 31-wall yard each (seed, scenario) pair is a separate subprocess and fourteen run at once "
+   "(experiments/run_parallel_sweep.py); the parts are concatenated into one CSV. Each large sweep is 240 rows and took about 30 minutes."])
 H2("5.5. Debugging Episodes")
 P("Four defects in the work itself shaped the final design, and are recorded here because each changed a conclusion.")
 B(["<b>Camping.</b> The lookahead exploited non-decaying uncertainty/growth rewards (flight distance 0.0 m). Fixed by fading the terms with view count (Section 4.9.4).",
@@ -853,12 +911,115 @@ P("In the growing scenario the detector recalls essentially nothing. Its defect 
   "and its growth computed, while a distant detection created a new identity \u2013 so the failure is the detector\u2019s domain "
   "generalisation, not the memory. For this reason the growing scenario is excluded from the comparison tables and the growth term "
   "has not yet been shown to help.")
-H2("6.8. Threats to Validity")
+H2("6.8. A Broader Detector: Multi-Dataset Fine-Tuning")
+P("The first detector was trained on MBDD2025 alone. To see whether public data from other sources would help, the same YOLOv8s "
+  "weights were fine-tuned for 30 epochs (AdamW, learning rate 0.0005, batch 32, 640 px, early stopping on a combined validation set) on "
+  "MBDD2025 plus the dacl10k and Roboflow corrosion images of Table 3.2, and both detectors were scored on three test sets (Table 6.5). "
+  "The weights, merged-dataset builder and evaluation script are in the repository (datagen/prepare_extra.py, datagen/eval_extra.py).")
+_o, _n = DET["old"], DET["new"]
+TABLE("6.5", "Original and fine-tuned detector on three test sets", ["Test set", "Metric", "Original", "Fine-tuned"], [
+    ["MBDD2025 test (1,448)", "mAP50", f3(_o["mbdd"]["map50"]), f3(_n["mbdd"]["map50"])],
+    ["", "mAP50-95", f3(_o["mbdd"]["map50_95"]), f3(_n["mbdd"]["map50_95"])],
+    ["", "Precision / recall", f"{f3(_o['mbdd']['p'])} / {f3(_o['mbdd']['r'])}", f"{f3(_n['mbdd']['p'])} / {f3(_n['mbdd']['r'])}"],
+    ["dacl10k held-out (810)", "mAP50", f3(_o["dacl"]["map50"]), f3(_n["dacl"]["map50"])],
+    ["", "mAP50-95", f3(_o["dacl"]["map50_95"]), f3(_n["dacl"]["map50_95"])],
+    ["", "Precision / recall", f"{f3(_o['dacl']['p'])} / {f3(_o['dacl']['r'])}", f"{f3(_n['dacl']['p'])} / {f3(_n['dacl']['r'])}"],
+    ["Concrete-crack crops (400 + 400)", "Crack recall", f"{_o['crack_presence']['recall']:.3f}", f"{_n['crack_presence']['recall']:.3f}"],
+    ["", "False-alarm rate", f"{_o['crack_presence']['false_alarm_rate']:.3f}", f"{_n['crack_presence']['false_alarm_rate']:.3f}"],
+], [4.4 * cm, 3.6 * cm, 3.3 * cm, 3.3 * cm], left=(0, 1))
+FIG(os.path.join(FIGS, "detector_chart.png"), 9.0 * cm, "6.5", "mAP50 of the original and fine-tuned detector on the MBDD2025 and dacl10k test sets")
+P(f"<b>The gain is on the new data, not the old.</b> On dacl10k\u2019s held-out images the original detector scores almost nothing "
+  f"({_o['dacl']['map50']:.3f} mAP50): bridge-inspection close-ups of the kind dacl10k contains are far from MBDD2025\u2019s UAV photographs. After "
+  f"fine-tuning it reaches {_n['dacl']['map50']:.3f}, with the largest per-class gain on corrosion "
+  f"({_n['dacl']['per_class_ap50']['corrosion']:.3f}) and crack ({_n['dacl']['per_class_ap50']['crack']:.3f}). That is still a low score in "
+  "absolute terms; dacl10k is a hard benchmark whose published baselines are segmentation models with a best mean IoU of 0.42 [28], "
+  f"and the mapping of its classes onto ours is imperfect. On MBDD2025 the score is unchanged within noise ({_o['mbdd']['map50']:.3f} against "
+  f"{_n['mbdd']['map50']:.3f} mAP50, mAP50-95 {_o['mbdd']['map50_95']:.3f} against {_n['mbdd']['map50_95']:.3f}), so the extra data neither "
+  "hurt nor helped the original domain.")
+P(f"<b>The crack-presence check is a negative result.</b> On 800 held-out concrete crops neither detector finds cracks "
+  f"(recall {_o['crack_presence']['recall']:.3f} and {_n['crack_presence']['recall']:.3f}, no false alarms). These 227-pixel close-ups "
+  "have no context and a texture far from either training set, and our detector was trained on boxes around cracks in larger scenes. "
+  "We report it as a limitation of the check rather than as evidence either way; it does not show that the detector would miss such "
+  "cracks if framed differently, only that this kind of image is out of distribution. SDNET2018, had it been obtainable, "
+  "would have posed the same problem.")
+
+H2("6.9. Scaling the Evaluation to a 31-Wall Yard")
+P("Every planner and ablation was re-run in the 31-wall yard (Section 4.2.0) on the same test seeds 0\u20134, with a budget of 50 steps and three "
+  "missions per scenario, using the original detector. As elsewhere, the average covers the static, uncertain and multi-defect scenarios; "
+  "the growing scenario is excluded. The confidence intervals below are 95% bootstrap intervals over the five seeds, each seed\u2019s value being "
+  "its mean over scenarios, because rows from the same seed are not independent.")
+_order = [("uwtig", "UW-TIG (ours)"), ("alamdari_latency", "Alamdari et al. 2014"), ("gatsbi_gtsp", "Dhami et al. (GATSBI)"),
+          ("ruckin_ipp", "R\u00fcckin et al. 2023"), ("random", "Random"), ("bircher_rhnbv", "Bircher et al. 2016"), ("isler_nbv", "Isler-NBV (classical)")]
+TABLE("6.6", "Planners in the 31-wall yard, original detector (test seeds 0\u20134, confirmed reports)",
+      ["Planner", "Prec.", "Recall", "F1", "F1 95% CI", "Flight (m)", "Cov."],
+      [[n, f3(SP("large_old", p, "precision_confirmed")), f3(SP("large_old", p, "recall_confirmed")), f3(SP("large_old", p, "f1_confirmed")),
+        f"{SP('large_old', p, 'f1_ci')[0]:.3f}\u2013{SP('large_old', p, 'f1_ci')[1]:.3f}", f"{SP('large_old', p, 'total_flight_dist_m'):.0f}",
+        f2(SP("large_old", p, "coverage_frac"))] for p, n in _order],
+      [4.2 * cm, 1.5 * cm, 1.6 * cm, 1.5 * cm, 2.6 * cm, 2.0 * cm, 1.4 * cm], bold_row=0)
+FIG(os.path.join(FIGS, "f1_by_yard.png"), 15.0 * cm, "6.6", "F1 and flight distance of each planner in the 9-wall and the 31-wall yard (flight on a log axis)")
+_a = SD("large_old", "alamdari_latency"); _g = SD("large_old", "gatsbi_gtsp"); _r = SD("large_old", "ruckin_ipp"); _x = SD("large_old", "random")
+P(f"<b>The ordering mostly survives, but the margins shrink.</b> UW-TIG\u2019s F1 falls from {f3(SP('small_old', 'uwtig', 'f1_confirmed'))} to "
+  f"{f3(SP('large_old', 'uwtig', 'f1_confirmed'))} when the yard grows from 9 to 31 walls, as does every planner\u2019s that reaches full "
+  f"coverage. The paired per-seed differences (Table 6.7, Fig. 6.7) show UW-TIG statistically indistinguishable from Alamdari\u2019s "
+  f"latency rule ({_a[0]:+.3f}, interval {_a[1]:+.3f} to {_a[2]:+.3f}) and from GATSBI ({_g[0]:+.3f}, {_g[1]:+.3f} to {_g[2]:+.3f}), "
+  f"ahead of R\u00fcckin\u2019s IPP by {_r[0]:+.3f} (interval {_r[1]:+.3f} to {_r[2]:+.3f}, excluding zero, winning {_r[3]} of {_r[4]} seeds) and far ahead of "
+  f"random search ({_x[0]:+.3f}, all {_x[4]} seeds). The advantage that remains is cost: UW-TIG flies {SP('large_old', 'uwtig', 'total_flight_dist_m'):.0f} m "
+  f"against {SP('large_old', 'ruckin_ipp', 'total_flight_dist_m'):.0f} m for IPP and {SP('large_old', 'alamdari_latency', 'total_flight_dist_m'):.0f} m for the latency rule, "
+  f"and {SP('large_old', 'random', 'total_flight_dist_m'):.0f} m for random search. In this yard UW-TIG therefore ties the best "
+  "detection score at lower flight cost, rather than beating every rival outright.")
+TABLE("6.7", "UW-TIG minus each planner, F1 per seed (31-wall yard, original detector)",
+      ["Versus", "Mean difference", "95% interval", "Seeds won"],
+      [[n, f"{SD('large_old', p)[0]:+.3f}", f"{SD('large_old', p)[1]:+.3f} to {SD('large_old', p)[2]:+.3f}", f"{SD('large_old', p)[3]} of {SD('large_old', p)[4]}"]
+       for p, n in _order[1:]], [5.4 * cm, 3.4 * cm, 4.2 * cm, 2.6 * cm], left=(0,))
+FIG(os.path.join(FIGS, "paired_chart.png"), 11.5 * cm, "6.7", "Paired F1 difference between UW-TIG and each planner in the 31-wall yard, with 95% bootstrap intervals")
+P(f"<b>The coverage guarantee still decides the outcome.</b> The three planners without an explicit coverage mechanism visit only a "
+  f"fraction of the walls (Isler-NBV {SP('large_old', 'isler_nbv', 'coverage_frac'):.2f}, Bircher {SP('large_old', 'bircher_rhnbv', 'coverage_frac'):.2f}, "
+  f"UW-TIG without the coverage phase {SP('large_old', 'uwtig_no_coverage_first', 'coverage_frac'):.2f}) and their F1 collapses to "
+  f"{f3(SP('large_old', 'isler_nbv', 'f1_confirmed'))}, {f3(SP('large_old', 'bircher_rhnbv', 'f1_confirmed'))} and "
+  f"{f3(SP('large_old', 'uwtig_no_coverage_first', 'f1_confirmed'))}. The cost-normalised greedy ceiling is therefore not an artefact of "
+  "the small yard; it gets worse as the yard grows.")
+TABLE("6.8", "UW-TIG ablations in the 31-wall yard (original detector)", ["Variant", "Prec.", "Recall", "F1", "Flight (m)", "Cov."],
+      [[n, f3(SP("large_old", p, "precision_confirmed")), f3(SP("large_old", p, "recall_confirmed")), f3(SP("large_old", p, "f1_confirmed")),
+        f"{SP('large_old', p, 'total_flight_dist_m'):.0f}", f2(SP("large_old", p, "coverage_frac"))]
+       for p, n in [("uwtig", "Full UW-TIG"), ("uwtig_no_uncertainty", "no uncertainty"), ("uwtig_no_temporal", "no growth"),
+                    ("uwtig_no_staleness", "no staleness"), ("uwtig_no_lookahead", "no lookahead"), ("uwtig_no_coverage_first", "no coverage phase")]],
+      [4.6 * cm, 1.7 * cm, 1.8 * cm, 1.7 * cm, 2.3 * cm, 1.7 * cm], bold_row=0)
+P(f"The ablation pattern repeats from the small yard. Removing uncertainty or growth changes F1 by less than 0.005 and the flight by under a "
+  f"metre; removing staleness or lookahead shortens the flight (to {SP('large_old', 'uwtig_no_staleness', 'total_flight_dist_m'):.0f} m and "
+  f"{SP('large_old', 'uwtig_no_lookahead', 'total_flight_dist_m'):.0f} m, against {SP('large_old', 'uwtig', 'total_flight_dist_m'):.0f} m) at no "
+  "measurable cost in F1. Together with Section 6.4 this means that, on both yard sizes, two of the five novel mechanisms (uncertainty and "
+  "growth) do not yet change any reported number, and two more (staleness and lookahead) cost distance without buying accuracy. Only the "
+  "coverage phase is demonstrably necessary. The honest reading is that the planner\u2019s measured contribution is the coverage guarantee "
+  "plus a competitive, cost-aware utility, and that the remaining terms await scenarios that exercise them.")
+
+H2("6.10. Does a Broader Detector Improve the Closed Loop?")
+P("The natural expectation is that a detector fine-tuned on more data improves the planner that depends on it. To test it, the "
+  "complete sweep was repeated with the fine-tuned weights in both yards (Table 6.9).")
+TABLE("6.9", "UW-TIG with the original and the fine-tuned detector", ["Yard", "Detector", "Prec.", "Recall", "F1", "Flight (m)"],
+      [[y, d, f3(SP(k, "uwtig", "precision_confirmed")), f3(SP(k, "uwtig", "recall_confirmed")), f3(SP(k, "uwtig", "f1_confirmed")),
+        f"{SP(k, 'uwtig', 'total_flight_dist_m'):.0f}"]
+       for y, d, k in [("9 walls", "original", "small_old"), ("9 walls", "fine-tuned", "small_new"),
+                       ("31 walls", "original", "large_old"), ("31 walls", "fine-tuned", "large_new")]],
+      [2.6 * cm, 3.2 * cm, 2.0 * cm, 2.2 * cm, 2.0 * cm, 2.6 * cm])
+P(f"<b>It does not.</b> UW-TIG\u2019s F1 is {f3(SP('small_new', 'uwtig', 'f1_confirmed'))} with the fine-tuned detector in the 9-wall yard against "
+  f"{f3(SP('small_old', 'uwtig', 'f1_confirmed'))} with the original, and {f3(SP('large_new', 'uwtig', 'f1_confirmed'))} against "
+  f"{f3(SP('large_old', 'uwtig', 'f1_confirmed'))} in the 31-wall yard; the other planners move by similar amounts in the same direction. Two reasons are plausible, "
+  "and we have not separated them. First, the simulator\u2019s wall textures are MBDD2025 photographs, so the closed loop only ever tests the "
+  "domain on which the two detectors are equal; dacl10k\u2019s gain cannot show up. Second, fine-tuning on a differently framed dataset may have "
+  "slightly displaced the confidence calibration that the reporting rule (Section 4.10) was tuned on, which would lower the "
+  "confirmed-report scores without lowering mAP. Either way, the decision is clear: <b>the original detector stays the default</b>, "
+  "the headline numbers of this report use it, and the fine-tuned weights are reported as a separate, partial result. Using the dacl10k "
+  "gain in the closed loop would need dacl10k-like wall textures in the simulator and a re-tuned reporting rule.")
+
+H2("6.11. Threats to Validity")
 B(["<b>Selection-rule baselines.</b> The compared planners are re-implemented rules, not full systems.",
    "<b>Five seeds.</b> Enough to see the coverage effect, not enough to separate the staleness, lookahead, uncertainty and growth ablations.",
    "<b>Measurement versus planning.</b> Five fixes in measurement raised every planner; the improvement over the first sweep should not be read as a planning gain.",
    "<b>Simulation realism.</b> A software rasteriser, flat-quad walls, no wind or sensor noise, a kinematic mode without dynamics; absolute detector scores would differ outdoors.",
-   "<b>Single-time-point data.</b> MBDD2025 has no growth sequences, so temporal claims rest on one procedural scenario the detector cannot see."])
+   "<b>Single-time-point data.</b> MBDD2025 has no growth sequences, so temporal claims rest on one procedural scenario the detector cannot see.",
+   "<b>Scale-up caveats.</b> The 31-wall yard uses the same flat-quad walls, the same reporting rule (tuned on the small yard) and a budget of 50 chosen from one pilot run, not tuned; defect placement is random per seed, so the 31-wall and 9-wall numbers differ in layout as well as size.",
+   "<b>Class mapping.</b> The dacl10k-to-MBDD2025 class mapping is a judgement (Section 3.3); the dacl10k scores depend on it.",
+   "<b>Memory port.</b> The 31-wall sweeps used the in-process memory store, a port of the matching rule that was not cross-checked against the database version on the same sweep."])
 
 # ================================================================ 7 FUTURE SCOPE
 H1(7, "Future Scope and Enhancements", "Future Scope & Enhancements")
@@ -866,8 +1027,9 @@ B(["<b>Make the novel terms matter.</b> Re-weight or normalise the uncertainty a
    "growth, so that the ablations in Section 6.4 separate.",
    "<b>Better uncertainty.</b> Try post-hoc temperature scaling first; then prototype MC-Dropout by splicing dropout into the detection head and "
    "retraining.",
-   "<b>Close the growing-defect gap.</b> Mix synthetic defect imagery into training, or obtain a longitudinal real dataset (the SDNET2018 crack "
-   "augmentation was prepared but its download is bot-protected).",
+   "<b>Close the growing-defect gap.</b> Mix synthetic defect imagery into training (as synth-dacl [29] does for bridge segmentation), or obtain a longitudinal "
+   "real dataset; SDNET2018 was planned but its download is bot-protected.",
+   "<b>Use the broader detector in the loop.</b> Texture the simulator with dacl10k-style close-ups, re-tune the reporting rule for the fine-tuned detector, and re-run Table 6.9.",
    "<b>Lift the weak slices.</b> Raise the uncertain scenario\u2019s precision above 0.90 through scenario-specific confirmation-rule tuning, and "
    "narrow R\u00fcckin\u2019s precision lead by re-weighting utility terms.",
    "<b>Fuller baselines.</b> Re-implement the compared papers, and IA-TIGRIS (2026), as full systems with sampling-based planning and "
@@ -885,6 +1047,10 @@ P(f"This project built and measured a planner that knows what a defect is. UW-TI
   f"two-step lookahead, and was evaluated on a simulation testbed built for the purpose. On held-out test seeds it reaches precision "
   f"{f3(UWp)}, recall {f3(UWr)} and F1 {f3(UWf)}, above 0.90 on all three, which neither the classical information-gain baseline nor random search reaches, "
   f"and it ties the strongest of five re-implemented published planners while flying {FLYLESS}% less.")
+P(f"The work was then stress-tested in two directions. Enlarging the yard from 9 to 31 walls lowers every planner\u2019s F1 (UW-TIG: {f3(SP('small_old', 'uwtig', 'f1_confirmed'))} to "
+  f"{f3(SP('large_old', 'uwtig', 'f1_confirmed'))}) and removes UW-TIG\u2019s lead over the best classical rule, but UW-TIG still matches the strongest planners at a lower flight cost than R\u00fcckin\u2019s IPP "
+  "and the coverage guarantee remains the decisive component. Fine-tuning the detector on two further public datasets raised its held-out dacl10k score from "
+  f"{DET['old']['dacl']['map50']:.3f} to {DET['new']['dacl']['map50']:.3f} mAP50 but did not improve the closed loop, so it was not adopted.")
 P("Equally important is what the measurements say about the work. The coverage guarantee, not the more elaborate terms, "
   "accounts for the large gain over the plain information-gain baseline; the uncertainty and growth terms do not yet change any reported number; much "
   "of the improvement over the first sweep came from correcting five flaws in how the system was <i>measured</i>; the "
@@ -928,6 +1094,10 @@ refs = [
     "C. Feng, Y. Xu and S. Shen, “FC-Vision: Real-time visibility-aware replanning for occlusion-free aerial target structure scanning in unknown environments,” <i>IEEE Robotics and Automation Letters</i>, 2026, arXiv:2602.13720.",
     "C. Li, H. He, X. Wang, W. Lin and C. H. Lim, “UnGAP: Uncertainty-guided affine prompting for real-time crack segmentation,” arXiv:2605.02380, 2026.",
     "J. Flotzinger, P. J. R\u00f6sch and T. Braml, “dacl10k: Benchmark for semantic bridge damage segmentation,” in <i>Proc. WACV</i>, 2024, arXiv:2309.00460.",
+    "J. Flotzinger, F. Deuser, A. Jaziri, H. Neumann, N. Oswald, V. Ramesh and T. Braml, \u201csynth-dacl: Does synthetic defect data enhance segmentation accuracy and robustness for real-world bridge inspections?\u201d arXiv:2506.14255, 2025.",
+    "F. Ciaglia, F. S. Zuppichini, P. Guerrie, M. McQuade and J. Solawetz, \u201cRoboflow 100: A rich, multi-domain object detection benchmark,\u201d arXiv:2211.13523, 2022.",
+    "\u00c7. F. \u00d6zgenel and A. G. Sorgu\u00e7, \u201cPerformance comparison of pretrained convolutional neural networks on crack detection in buildings,\u201d in <i>Proc. Int. Symp. Automation and Robotics in Construction (ISARC)</i>, 2018.",
+    "S. Dorafshan, R. J. Thomas and M. Maguire, \u201cSDNET2018: An annotated image dataset for non-contact concrete crack detection using deep convolutional neural networks,\u201d <i>Data in Brief</i>, vol. 21, pp. 1664\u20131668, 2018."
 ]
 for i, r in enumerate(refs, 1):
     story.append(Paragraph(f"[{i}]&nbsp;&nbsp;{r}", S["ref"]))
@@ -963,13 +1133,8 @@ story.append(PageBreak())
 story.append(Paragraph("APPENDICES", S["chap"]))
 code("Appendix A - UW-TIG planner (planning/planners.py)", get_src("planning/planners.py", {"UWTIGPlanner"}))
 code("Appendix B - Mission belief: information gain, uncertainty, growth, staleness (planning/planners.py)", get_src("planning/planners.py", {"MissionBelief"}))
-code("Appendix C - Ablation planners (planning/planners.py)", get_src("planning/planners.py", {
-    "UWTIGNoUncertaintyPlanner", "UWTIGNoTemporalPlanner", "UWTIGNoStalenessPlanner", "UWTIGNoLookaheadPlanner", "UWTIGNoCoverageFirstPlanner"}))
-code("Appendix D - Localisation onto a wall (geometry.py)", get_src("geometry.py", {"localize_on_wall", "wall_plane", "ray_plane_intersect"}))
-code("Appendix E - Detector with TTA uncertainty (perception/ml_detector.py)", get_src("perception/ml_detector.py", {"square_pixels", "_augment", "detect_with_uncertainty"}))
-code("Appendix F - One mission (experiments/mission.py)", get_src("experiments/mission.py", {"run_mission"}))
-code("Appendix G - Kinematic capture (experiments/kinematic_capture.py)", get_src("experiments/kinematic_capture.py", {"KinematicHouse"}))
-code("Appendix H - Viewpoint graph (planning/viewpoints.py)", get_src("planning/viewpoints.py", {"build_viewpoints"}))
+code("Appendix C - Localisation onto a wall (geometry.py)", get_src("geometry.py", {"localize_on_wall", "wall_plane", "ray_plane_intersect"}))
+code("Appendix D - Defect-memory matching rule, in-process port (memory/store_mem.py)", get_src("memory/store_mem.py", {"InMemoryStore"}))
 
 doc.multiBuild(story)
 import json

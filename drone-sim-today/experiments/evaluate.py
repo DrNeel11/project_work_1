@@ -16,12 +16,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geometry as geo  # noqa: E402
 from experiments.mission import run_mission  # noqa: E402
 from experiments.scenarios import SCENARIO_REGISTRY  # noqa: E402
-from memory.store import MemoryStore  # noqa: E402
+if os.environ.get("UWTIG_MEMORY") == "inmem":  # Docker-free port, same matching rule (memory/store_mem.py)
+    from memory.store_mem import InMemoryStore as MemoryStore  # noqa: E402
+else:
+    from memory.store import MemoryStore  # noqa: E402
 from planning.planners import PLANNER_REGISTRY  # noqa: E402
 from planning.viewpoints import n_cells_for_wall  # noqa: E402
 from sim_house import WALL_SEGMENTS  # noqa: E402
 
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results", os.environ.get("UWTIG_RESULTS_SUBDIR", ""))
 os.makedirs(RESULTS_DIR, exist_ok=True)
 WALL_BY_NAME = {w["name"]: w for w in WALL_SEGMENTS}
 
