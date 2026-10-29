@@ -42,6 +42,30 @@ drone-sim-today/results/large_new/*
 !drone-sim-today/results/small_new/
 drone-sim-today/results/small_new/*
 !drone-sim-today/results/small_new/comparison.csv
+!drone-sim-today/results/oracle_small/
+drone-sim-today/results/oracle_small/*
+!drone-sim-today/results/oracle_small/comparison.csv
+!drone-sim-today/results/oracle_large/
+drone-sim-today/results/oracle_large/*
+!drone-sim-today/results/oracle_large/comparison.csv
+!drone-sim-today/results/sens_w0_small/
+drone-sim-today/results/sens_w0_small/*
+!drone-sim-today/results/sens_w0_small/comparison.csv
+!drone-sim-today/results/sens_w0_large/
+drone-sim-today/results/sens_w0_large/*
+!drone-sim-today/results/sens_w0_large/comparison.csv
+!drone-sim-today/results/sens_w6_small/
+drone-sim-today/results/sens_w6_small/*
+!drone-sim-today/results/sens_w6_small/comparison.csv
+!drone-sim-today/results/sens_w6_large/
+drone-sim-today/results/sens_w6_large/*
+!drone-sim-today/results/sens_w6_large/comparison.csv
+!drone-sim-today/results/sens_w20_small/
+drone-sim-today/results/sens_w20_small/*
+!drone-sim-today/results/sens_w20_small/comparison.csv
+!drone-sim-today/results/sens_w20_large/
+drone-sim-today/results/sens_w20_large/*
+!drone-sim-today/results/sens_w20_large/comparison.csv
 
 # MBDD2025 dataset download + extracted/split copies (2.5GB+, real data --
 # see README.md "Getting a trained model" for the download/prepare steps)
