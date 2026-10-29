@@ -315,6 +315,8 @@ if __name__ == "__main__":
                           "runs) into results/comparison.csv and print/plot -- runs no missions.")
     ap.add_argument("--planners", nargs="+", default=None, help="subset of PLANNER_REGISTRY (default: all)")
     ap.add_argument("--scenarios", nargs="+", default=None, help="subset of SCENARIO_REGISTRY (default: all)")
+    ap.add_argument("--detector", choices=["yolo", "oracle"], default="yolo",
+                     help="oracle = synthetic ground-truth detector with controlled noise (planner-only tests)")
     ap.add_argument("--dump-logs", default=None,
                      help="pickle every run's raw mission logs here -- used on DEV seeds to choose the "
                           "report-confirmation rule offline (experiments/tune_report_rule.py)")
@@ -328,7 +330,11 @@ if __name__ == "__main__":
         merge_seed_csvs(list(range(args.seeds)), os.path.join(RESULTS_DIR, "comparison.csv"))
         sys.exit(0)
 
-    from perception.ml_detector import detect_with_uncertainty as detector
+    if args.detector == "oracle":
+        from perception.oracle_detector import OracleDetector
+        detector = OracleDetector()
+    else:
+        from perception.ml_detector import detect_with_uncertainty as detector
 
     planners = args.planners or list(PLANNER_REGISTRY.keys())
     scenarios = args.scenarios or list(SCENARIO_REGISTRY.keys())

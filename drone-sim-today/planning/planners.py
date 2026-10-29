@@ -104,6 +104,7 @@ capture, so planners never talk to memory/store.py or the perception model
 directly -- keeps them pure and trivially ablatable/unit-testable.
 """
 import math
+import os
 
 import numpy as np
 
@@ -297,8 +298,8 @@ class UWTIGPlanner(BasePlanner):
     name = "uwtig"
     w_ig = 1.0
     w_cost = 0.4
-    w_uncertainty = 1.5
-    w_temporal = 2.0
+    w_uncertainty = float(os.environ.get("UWTIG_W_UNC", 1.5))     # env overrides only for the weight-sensitivity study
+    w_temporal = float(os.environ.get("UWTIG_W_GROWTH", 2.0))
     w_staleness = 1.0
     lookahead_discount = 0.5  # weight on the best-achievable second step
     coverage_first = True

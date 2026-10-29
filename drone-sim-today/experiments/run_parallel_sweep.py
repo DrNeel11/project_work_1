@@ -30,6 +30,7 @@ def main():
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     ap.add_argument("--scenarios", nargs="+", default=SCENARIOS)
     ap.add_argument("--planners", nargs="+", default=None)
+    ap.add_argument("--detector", choices=["yolo", "oracle"], default="yolo")
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--retries", type=int, default=3)
     args = ap.parse_args()
@@ -49,6 +50,7 @@ def main():
                 continue
             cmd = [sys.executable, os.path.join(ROOT, "experiments", "evaluate.py"), "--seed", str(seed),
                    "--scenarios", scen, "--budget", str(args.budget), "--missions", str(args.missions), "--out", part]
+            cmd += ["--detector", args.detector]
             if args.planners:
                 cmd += ["--planners", *args.planners]
             log = open(os.path.join(out_dir, f"log_seed{seed}_{scen}.txt"), "a")

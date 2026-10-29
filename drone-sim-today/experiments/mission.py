@@ -83,7 +83,11 @@ def run_mission(planner_name, scenario, mission_index, detector, mem, rng,
 
             bgr, pos, quat = house.capture(vp)
             wall_dict = house.wall_by_name[vp.wall]
-            dets = detector(bgr)
+            if getattr(detector, "needs_context", False):  # synthetic oracle detector (perception/oracle_detector.py)
+                dets = detector(bgr, ctx=dict(vp=vp, pos=pos, quat=quat, wall=wall_dict, gt=gt, scenario=scenario,
+                                              mission_index=mission_index, rng=rng))
+            else:
+                dets = detector(bgr)
 
             step_record = {"step": step_i, "viewpoint": vp.id, "wall": vp.wall,
                            "cost": cost, "cum_dist": total_dist, "detections": []}
