@@ -149,13 +149,18 @@ TEAM = ["Akhil Ramalingam", "Anbuchandiran K", "Neelesh Padmanabh", "Saumiyaa Sr
 AFF = "Dept. of CSE<br/>PSG College of Technology<br/>Coimbatore, India"
 
 
-def au_cell(name):
-    return [Paragraph(name, st["au"]), Paragraph(AFF, st["af"])]
+def au_cell(name, role=None):
+    cell = [Paragraph(name, st["au"])]
+    if role:
+        cell.append(Paragraph(f"<i>{role}</i>", st["af"]))
+    cell.append(Paragraph(AFF, st["af"]))
+    return cell
 
 
 top = [Paragraph("UW-TIG: Uncertainty-Weighted Temporal Information Gain for Closed-Loop Drone Defect Inspection, Evaluated in a Scalable Simulation Testbed", st["title"])]
 names = TEAM
 rows = [[au_cell(x) for x in names[i:i + 3]] for i in range(0, 6, 3)]
+rows.append([au_cell("Ms. L. Karthika", "Guide"), au_cell("Dr. N. Gopika Rani", "Co-Guide"), ""])
 at = Table(rows, colWidths=[5.6 * cm] * 3)
 at.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
 top.append(at)
@@ -366,7 +371,7 @@ def build():
     W, H = A4
     lm, rm, tm, bm, gap = 1.6 * cm, 1.6 * cm, 1.7 * cm, 1.8 * cm, 0.6 * cm
     cw = (W - lm - rm - gap) / 2
-    top_h = 5.9 * cm
+    top_h = 7.9 * cm
     first = PageTemplate("first", frames=[
         Frame(lm, H - tm - top_h, W - lm - rm, top_h, id="top", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
         Frame(lm, bm, cw, H - tm - top_h - bm, id="c1", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
