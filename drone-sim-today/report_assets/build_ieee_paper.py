@@ -170,7 +170,7 @@ story.append(Paragraph(C(
     f"{f3(SP('small_old','uwtig','f1_confirmed'))} on held-out seeds, level with the strongest of five re-implemented planners while flying {flyless_small}% less. "
     f"Growing the yard to 31 walls lowers every planner\u2019s score: UW-TIG reaches F1 {f3(SP('large_old','uwtig','f1_confirmed'))}, statistically level with two rivals and "
     f"ahead of an uncertainty-driven IPP rule with {flyless_large}% less flight. Ablations credit the coverage phase with the gain; switching the uncertainty and growth terms off moves no metric yet. Fine-tuning the detector on two more public datasets lifted its held-out dacl10k "
-    f"mAP50 from {o['dacl']['map50']:.3f} to {n['dacl']['map50']:.3f} but did not help the closed loop. We report these negative results alongside the positive ones."),
+    f"mAP50 from {o['dacl']['map50']:.3f} to {n['dacl']['map50']:.3f} but did not help the closed loop. A synthetic oracle detector and a sweep of the uncertainty and growth weights from 0 to 20 confirm that those two terms change nothing in this simulator, and a like-for-like comparison of YOLOv8n, s and m shows the small model captures almost all of the size gain. We report these negative results alongside the positive ones."),
     st["abs"]))
 story.append(Paragraph("<i>Index Terms</i>\u2014UAV inspection, next-best-view, informative path planning, defect detection, uncertainty, simulation.",
                        ParagraphStyle("kw", fontName="Times-BI", fontSize=9.2, leading=10.9, alignment=TA_JUSTIFY, spaceAfter=4)))
@@ -187,7 +187,7 @@ P("Recent planners do close this loop in part. Uncertainty-driven informative pa
 P("We make three contributions. (1) <b>UW-TIG</b>, a planner that combines five ingredients in one score: a coverage phase, detector uncertainty, "
   "defect growth from persistent memory, staleness and a two-step lookahead. (2) A <b>reproducible simulation testbed</b> in which real defect "
   "photographs are the wall textures, with a nine-wall and a 31-wall yard, four scenarios and an evaluation protocol with separate development and "
-  "test seeds. (3) An <b>evidence-first evaluation</b>: seven planners, six ablations, bootstrap intervals over seeds, a second yard size and a "
+  "test seeds. (3) An <b>evidence-first evaluation</b>: seven planners, six ablations, bootstrap intervals over seeds, ten seeds on the small yard, a second yard size, planner-only tests with a synthetic oracle detector, and a "
   "detector trained on extra data. Several of our own mechanisms turn out not to matter on the metrics we measure, and we say so.")
 
 # ------------------------------------------------------------------ II. Related work
@@ -280,7 +280,7 @@ for p, nm in [("uwtig", "Full UW-TIG"), ("uwtig_no_uncertainty", "No uncertainty
                  f3(SP("large_old", p, "f1_confirmed")), f0(SP("large_old", p, "total_flight_dist_m"))])
 TABLE("TABLE III. Ablations: F1 and flight (m) in both yards.", ["Variant", "F1 (9)", "Flight (9)", "F1 (31)", "Flight (31)"], rows, [2.8, 1.3, 1.5, 1.3, 1.6], bold_row=0)
 P("Only the coverage phase matters: without it recall falls and coverage drops to 0.44 (nine walls) and 0.52 (31 walls). Dropping the uncertainty or growth term shifts F1 by less than 0.005 and the route by under a metre. Dropping staleness or lookahead gives a shorter route at the same F1. The uncertainty and growth terms are inactive "
-  "for two reasons we could check: the coverage phase ignores them, and the scored scenarios contain no real growth, so the growth score is noise clipped at zero.")
+  "for two reasons we could check: the coverage phase ignores them, and the scored scenarios contain no real growth, so the growth score is noise clipped at zero. Section VI-E tests both explanations directly.")
 H2("C", "A 31-wall yard")
 rows = []
 for p, nm in [("uwtig", "UW-TIG"), ("alamdari_latency", "Alamdari-style"), ("gatsbi_gtsp", "GATSBI-style"), ("ruckin_ipp", "R\u00fcckin-style"),
@@ -313,13 +313,36 @@ P(f"The extra data did not help the planner. With the fine-tuned detector UW-TIG
   "The simulator\u2019s textures are MBDD2025 photographs, so dacl10k\u2019s gain cannot show up in the loop, and fine-tuning may also have shifted the confidence "
   "calibration that the reporting rule was tuned on. We did not separate the two explanations and kept the original detector as the default.")
 
+H2("E", "Planner-only tests: oracle detector, weights and ten seeds")
+P("Two explanations remain for the null result on uncertainty and growth: the real detector gives too weak a signal, or the terms are too weak at their weights (1.5 and 2.0). "
+  "We tested both. An <b>oracle detector</b> reads the scenario’s ground truth and returns detections with controlled noise (15% misses, confidence rising with severity, "
+  "faint defects more uncertain, defects that genuinely grow); it is a synthetic planner-only test and says nothing about real detection quality.")
+TABLE("TABLE VI. Oracle detector, 31-wall yard (static, uncertain, multi-defect; five seeds).", ["Variant", "F1", "Flight (m)"], [
+    ["Full UW-TIG", "0.871", "480"], ["No uncertainty", "0.870", "480"], ["No growth", "0.871", "480"],
+    ["No staleness", "0.862", "407"], ["No lookahead", "0.864", "445"], ["No coverage phase", "0.613", "174"],
+], [3.6, 2.0, 2.4], bold_row=0)
+P("With clean signals the no-uncertainty and no-growth variants still fly the identical route, and in the growing scenario every variant, including the one without the growth term, "
+  "detects the growth (fraction 1.0), because the coverage and revisit logic already finds it. Raising both weights to 0, 6 and 20 leaves F1 unchanged (nine walls 0.918 in all three; "
+  "31 walls 0.822, 0.821, 0.820). Staleness and lookahead shorten the flight (nine walls 80.6 m against 124.9 m, same real-detector F1) and cost a little oracle F1, so they add "
+  "efficiency, not detection quality, here.")
+P("<b>Ten seeds.</b> Extending the nine-wall comparison to seeds 0–9 with the real detector gives UW-TIG F1 0.933 at 125 m, Alamdari-style 0.922 at 168 m, Rückin-style 0.911 at 218 m, "
+  "GATSBI-style 0.905, random 0.860, Bircher-style 0.813 and Isler-style 0.655. UW-TIG’s paired advantage over the Rückin-style rule is +0.022 (95% interval −0.002 to +0.055) and over "
+  "the Alamdari-style rule +0.011 (−0.003 to +0.027): ahead on average, but not significantly. The 31-wall ten-seed run did not complete.")
+H2("F", "Detector size")
+P("Earlier detector rows differ in resolution and epochs, so we retrained YOLOv8n, s and m with one recipe (a fixed 4,000-image MBDD2025 subset, 640 px, 30 epochs, seed 0) and scored them on the full test split.")
+TABLE("TABLE VII. YOLOv8 size comparison under identical training (one run each).", ["Model", "Params (M)", "mAP50", "mAP50-95"], [
+    ["YOLOv8n", "3.0", "0.743", "0.373"], ["YOLOv8s", "11.1", "0.793", "0.411"], ["YOLOv8m", "25.8", "0.796", "0.418"],
+], [2.4, 2.0, 1.8, 2.0], left=(0,))
+P("Moving from n to s gains 0.050 mAP50; moving from s to m gains 0.003, within run-to-run noise, for 2.3 times the parameters. We therefore keep the small model. "
+  "These subset scores are below the default detector’s 0.884, which saw all 12,955 training images for 100 epochs.")
+
 # ------------------------------------------------------------------ VII. Discussion
 H1("VII", "Discussion and Limitations")
 P("The honest summary is that UW-TIG\u2019s measured contribution is a coverage guarantee plus a cost-aware utility that is competitive with the best rule we "
-  "re-implemented. Uncertainty and growth, the two ideas the planner is named for, are not yet visible in any number. The detector\u2019s confidence is also poorly "
+  "re-implemented. Uncertainty and growth, the two ideas the planner is named for, are not visible in any number, even with a clean synthetic detector and weights up to twenty times larger (Section VI-E); we report them as untested extensions. The detector\u2019s confidence is also poorly "
   "calibrated (expected calibration error 0.29\u20130.33, and mean uncertainty is slightly <i>lower</i> on wrong detections), so it is used only to rank views. "
   "Recent work on uncertainty-guided crack models suggests better uncertainty is possible [@ungap].")
-P("Limits: the baselines are re-implemented selection rules, not full systems; only five seeds; the same reporting rule and a budget picked from a single pilot are used in the large yard; "
+P("Limits: the baselines are re-implemented selection rules, not full systems; five seeds (ten on the nine-wall yard); the same reporting rule and a budget picked from a single pilot are used in the large yard; "
   "the 31-wall sweeps ran on an in-process re-write of the defect memory that we never compared with the database version on the same runs; walls are flat quads rendered by a software "
   "rasteriser with no wind or sensor noise; and because MBDD2025 holds no growth sequences, all temporal behaviour is tested on one procedural scenario that the detector fails to see.")
 
