@@ -827,3 +827,13 @@ Detector fine-tuned on MBDD2025 + dacl10k + Roboflow corrosion (`datagen/prepare
 
 The fine-tuned detector did **not** improve the closed loop (UW-TIG F1 0.936 vs 0.953 at 9 walls, 0.883 vs 0.921 at 31 walls), so the original
 detector remains the default; the simulator's textures are MBDD photos, so dacl10k gains cannot appear there.
+
+## Planner-only tests: oracle detector, weight sensitivity, ten seeds (added)
+
+`perception/oracle_detector.py` reads ground truth (synthetic; not evidence of detection quality). Data: `results/oracle_{small,large}`,
+`results/sens_w{0,6,20}_{small,large}`, `results/seeds59_small` (real YOLO, seeds 5-9; 31-wall seeds 5-9 still running).
+
+- No-uncertainty / no-growth variants are identical to UW-TIG with oracle signals (31 walls F1 0.871/0.870/0.871, 480 m) and growth is detected by every variant (fraction 1.0).
+- Weights 0/6/20 for both terms: F1 unchanged (9 walls 0.918 x3; 31 walls 0.822/0.821/0.820).
+- Without staleness/lookahead: shorter flight (9 walls 80.6 vs 124.9 m), same F1 with real detector over 10 seeds (0.933).
+- 10 seeds, 9 walls: UW-TIG 0.933 (125 m), Alamdari 0.922 (168 m), Ruckin 0.911 (218 m), GATSBI 0.905, Random 0.860, Bircher 0.813, Isler 0.655. UW-TIG - Ruckin +0.022 (CI -0.002..+0.055); - Alamdari +0.011 (-0.003..+0.027).

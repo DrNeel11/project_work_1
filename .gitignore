@@ -87,3 +87,6 @@ drone-sim-today/**/_*_preview.png
 # development; the distilled results are in RESULTS.md)
 drone-sim-today/logs/
 drone-sim-today/report_assets/.dissertation_pages.json
+!drone-sim-today/results/seeds59_small/
+drone-sim-today/results/seeds59_small/*
+!drone-sim-today/results/seeds59_small/comparison.csv

@@ -1011,9 +1011,29 @@ P(f"<b>It does not.</b> UW-TIG\u2019s F1 is {f3(SP('small_new', 'uwtig', 'f1_con
   "the headline numbers of this report use it, and the fine-tuned weights are reported as a separate, partial result. Using the dacl10k "
   "gain in the closed loop would need dacl10k-like wall textures in the simulator and a re-tuned reporting rule.")
 
-H2("6.11. Threats to Validity")
+H2("6.11. Planner-Only Tests: Oracle Detector, Weight Sensitivity and Ten Seeds")
+P("Section 6.4 found that switching off the uncertainty and growth terms changes nothing. Two explanations remain: the real detector gives too weak a "
+  "signal, or the terms are too weak at their weights (1.5 and 2.0). Both were tested. An <b>oracle detector</b> (perception/oracle_detector.py) reads the "
+  "scenario's ground truth and returns detections with controlled noise (15% misses, confidence rising with severity, faint defects more uncertain, "
+  "defects that really grow). It is a synthetic planner-only test and says nothing about real detection quality.")
+B(["<b>Oracle, both yards, 5 seeds.</b> The no-uncertainty and no-growth variants are identical to full UW-TIG in route and F1 (9 walls: 124.6 m; "
+   "31 walls: 480 m, F1 0.871 against 0.870 and 0.871). In the growing scenario every variant detects the growth (fraction 1.0), including the one without the growth term, "
+   "because the coverage and revisit logic already finds it.",
+   "<b>Weight sensitivity.</b> Setting both weights to 0, 6 and 20 leaves F1 unchanged (9 walls: 0.918 in all three; 31 walls: 0.822, 0.821, 0.820). "
+   "The terms do not change the route even when they dominate the score.",
+   "<b>Staleness and lookahead.</b> Without them the flight is shorter (9 walls: 80.6 m against 124.9 m; 31 walls, oracle: 407 and 445 m against 480 m). "
+   "With the real detector F1 is unchanged on 10 seeds (0.933); with the oracle it falls slightly (31 walls 0.862 and 0.864 against 0.871). "
+   "These two terms therefore add flight cost rather than detection quality in this simulator.",
+   "<b>Ten seeds, 9-wall yard, real detector (seeds 0-9).</b> UW-TIG 0.933 F1 at 124.9 m; Alamdari 0.922 at 168 m; Rückin 0.911 at 218 m; GATSBI 0.905; random 0.860 at 379 m; "
+   "Bircher 0.813; Isler 0.655; no coverage phase 0.676. UW-TIG minus Rückin is +0.022 (95% CI -0.002 to +0.055) and minus Alamdari +0.011 (-0.003 to +0.027): "
+   "ahead on average, but not significantly. The 31-wall ten-seed run was still in progress when this report was written."])
+P("Conclusion of these tests: the coverage-first phase and cost-aware routing carry UW-TIG's results. The uncertainty and growth terms, the parts that "
+  "make the planner <i>uncertainty-weighted</i> and <i>temporal</i>, show no measurable benefit in this simulator and are reported as untested extensions, "
+  "not as demonstrated contributions.")
+
+H2("6.12. Threats to Validity")
 B(["<b>Selection-rule baselines.</b> The compared planners are re-implemented rules, not full systems.",
-   "<b>Five seeds.</b> Enough to see the coverage effect, not enough to separate the staleness, lookahead, uncertainty and growth ablations.",
+   "<b>Five seeds.</b> Enough to see the coverage effect; ten seeds (9-wall yard) still do not separate the planners from Alamdari or Rückin significantly.",
    "<b>Measurement versus planning.</b> Five fixes in measurement raised every planner; the improvement over the first sweep should not be read as a planning gain.",
    "<b>Simulation realism.</b> A software rasteriser, flat-quad walls, no wind or sensor noise, a kinematic mode without dynamics; absolute detector scores would differ outdoors.",
    "<b>Single-time-point data.</b> MBDD2025 has no growth sequences, so temporal claims rest on one procedural scenario the detector cannot see.",
