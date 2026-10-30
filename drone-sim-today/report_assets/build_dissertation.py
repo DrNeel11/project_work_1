@@ -823,6 +823,18 @@ TABLE("6.1", "Detector results on the held-out test set (1,448 images)", ["Model
     ["YOLOv8s, 640 px, 100 epochs (default)", "0.884", "0.506", "0.874", "0.842"],
     ["YOLO11m, 640 px (retrain; not adopted)", "0.890", "0.510", "0.869", "0.863"],
 ], [6.6 * cm, 2.2 * cm, 2.4 * cm, 2.2 * cm, 2.2 * cm], left=(0,), bold_row=1)
+P("<b>Model-size comparison under identical settings.</b> The rows above differ in resolution, epochs and data, so they are not a fair size comparison. "
+  "YOLOv8n, v8s and v8m were therefore retrained with exactly the same recipe: the same fixed random subset of 4,000 MBDD2025 training images, "
+  "640 px, 30 epochs, batch 8, seed 0, no oversampling, on one RTX 5060 GPU (datagen/compare_detectors.py), and all three were scored on the full 1,448-image test split. "
+  "YOLOv8l was not trained (8 GB of GPU memory). Each model was trained once, so differences of a few thousandths are within run-to-run noise.")
+TABLE("6.1b", "YOLOv8 size comparison, identical subset training (4,000 images, 30 epochs, 640 px)", ["Model", "Parameters", "mAP50", "mAP50-95", "Precision", "Recall"], [
+    ["YOLOv8n", "3.0 M", "0.743", "0.373", "0.786", "0.681"],
+    ["YOLOv8s", "11.1 M", "0.793", "0.411", "0.803", "0.740"],
+    ["YOLOv8m", "25.8 M", "0.796", "0.418", "0.802", "0.744"],
+], [4.0 * cm, 2.8 * cm, 2.4 * cm, 2.6 * cm, 2.4 * cm, 2.4 * cm], left=(0,))
+P("Going from n to s gives +0.050 mAP50; going from s to m gives only +0.003, which is inside run-to-run noise, for 2.3 times the parameters. "
+  "YOLOv8s is therefore the sensible default: nearly all of the gain from model size is reached at the small size. These subset-trained scores "
+  "(0.74 to 0.80) are lower than the default detector's 0.884 because that model saw all 12,955 training images for 100 epochs.")
 FIG(os.path.join(FIGS, "class_chart.png"), 11.0 * cm, "6.1", "Per-class precision and recall of the default detector")
 P("Crack is the hardest class (recall 0.75): cracks are thin, low-contrast features that lose most of their signal at low "
   "resolution, which is why moving from 320 px to 640 px nearly doubled crack recall. Bulge, the best class (0.95 / 0.96), "

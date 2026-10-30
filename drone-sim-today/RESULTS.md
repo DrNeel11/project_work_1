@@ -837,3 +837,12 @@ detector remains the default; the simulator's textures are MBDD photos, so dacl1
 - Weights 0/6/20 for both terms: F1 unchanged (9 walls 0.918 x3; 31 walls 0.822/0.821/0.820).
 - Without staleness/lookahead: shorter flight (9 walls 80.6 vs 124.9 m), same F1 with real detector over 10 seeds (0.933).
 - 10 seeds, 9 walls: UW-TIG 0.933 (125 m), Alamdari 0.922 (168 m), Ruckin 0.911 (218 m), GATSBI 0.905, Random 0.860, Bircher 0.813, Isler 0.655. UW-TIG - Ruckin +0.022 (CI -0.002..+0.055); - Alamdari +0.011 (-0.003..+0.027).
+
+## Fair YOLOv8 size comparison (added)
+`datagen/compare_detectors.py`: same 4,000-image MBDD2025 subset, 640 px, 30 epochs, batch 8, seed 0, RTX 5060; full 1,448-image test split. One run each.
+| Model | Params | mAP50 | mAP50-95 | P | R |
+|---|---|---|---|---|---|
+| v8n | 3.0 M | 0.743 | 0.373 | 0.786 | 0.681 |
+| v8s | 11.1 M | 0.793 | 0.411 | 0.803 | 0.740 |
+| v8m | 25.8 M | 0.796 | 0.418 | 0.802 | 0.744 |
+Raw: `results/detector_compare/results.json`. v8l not trained (8 GB GPU).
