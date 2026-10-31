@@ -19,7 +19,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geometry as geo  # noqa: E402
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl  # noqa: E402
 from gym_pybullet_drones.utils.enums import DroneModel, Physics  # noqa: E402
-from memory.store import MemoryStore  # noqa: E402
+if os.environ.get("UWTIG_MEMORY") == "inmem":  # Docker-free port, same matching rule (memory/store_mem.py)
+    from memory.store_mem import InMemoryStore as MemoryStore  # noqa: E402
+else:
+    from memory.store import MemoryStore  # noqa: E402
 from planning.planners import PLANNER_REGISTRY, MissionBelief  # noqa: E402
 from planning.viewpoints import build_viewpoints, cell_index_for_world_point  # noqa: E402
 from scene.environment import retexture_ground  # noqa: E402
