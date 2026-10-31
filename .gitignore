@@ -93,3 +93,7 @@ drone-sim-today/results/seeds59_small/*
 !drone-sim-today/results/detector_compare/
 drone-sim-today/results/detector_compare/*
 !drone-sim-today/results/detector_compare/results.json
+!drone-sim-today/results/seeds59_large/
+drone-sim-today/results/seeds59_large/*
+!drone-sim-today/results/seeds59_large/comparison.csv
+!drone-sim-today/results/ten_seed_summary.json

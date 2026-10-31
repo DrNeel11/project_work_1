@@ -1031,21 +1031,26 @@ P("Section 6.4 found that switching off the uncertainty and growth terms changes
 B(["<b>Oracle, both yards, 5 seeds.</b> The no-uncertainty and no-growth variants are identical to full UW-TIG in route and F1 (9 walls: 124.6 m; "
    "31 walls: 480 m, F1 0.871 against 0.870 and 0.871). In the growing scenario every variant detects the growth (fraction 1.0), including the one without the growth term, "
    "because the coverage and revisit logic already finds it.",
-   "<b>Weight sensitivity.</b> Setting both weights to 0, 6 and 20 leaves F1 unchanged (9 walls: 0.918 in all three; 31 walls: 0.822, 0.821, 0.820). "
+   "<b>Weight sensitivity.</b> Setting both weights to 0, 6 and 20 leaves F1 unchanged (oracle detector, static, uncertain and growing scenarios; 9 walls: 0.918 in all three; 31 walls: 0.822, 0.821, 0.820). "
    "The terms do not change the route even when they dominate the score.",
-   "<b>Staleness and lookahead.</b> Without them the flight is shorter (9 walls: 80.6 m against 124.9 m; 31 walls, oracle: 407 and 445 m against 480 m). "
-   "With the real detector F1 is unchanged on 10 seeds (0.933); with the oracle it falls slightly (31 walls 0.862 and 0.864 against 0.871). "
-   "These two terms therefore add flight cost rather than detection quality in this simulator.",
-   "<b>Ten seeds, 9-wall yard, real detector (seeds 0-9).</b> UW-TIG 0.933 F1 at 124.9 m; Alamdari 0.922 at 168 m; Rückin 0.911 at 218 m; GATSBI 0.905; random 0.860 at 379 m; "
-   "Bircher 0.813; Isler 0.655; no coverage phase 0.676. UW-TIG minus Rückin is +0.022 (95% CI -0.002 to +0.055) and minus Alamdari +0.011 (-0.003 to +0.027): "
-   "ahead on average, but not significantly. The 31-wall ten-seed run was still in progress when this report was written."])
+   "<b>Staleness and lookahead.</b> Without them the flight is shorter (9 walls: 81 to 83 m against 125 m; 31 walls: 417 and 446 m against 481 m). "
+   "With the real detector the confirmed F1 does not fall: on the 9-wall yard it is higher, 0.973 against 0.963 (paired +0.010 in favour of removing them, "
+   "95% CI +0.003 to +0.017, all 10 seeds); on the 31-wall yard it is 0.925 and 0.920 against 0.921, a tie. With the oracle detector F1 falls slightly "
+   "(31 walls 0.862 and 0.864 against 0.871). These two terms therefore cost flight, and in the 9-wall yard they cost a little detection quality as well.",
+   "<b>Ten seeds, original detector, confirmed F1 (seeds 0-9; experiments/analyze_ten_seeds.py).</b> 9-wall yard: UW-TIG 0.963 (95% CI 0.941 to 0.982) at 125 m; "
+   "Alamdari 0.951 at 168 m; Rückin 0.938 at 206 m; GATSBI 0.914; random 0.891 at 379 m; Bircher 0.816; Isler 0.663; no coverage phase 0.679. "
+   "UW-TIG minus Alamdari is +0.012 (CI +0.001 to +0.022, 6 of 10 seeds) and minus Rückin +0.025 (CI -0.002 to +0.055, 4 of 10): a small, borderline "
+   "lead over Alamdari and not significant over Rückin. 31-wall yard: Alamdari 0.928 at 570 m; UW-TIG 0.921 (0.908 to 0.933) at 481 m; GATSBI 0.917 at 471 m; "
+   "Rückin 0.906 at 846 m; random 0.827 at 2,396 m; Bircher 0.664; no coverage phase 0.658; Isler 0.474. UW-TIG is level with Alamdari (-0.007, CI -0.014 to 0.000) "
+   "and GATSBI (+0.004, -0.005 to +0.013) and ahead of Rückin by +0.014 (+0.001 to +0.029) with 43% less flight. In both yards the no-uncertainty and no-growth "
+   "variants differ from UW-TIG by 0.002 or less."])
 P("Conclusion of these tests: the coverage-first phase and cost-aware routing carry UW-TIG's results. The uncertainty and growth terms, the parts that "
   "make the planner <i>uncertainty-weighted</i> and <i>temporal</i>, show no measurable benefit in this simulator and are reported as untested extensions, "
   "not as demonstrated contributions.")
 
 H2("6.12. Threats to Validity")
 B(["<b>Selection-rule baselines.</b> The compared planners are re-implemented rules, not full systems.",
-   "<b>Five seeds.</b> Enough to see the coverage effect; ten seeds (9-wall yard) still do not separate the planners from Alamdari or Rückin significantly.",
+   "<b>Five seeds.</b> Ten seeds per yard are enough to see the coverage effect, but UW-TIG is only level with the best rivals (Alamdari in both yards, GATSBI at 31 walls) and is not significantly ahead of Rückin in the 9-wall yard.",
    "<b>Measurement versus planning.</b> Five fixes in measurement raised every planner; the improvement over the first sweep should not be read as a planning gain.",
    "<b>Simulation realism.</b> A software rasteriser, flat-quad walls, no wind or sensor noise, a kinematic mode without dynamics; absolute detector scores would differ outdoors.",
    "<b>Single-time-point data.</b> MBDD2025 has no growth sequences, so temporal claims rest on one procedural scenario the detector cannot see.",

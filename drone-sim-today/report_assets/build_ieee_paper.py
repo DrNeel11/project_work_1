@@ -328,11 +328,14 @@ TABLE("TABLE VI. Oracle detector, 31-wall yard (static, uncertain, multi-defect;
 ], [3.6, 2.0, 2.4], bold_row=0)
 P("With clean signals the no-uncertainty and no-growth variants still fly the identical route, and in the growing scenario every variant, including the one without the growth term, "
   "detects the growth (fraction 1.0), because the coverage and revisit logic already finds it. Raising both weights to 0, 6 and 20 leaves F1 unchanged (nine walls 0.918 in all three; "
-  "31 walls 0.822, 0.821, 0.820). Staleness and lookahead shorten the flight (nine walls 80.6 m against 124.9 m, same real-detector F1) and cost a little oracle F1, so they add "
-  "efficiency, not detection quality, here.")
-P("<b>Ten seeds.</b> Extending the nine-wall comparison to seeds 0–9 with the real detector gives UW-TIG F1 0.933 at 125 m, Alamdari-style 0.922 at 168 m, Rückin-style 0.911 at 218 m, "
-  "GATSBI-style 0.905, random 0.860, Bircher-style 0.813 and Isler-style 0.655. UW-TIG’s paired advantage over the Rückin-style rule is +0.022 (95% interval −0.002 to +0.055) and over "
-  "the Alamdari-style rule +0.011 (−0.003 to +0.027): ahead on average, but not significantly. The 31-wall ten-seed run did not complete.")
+  "31 walls 0.822, 0.821, 0.820). Staleness and lookahead shorten the flight (nine walls 81–83 m against 125 m) with no loss of real-detector F1 (Section VI-E, ten seeds), but cost a little oracle F1; here they add "
+  "efficiency, not detection quality.")
+P("<b>Ten seeds.</b> Extending both yards to seeds 0–9 with the original detector (confirmed F1, 95% bootstrap interval over seeds) gives, in the nine-wall yard, UW-TIG 0.963 (0.941–0.982) at 125 m, "
+  "Alamdari-style 0.951 at 168 m, Rückin-style 0.938 at 206 m, GATSBI-style 0.914, random 0.891, Bircher-style 0.816 and Isler-style 0.663. UW-TIG’s paired lead is +0.012 over the Alamdari-style rule "
+  "(+0.001 to +0.022, 6 of 10 seeds) and +0.025 over the Rückin-style rule (−0.002 to +0.055): small, and not significant over Rückin. In the 31-wall yard the order is Alamdari-style 0.928 (570 m), "
+  "UW-TIG 0.921 (481 m), GATSBI-style 0.917 (471 m), Rückin-style 0.906 (846 m): UW-TIG is level with the first two and ahead of the Rückin-style rule by +0.014 (+0.001 to +0.029) with 43% less flight. "
+  "In both yards the no-uncertainty and no-growth variants stay within 0.002 of UW-TIG. Removing staleness or lookahead raises nine-wall F1 to 0.973 (paired +0.010, +0.003 to +0.017) and cuts flight to 81–83 m, "
+  "and ties at 31 walls, so those two terms cost flight and, in the small yard, a little detection quality.")
 H2("F", "Detector size")
 P("Earlier detector rows differ in resolution and epochs, so we retrained YOLOv8n, s and m with one recipe (a fixed 4,000-image MBDD2025 subset, 640 px, 30 epochs, seed 0) and scored them on the full test split.")
 TABLE("TABLE VII. YOLOv8 size comparison under identical training (one run each).", ["Model", "Params (M)", "mAP50", "mAP50-95"], [

@@ -831,12 +831,15 @@ detector remains the default; the simulator's textures are MBDD photos, so dacl1
 ## Planner-only tests: oracle detector, weight sensitivity, ten seeds (added)
 
 `perception/oracle_detector.py` reads ground truth (synthetic; not evidence of detection quality). Data: `results/oracle_{small,large}`,
-`results/sens_w{0,6,20}_{small,large}`, `results/seeds59_small` (real YOLO, seeds 5-9; 31-wall seeds 5-9 still running).
+`results/sens_w{0,6,20}_{small,large}`, `results/seeds59_{small,large}` (real YOLO, seeds 5-9).
 
 - No-uncertainty / no-growth variants are identical to UW-TIG with oracle signals (31 walls F1 0.871/0.870/0.871, 480 m) and growth is detected by every variant (fraction 1.0).
 - Weights 0/6/20 for both terms: F1 unchanged (9 walls 0.918 x3; 31 walls 0.822/0.821/0.820).
-- Without staleness/lookahead: shorter flight (9 walls 80.6 vs 124.9 m), same F1 with real detector over 10 seeds (0.933).
-- 10 seeds, 9 walls: UW-TIG 0.933 (125 m), Alamdari 0.922 (168 m), Ruckin 0.911 (218 m), GATSBI 0.905, Random 0.860, Bircher 0.813, Isler 0.655. UW-TIG - Ruckin +0.022 (CI -0.002..+0.055); - Alamdari +0.011 (-0.003..+0.027).
+- Ten seeds, original detector, confirmed F1 (`experiments/analyze_ten_seeds.py` -> `results/ten_seed_summary.json`; seeds 0-4 from comparison.csv / large_base, seeds 5-9 from seeds59_*):
+  - 9 walls: UW-TIG 0.963 (CI 0.941-0.982, 125 m), Alamdari 0.951 (168 m), Ruckin 0.938 (206 m), GATSBI 0.914, Random 0.891, Bircher 0.816, Isler 0.663, no-coverage 0.679. UW-TIG - Alamdari +0.012 (+0.001..+0.022, 6/10 seeds); - Ruckin +0.025 (-0.002..+0.055).
+  - 31 walls: Alamdari 0.928 (570 m), UW-TIG 0.921 (481 m), GATSBI 0.917 (471 m), Ruckin 0.906 (846 m), Random 0.827, Bircher 0.664, no-coverage 0.658, Isler 0.474. UW-TIG - Ruckin +0.014 (+0.001..+0.029).
+  - No-uncertainty / no-growth within 0.002 of UW-TIG in both yards. No-staleness / no-lookahead: 9 walls F1 0.973 (+0.010 vs UW-TIG, CI +0.003..+0.017, all 10 seeds) at 81-83 m; 31 walls tie (0.925 / 0.920) at 417 / 446 m. So those two terms cost flight and, in the small yard, a little F1.
+- Correction: an earlier summary of this section mixed the fine-tuned detector (seeds 0-4) with the original (seeds 5-9) and used unconfirmed F1; the numbers above replace it.
 
 ## Fair YOLOv8 size comparison (added)
 `datagen/compare_detectors.py`: same 4,000-image MBDD2025 subset, 640 px, 30 epochs, batch 8, seed 0, RTX 5060; full 1,448-image test split. One run each.
