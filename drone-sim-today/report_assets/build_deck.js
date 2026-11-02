@@ -182,13 +182,13 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 // ============================================================ 2. PROBLEM STATEMENT
 {
   const s = slide("Problem Statement");
-  text(s, "Utility infrastructure -- buildings, pipelines, towers -- needs repeated inspection for cracks, corrosion and leakage. Today's aerial inspection is largely open-loop:",
-    { x: X0, y: 1.4, w: CW, h: 0.7, fontSize: 15, color: G1 });
+  text(s, "Inspecting buildings, pipelines and towers is largely open-loop today:",
+    { x: X0, y: 1.4, w: CW, h: 0.5, fontSize: 16, color: G1, bold: true });
   const probs = [
-    ["Fixed routes", "The vehicle follows a pre-planned path; what it detects never changes where it goes next."],
-    ["No memory", "Every flight starts from scratch -- a defect seen last month is not tracked or compared."],
-    ["Uncertainty ignored", "A low-confidence detection is treated like a confident one; nothing triggers a second look."],
-    ["Single-session planners", "Recent planners (R\u00fcckin 2023, GATSBI 2023/24, Moon 2026) work within one session; none tracks a defect across missions."],
+    ["Fixed routes", "Pre-planned path; detections never change it"],
+    ["No memory", "Each flight starts from scratch; no defect tracking"],
+    ["Uncertainty ignored", "Low-confidence detections trusted like confident ones; no second look"],
+    ["Single-session planners", "R\u00fcckin 2023, GATSBI, Moon 2026: none tracks a defect across missions"],
   ];
   probs.forEach(([h, b], i) => {
     const x = X0 + (i % 2) * 6.17, y = 2.3 + Math.floor(i / 2) * 1.55;
@@ -196,21 +196,24 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     text(s, h, { x: x + 0.25, y: y + 0.18, w: 5.5, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
     text(s, b, { x: x + 0.25, y: y + 0.58, w: 5.5, h: 0.7, fontSize: 13, color: G1 });
   });
-  text(s, "Objective", { x: X0, y: 5.55, w: 3, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
-  text(s, "A planner that picks each next viewpoint from what has been detected, how unsure the detector is, and what the memory already holds -- and an honest test of what in it actually helps, against published planners on the same testbed.",
-    { x: X0, y: 5.92, w: CW, h: 0.9, fontSize: 14 });
+  text(s, "Objective", { x: X0, y: 5.45, w: 3, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
+  bullets(s, [
+    "Pick each next viewpoint from detections, uncertainty and memory",
+    "Test which parts of the planner actually help",
+    "Compare with published planners on the same testbed",
+  ], { x: X0, y: 5.85, w: CW, h: 1.1, fontSize: 14, gap: 4 });
 }
 
 // ============================================================ 3. ABSTRACT
 {
   const s = slide("Abstract");
-  text(s,
-    "Inspection planners usually choose where to look from geometry alone. We build UW-TIG, a closed-loop planner that scores each candidate viewpoint " +
-    "with detection uncertainty, defect growth from a persistent cross-mission memory, revisit staleness and a coverage guarantee, and compare it with " +
-    "random search and five re-implemented published planners in a PyBullet yard textured with real defect photographs (YOLOv8 trained on 14,471 MBDD2025 images). " +
-    "Over ten seeds on a 9-wall and a 31-wall yard, UW-TIG is level with the best published planners and flies less than most of them. " +
-    "Ablations show the coverage guarantee and cost-aware routing carry the result; the uncertainty and growth terms have no measurable effect.",
-    { x: X0, y: 1.4, w: CW, h: 2.8, fontSize: 15, color: G1, lineSpacingMultiple: 1.15 });
+  bullets(s, [
+    "Inspection planners usually choose where to look from geometry alone",
+    "UW-TIG: a closed-loop planner using detection uncertainty, defect growth (cross-mission memory), staleness and a coverage guarantee",
+    "Tested against random search and five re-implemented published planners in a PyBullet yard with real defect photographs",
+    "Ten seeds, two yard sizes: level with the best published planners, less flight than most",
+    "The coverage guarantee and cost-aware routing carry the result; uncertainty and growth have no measurable effect",
+  ], { x: X0, y: 1.4, w: CW, h: 2.8, fontSize: 15, gap: 9 });
   const tw = 2.85, tg = 0.243;
   const flyLess = Math.round(100 * (1 - TS.small.uwtig.flight / TS.small.ruckin_ipp.flight));
   [[f3(TS.small.uwtig.f1), "F1, 9-wall yard"], [f3(TS.large.uwtig.f1), "F1, 31-wall yard"],
@@ -242,17 +245,17 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const s = slide("Gaps & Contributions");
   card(s, X0, 1.4, 5.7, 4.9, "Gaps in the 2023-2026 literature");
   bullets(s, [
-    "Recent planners add risk, learning and adaptivity, but plan for coverage or information gain -- none plan around detected defects.",
-    "They plan within a single session; a defect found last month is not tracked or compared this month.",
-    "Results are reported on one scene size, so it is unclear that a planner that works on nine walls still works on thirty.",
-    "2025 reviews (Nikkhah et al.; Vivaldini, Pěnička & Saska) still list perception-driven planning as open.",
+    "Recent planners plan for coverage or information gain, not around detected defects",
+    "Single-session: a defect found last month is not tracked",
+    "One scene size only: does a nine-wall planner still work on thirty?",
+    "2025 reviews still list perception-driven planning as open",
   ], { x: X0 + 0.25, y: 2.25, w: 5.2, h: 3.9, fontSize: 13.5, gap: 12 });
 
   card(s, 6.53, 1.4, 6.2, 4.9, "Our contributions (as in the paper)");
   bullets(s, [
-    { lead: "1. UW-TIG planner --", text: "one score combining a coverage phase, detector uncertainty, defect growth from persistent memory, staleness and a two-step lookahead." },
-    { lead: "2. Reproducible testbed --", text: "real defect photographs as wall textures; 9-wall and 31-wall yards; four scenarios; separate development and test seeds." },
-    { lead: "3. Evidence-first evaluation --", text: "seven planners, six ablations, bootstrap intervals, ten seeds, a second yard size, an oracle-detector test. Several of our own mechanisms do not matter on the metrics measured, and we say so." },
+    { lead: "1. UW-TIG planner --", text: "coverage phase, uncertainty, growth, staleness, lookahead in one score" },
+    { lead: "2. Reproducible testbed --", text: "real defect photos as textures; 9- and 31-wall yards; separate dev/test seeds" },
+    { lead: "3. Evidence-first evaluation --", text: "seven planners, six ablations, ten seeds, oracle test; we report what does not matter" },
   ], { x: 6.78, y: 2.25, w: 5.75, h: 3.95, fontSize: 14, gap: 14 });
 }
 
@@ -269,30 +272,29 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const pct = (a, b) => Math.round(100 * (1 - M(a, "total_flight_dist_m") / M(b, "total_flight_dist_m")));
   const rows = [
     ["1. Coverage guarantee",
-     "While any wall is still unseen this mission, choose only among unseen walls' views, scored by InfoGain − 0.4·Cost; full score takes over once all 9 walls are seen.",
-     "A plain information-gain score never pays to fly to the far building -- it stopped at 4 of 9 walls on every seed.",
-     `Recall ${f3(M("uwtig_no_coverage_first", "recall_confirmed"))} → ${f3(UW.r)}; F1 ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} → ${f3(UW.f)}. The decisive addition.`],
+     "See every wall once before anything else",
+     "Plain information gain stopped at 4 of 9 walls",
+     `F1 ${f3(TS.small.uwtig_no_coverage_first.f1)} → ${f3(TS.small.uwtig.f1)}; the decisive addition`],
     ["2. Detector uncertainty",
-     "Each frame is run 5 times (original + 4 brightness / noise / blur variants); the spread of confidence is the uncertainty, faded as a spot is viewed more.",
-     "An unsure detection should earn a second look instead of being trusted or dropped.",
-     "Real but small next to the other terms: shifts the route by under 1 m, no metric changes."],
+     "5-view TTA; spread of confidence = uncertainty",
+     "Unsure detections earn a second look",
+     "Shifts the route by under 1 m; no metric changes"],
     ["3. Cross-mission memory & growth",
-     "Each detection is ray-cast to 3-D and matched to a known defect (Postgres + pgvector); Neo4j keeps its history. Growth = size now − size last time.",
-     "An inspector that forgets re-learns every flight; worsening defects need tracking.",
-     "Looks count across missions: a defect is reported after 3 looks or one at confidence ≥ 0.45. Growth is ~0 here (test scenarios don't grow)."],
+     "Detections ray-cast to 3-D and matched (Postgres + Neo4j); growth = size change",
+     "Worsening defects need tracking across flights",
+     "Report after 3 looks or confidence ≥ 0.45; growth ~0 in test scenarios"],
     ["4. Staleness",
-     "Priority rises with time since a spot was last seen: 1 − e^(−0.15 · steps since last view). Adapted from Alamdari et al.",
-     "Keeps the planner from fixating on one wall while others go unchecked.",
-     `Removing it: F1 ${f3(M("uwtig_no_staleness", "f1_confirmed"))}, ${pct("uwtig_no_staleness", "uwtig")}% less flight -- currently adds flying, not accuracy.`],
+     "Priority rises with time since last view (after Alamdari)",
+     "Stops fixation on one wall",
+     `No staleness: F1 ${f3(TS.small.uwtig_no_staleness.f1)}, ${Math.round(100 * (1 - TS.small.uwtig_no_staleness.flight / TS.small.uwtig.flight))}% less flight`],
     ["5. Two-step lookahead",
-     "Each view is scored with the best follow-up view after it (weight 0.5); only the first step is flown, then it replans. Adapted from Bircher et al.",
-     "Pure greedy choice can walk into dead ends.",
-     `Removing it: F1 ${f3(M("uwtig_no_lookahead", "f1_confirmed"))}, ${pct("uwtig_no_lookahead", "uwtig")}% less flight -- an open tuning question.`],
+     "Score each view with the best follow-up (weight 0.5), after Bircher",
+     "Greedy choice can hit dead ends",
+     `No lookahead: F1 ${f3(TS.small.uwtig_no_lookahead.f1)}, ${Math.round(100 * (1 - TS.small.uwtig_no_lookahead.flight / TS.small.uwtig.flight))}% less flight`],
   ];
   table(s, ["Component", "How it works", "Why it is needed", "Measured effect"], rows,
-    { x: X0, y: 2.0, w: CW, colW: [2.15, 4.05, 2.85, 3.08], fontSize: 10.5, rowH: [0.4, 0.82, 0.82, 0.82, 0.82, 0.82], leftCols: [1, 2, 3] });
-  text(s, "Setting all new weights to zero and switching off the coverage phase and lookahead gives back a plain cost-normalised information-gain planner exactly -- so every gain is measured against it, not against a different algorithm.",
-    { x: X0, y: 6.58, w: CW, h: 0.42, fontSize: 11, color: G2 });
+    { x: X0, y: 2.0, w: CW, colW: [2.15, 4.05, 2.85, 3.08], fontSize: 10.5, rowH: [0.4, 0.7, 0.7, 0.7, 0.7, 0.7], leftCols: [1, 2, 3] });
+  text(s, "Ten seeds, 9-wall yard. Baseline: all new weights 0, no coverage phase, no lookahead = plain cost-normalised information gain", { x: X0, y: 6.1, w: CW, h: 0.4, fontSize: 12, color: G2 });
 }
 
 // ============================================================ 6. ARCHITECTURE
@@ -327,8 +329,10 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 
   card(s, X0, 5.0, CW, 1.4);
   text(s, "Test environment", { x: X0 + 0.25, y: 5.15, w: 4, h: 0.35, fontFace: HEAD, fontSize: 14, bold: true });
-  text(s, "Open-air utility yard: two equipment buildings plus inspection panels on a pipe rack and a lattice tower -- 9 inspectable surfaces, 54 candidate viewpoints at 1.3 m and 2.2 m standoff. Four scenarios (static, uncertain, multi-defect, growing) with real MBDD2025 photos applied as wall textures.",
-    { x: X0 + 0.25, y: 5.52, w: CW - 0.5, h: 0.85, fontSize: 12.5, color: G1 });
+  bullets(s, [
+    "Open-air yard: 2 buildings, pipe rack, lattice tower; 9 surfaces, 54 viewpoints",
+    "Four scenarios: static, uncertain, multi-defect, growing; real MBDD2025 photos as wall textures",
+  ], { x: X0 + 0.25, y: 5.55, w: CW - 0.5, h: 0.8, fontSize: 12, gap: 3 });
 }
 
 // ============================================================ 7. REQUIREMENTS, DATASET, PREPROCESSING
@@ -343,27 +347,27 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     "PostgreSQL + pgvector (detection log, identity matching)",
     "Neo4j (defect graph across missions)",
     "Docker Compose (runs both databases)",
-    "NVIDIA L4 GPU on a rented 32-vCPU machine (training and the 31-wall sweeps)",
+    "NVIDIA L4 GPU (training, 31-wall sweeps)",
   ], { x: X0 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
 
   const x2 = X0 + cw + g;
   card(s, x2, y, cw, h, "Datasets");
   bullets(s, [
-    { lead: "MBDD2025:", text: "14,471 UAV photos, 5 classes; detector training/test and the simulator's wall textures (1,448 held-out test images)." },
-    { lead: "dacl10k:", text: "real bridge-inspection photos (CC-BY-4.0); 5,362 train images added, 810 held out as a cross-dataset test." },
-    { lead: "Roboflow corrosion:", text: "851 corrosion/crack images added to training." },
-    { lead: "Concrete-crack crops:", text: "800 held-out images for an image-level check (never trained on)." },
-    { lead: "SDNET2018:", text: "planned, but its download is bot-blocked; replaced by the sets above." },
+    { lead: "MBDD2025:", text: "14,471 UAV photos, 5 classes; training, test (1,448) and wall textures" },
+    { lead: "dacl10k:", text: "bridge photos; 5,362 train, 810 held-out test" },
+    { lead: "Roboflow corrosion:", text: "851 images added to training" },
+    { lead: "Concrete-crack crops:", text: "800 held-out images; never trained on" },
+    { lead: "SDNET2018:", text: "download blocked; replaced by the sets above" },
   ], { x: x2 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12, gap: 7 });
 
   const x3 = x2 + cw + g;
   card(s, x3, y, cw, h, "Preprocessing");
   bullets(s, [
-    { lead: "Aspect-correct crop:", text: "photos cropped to each wall's true shape at 1536 px (was stretched ~2.2x)." },
-    { lead: "Square pixels:", text: "320x240 camera frames resampled before detection." },
-    { lead: "Oversampling:", text: "bulge images repeated ~4x in training." },
-    { lead: "TTA ensemble:", text: "4 photometric variants per frame give an uncertainty score." },
-    { lead: "On-wall check:", text: "hits outside the wall rejected -- removed 51-75% of false positives." },
+    { lead: "Aspect-correct crop:", text: "true wall shape at 1536 px" },
+    { lead: "Square pixels:", text: "320x240 frames resampled" },
+    { lead: "Oversampling:", text: "bulge images repeated ~4x" },
+    { lead: "TTA ensemble:", text: "4 variants per frame give uncertainty" },
+    { lead: "On-wall check:", text: "off-wall hits rejected (51-75% of false positives)" },
   ], { x: x3 + 0.25, y: y + 0.85, w: cw - 0.45, h: h - 1, fontSize: 12.5, gap: 8 });
 }
 
@@ -373,7 +377,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   s.addShape("rect", { x: X0, y: 1.32, w: CW, h: 0.55, fill: { color: CARD }, line: { color: CARD, width: 0 } });
   text(s, [
     { text: "Model: ", options: { bold: true } },
-    { text: "YOLOv8s  ·  640 px  ·  100 epochs on an NVIDIA L4  ·  bulge oversampled ~4x  ·  uncertainty = spread of confidence across TTA views" },
+    { text: "YOLOv8s  ·  640 px  ·  100 epochs (L4)  ·  bulge oversampled ~4x  ·  TTA uncertainty" },
   ], { x: X0 + 0.25, y: 1.32, w: CW - 0.5, h: 0.55, fontSize: 13, valign: "middle" });
 
   const cls = [["Crack", 0.84, 0.75], ["Leakage", 0.90, 0.92], ["Abscission", 0.87, 0.78], ["Corrosion", 0.83, 0.79], ["Bulge", 0.95, 0.96]];
@@ -392,20 +396,17 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     ["Li, Shi & Sun 2026 (YOLOv11)", "Utility tunnel, private data", "0.932", "0.924", "0.926"],
     ["Inam et al. 2023 (YOLOv5m)", "Bridge crack, 1 class", "0.977", "0.967", "0.993"],
   ], { x: rx, y: 2.45, w: rw, colW: [2.35, 2.2, 0.62, 0.62, 0.69], fontSize: 11.5, rowH: 0.5, boldRow: 0, leftCols: [1] });
-  text(s, "Also reviewed: TinyDef-DETR (Shen et al. 2025, transformer, power-line defects) and a saliency-guided YOLOX bridge detector (Hebbache et al. 2025) -- neither reports a comparable number. Higher scores above come from single-class or private datasets; ours is 5-class on public data.",
-    { x: rx, y: 5.0, w: rw, h: 0.95, fontSize: 11, color: G1 });
-
-  text(s, [
-    { text: "Extra datasets: ", options: { bold: true } },
-    { text: `fine-tuning on MBDD + dacl10k + Roboflow lifted held-out dacl10k mAP50 from ${f3(DET.old.dacl.map50)} to ${f3(DET.new.dacl.map50)}, left MBDD unchanged (${f3(DET.old.mbdd.map50)} vs ${f3(DET.new.mbdd.map50)}), and did not improve the closed loop -- so the original detector stays the default. ` },
-    { text: "Calibration: expected calibration error 0.29-0.33; uncertainty is used only to rank views, never as a probability.", options: { color: G2 } },
-  ], { x: X0, y: 6.0, w: CW, h: 0.9, fontSize: 11.5 });
+  bullets(s, [
+    "Higher published scores come from single-class or private data; ours is 5-class on public data",
+    { lead: "Extra datasets:", text: `dacl10k mAP50 ${f3(DET.old.dacl.map50)} → ${f3(DET.new.dacl.map50)}, MBDD unchanged, closed loop not improved; original detector kept` },
+    { lead: "Calibration:", text: "ECE 0.29-0.33, so uncertainty only ranks views" },
+  ], { x: X0, y: 5.85, w: CW, h: 1.1, fontSize: 11.5, gap: 3 });
 }
 
 // ============================================================ 9c. TEN SEEDS
 {
   const s = slide("Ten Seeds, Both Yards (Corrected Statistics)");
-  text(s, "Original detector, confirmed F1, seeds 0-9 on the 9-wall and 31-wall yards; interval = 95% bootstrap over seeds.",
+  text(s, "Seeds 0-9, original detector, confirmed F1; 95% bootstrap CI",
     { x: X0, y: 1.3, w: CW, h: 0.4, fontSize: 13, color: G1 });
   const order = [["uwtig", "UW-TIG (ours)"], ["alamdari_latency", "Alamdari 2014"], ["gatsbi_gtsp", "GATSBI"],
     ["ruckin_ipp", "Rückin 2023"], ["random", "Random"], ["bircher_rhnbv", "Bircher 2016"], ["isler_nbv", "Isler-NBV"]];
@@ -417,11 +418,11 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const rx = 8.75, rw = 3.98;
   card(s, rx, 1.85, rw, 4.3, "Reading the numbers");
   bullets(s, [
-    `9 walls: UW-TIG ahead of Alamdari by ${da.diff.toFixed(3)} (CI ${da.ci[0].toFixed(3)} to ${da.ci[1].toFixed(3)}, ${da.wins}/10 seeds) -- borderline; vs Rückin ${ds.diff.toFixed(3)}, CI includes 0.`,
-    `31 walls: Alamdari is ahead by ${(-dl.diff).toFixed(3)} (CI includes 0) at ${f0(TS.large.alamdari_latency.flight)} m vs ${f0(TS.large.uwtig.flight)} m.`,
-    "So UW-TIG is level with the best rivals, not clearly better, and flies less than most.",
+    `9 walls: +${da.diff.toFixed(3)} over Alamdari (CI ${da.ci[0].toFixed(3)} to ${da.ci[1].toFixed(3)}), borderline; vs Rückin CI includes 0`,
+    `31 walls: Alamdari ahead by ${(-dl.diff).toFixed(3)}, CI includes 0; it flies ${f0(TS.large.alamdari_latency.flight)} m vs ${f0(TS.large.uwtig.flight)} m`,
+    "Level with the best rivals, not clearly better; flies less than most",
   ], { x: rx + 0.25, y: 2.7, w: rw - 0.45, h: 3.4, fontSize: 12, gap: 9 });
-  text(s, "An earlier ten-seed summary mixed two detectors and the wrong F1 column; these numbers replace it.",
+  text(s, "Replaces an earlier summary that mixed two detectors",
     { x: X0, y: 5.5, w: 7.9, h: 0.6, fontSize: 11, color: G3 });
 }
 
@@ -437,13 +438,13 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const rx = 7.3, rw = 5.43;
   card(s, rx, 1.4, rw, 4.9, "What the tests say");
   bullets(s, [
-    { lead: "Coverage phase:", text: "removing it drops F1 to 0.679 (9 walls) and 0.658 (31 walls). It carries the result." },
-    { lead: "Uncertainty and growth terms:", text: "within 0.002 of full UW-TIG in both yards." },
-    { lead: "Oracle detector (perfect signals, planner-only):", text: "no-uncertainty and no-growth variants are identical to UW-TIG at 31 walls (F1 0.871 / 0.870 / 0.871)." },
-    { lead: "Weights 0 / 6 / 20:", text: "F1 unchanged (9 walls 0.918 for all three; 31 walls 0.822 / 0.821 / 0.820)." },
-    { lead: "Staleness and lookahead:", text: "shorter flights without them; F1 is a little higher at 9 walls (0.973) and tied at 31." },
+    { lead: "Coverage phase:", text: "F1 drops to 0.679 (9) and 0.658 (31) without it; it carries the result" },
+    { lead: "Uncertainty and growth terms:", text: "within 0.002 of full UW-TIG" },
+    { lead: "Oracle detector (perfect signals, planner-only):", text: "variants identical at 31 walls (F1 0.871 / 0.870 / 0.871)" },
+    { lead: "Weights 0 / 6 / 20:", text: "F1 unchanged (9 walls 0.918 for all; 31 walls 0.822 / 0.821 / 0.820)" },
+    { lead: "Staleness and lookahead:", text: "shorter flights without them; F1 0.973 at 9 walls, tied at 31" },
   ], { x: rx + 0.25, y: 2.25, w: rw - 0.5, h: 4.0, fontSize: 12, gap: 8 });
-  text(s, "Conclusion: the uncertainty and growth terms are unsupported extensions in these tests; the oracle is synthetic and says nothing about detection quality.",
+  text(s, "Uncertainty and growth terms: unsupported in these tests. The oracle is synthetic.",
     { x: X0, y: 5.2, w: 6.4, h: 1.0, fontSize: 11.5, color: G2 });
 }
 
@@ -455,14 +456,17 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     [l, `${Y[k].params_m.toFixed(1)} M`, f3(Y[k].map50), f3(Y[k].map5095), f3(Y[k].precision), f3(Y[k].recall)]);
   table(s, ["Model", "Params", "mAP50", "mAP50-95", "Precision", "Recall"], rows,
     { x: X0, y: 1.5, w: 7.6, colW: [1.7, 1.1, 1.2, 1.3, 1.2, 1.1], fontSize: 13, rowH: 0.55, boldRow: 1 });
-  text(s, "Identical settings: same 4,000-image MBDD2025 subset, 640 px, 30 epochs, batch 8, seed 0, RTX 5060; evaluated on the full 1,448-image test split. One run each; YOLOv8l was not trained (8 GB GPU).",
-    { x: X0, y: 3.9, w: 7.6, h: 1.0, fontSize: 11.5, color: G2 });
+  bullets(s, [
+    "Same 4,000-image MBDD2025 subset, 640 px, 30 epochs, batch 8, seed 0",
+    "Tested on the full 1,448-image split; RTX 5060",
+    "One run each; YOLOv8l not trained (8 GB GPU)",
+  ], { x: X0, y: 3.9, w: 7.6, h: 1.3, fontSize: 12.5, gap: 5 });
   const rx = 8.5, rw = 4.23;
   card(s, rx, 1.5, rw, 3.6, "Reading the table");
   bullets(s, [
     `v8s adds ${(Y.yolov8s.map50 - Y.yolov8n.map50).toFixed(3)} mAP50 over v8n.`,
     `v8m adds only ${(Y.yolov8m.map50 - Y.yolov8s.map50).toFixed(3)} more for ${(Y.yolov8m.params_m / Y.yolov8s.params_m).toFixed(1)}x the parameters.`,
-    "Single seed: small gaps are not statistically established.",
+    "Single seed: small gaps not established",
   ], { x: rx + 0.25, y: 2.35, w: rw - 0.45, h: 2.7, fontSize: 12.5, gap: 10 });
 }
 
@@ -476,16 +480,16 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     { text: "    --planner uwtig --gui --missions 1", options: { fontFace: "Courier New" } },
   ], { x: X0 + 0.25, y: 2.25, w: 6.0, h: 1.0, fontSize: 12.5 });
   bullets(s, [
-    "The agent flies the yard in a 3-D window; the terminal prints the wall it picks and what the detector reports.",
+    "3-D window; terminal shows each wall picked and detections",
     "In-memory store: no Postgres or Docker needed.",
     "Planners to compare: uwtig, isler_nbv, random (same scene and seed).",
   ], { x: X0 + 0.25, y: 3.4, w: 6.0, h: 2.8, fontSize: 13, gap: 10 });
   card(s, 7.35, 1.4, 5.38, 4.9, "Recorded flights (output/)");
   bullets(s, [
-    "comparison_inspection_uwtig_vs_isler_nbv_vs_random.mp4 -- onboard view, three planners side by side.",
-    "comparison_flythrough_uwtig_vs_isler_nbv_vs_random.mp4 -- 3-D chase view of the same flights.",
-    "comparison_flythrough_uwtig_vs_isler_nbv.mp4 -- UW-TIG against the classical baseline.",
-    "Each planner also has its own flythrough and inspection video.",
+    "Inspection view: three planners side by side",
+    "3-D chase view of the same flights",
+    "UW-TIG against the classical baseline",
+    "One flythrough and one inspection video per planner",
   ], { x: 7.6, y: 2.25, w: 4.9, h: 3.9, fontSize: 12.5, gap: 10 });
 }
 
@@ -494,21 +498,21 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   const s = slide("Conclusion & Future Work");
   card(s, X0, 1.4, 5.95, 4.9, "Conclusion");
   bullets(s, [
-    `A working closed loop: detect, assess uncertainty, remember, replan, reinspect.`,
+    "Working closed loop: detect, assess, remember, replan",
     `UW-TIG reaches F1 ${f3(TS.small.uwtig.f1)} (9 walls) and ${f3(TS.large.uwtig.f1)} (31 walls) over ten seeds.`,
-    "Level with the strongest published planners on ten seeds in a 9-wall and a 31-wall yard (borderline ahead of Alamdari at 9 walls, behind it at 31, not significantly), usually with less flight.",
-    "Tests show the coverage phase and cost-aware routing carry the result; the uncertainty and growth terms add nothing measurable.",
-    "Reported honestly: margins shrink at scale, and the fine-tuned detector was not adopted.",
-    "Every design choice was fixed on separate development seeds before testing.",
+    "Level with the best published planners on ten seeds; usually less flight",
+    "Coverage phase and cost-aware routing carry the result; uncertainty and growth add nothing measurable",
+    "Margins shrink at scale; fine-tuned detector not adopted",
+    "Design fixed on separate development seeds",
   ], { x: X0 + 0.25, y: 2.25, w: 5.45, h: 3.95, fontSize: 14, gap: 10 });
 
   card(s, 6.78, 1.4, 5.95, 4.9, "Future work");
   bullets(s, [
     "Raise precision in the \"uncertain\" scenario above 0.90.",
-    "Find a setting where uncertainty and growth matter (real growth data); weights up to 20 changed nothing.",
-    "Replace TTA with a calibrated uncertainty (temperature scaling or MC-Dropout).",
-    "Add real growth data so the growing-defect scenario can be detected.",
-    "Re-implement published planners as full systems, not only their selection rules.",
+    "Find a setting where uncertainty and growth matter (weights up to 20 changed nothing)",
+    "Calibrated uncertainty instead of TTA",
+    "Real growth data for the growing scenario",
+    "Re-implement rivals as full systems",
   ], { x: 7.03, y: 2.25, w: 5.45, h: 3.95, fontSize: 15, gap: 12 });
 }
 
