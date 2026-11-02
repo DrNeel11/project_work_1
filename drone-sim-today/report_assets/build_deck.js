@@ -451,8 +451,97 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     "Margins shrink as the yard grows; the coverage phase is still decisive.",
     "Fine-tuned detector did not help the closed loop (UW-TIG F1 " + f3(SP("large_new", "uwtig", "f1_confirmed")) + " vs " + f3(SP("large_old", "uwtig", "f1_confirmed")) + ").",
   ], { x: rx + 0.25, y: 2.8, w: rw - 0.45, h: 3.0, fontSize: 12, gap: 7 });
-  text(s, "Ablations repeat: removing uncertainty or growth changes F1 by <0.005; removing staleness/lookahead shortens the flight with no F1 loss.",
+  text(s, "Ablations repeat: removing uncertainty or growth changes F1 by <0.005; removing staleness/lookahead shortens the flight with no F1 loss (ten-seed detail on the next slides).",
     { x: X0, y: 5.95, w: CW, h: 0.6, fontSize: 11.5, color: G2 });
+}
+
+// ============================================================ 9c. TEN SEEDS
+const TS = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "ten_seed_summary.json"), "utf8"));
+const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
+{
+  const s = slide("Ten Seeds, Both Yards (Corrected Statistics)");
+  text(s, "Original detector, confirmed F1, seeds 0-9 on the 9-wall and 31-wall yards; interval = 95% bootstrap over seeds.",
+    { x: X0, y: 1.3, w: CW, h: 0.4, fontSize: 13, color: G1 });
+  const order = [["uwtig", "UW-TIG (ours)"], ["alamdari_latency", "Alamdari 2014"], ["gatsbi_gtsp", "GATSBI"],
+    ["ruckin_ipp", "Rückin 2023"], ["random", "Random"], ["bircher_rhnbv", "Bircher 2016"], ["isler_nbv", "Isler-NBV"]];
+  const rows = order.map(([p, l]) => [l, f3(TS.small[p].f1), ci3(TS.small[p].ci), f0(TS.small[p].flight),
+    f3(TS.large[p].f1), ci3(TS.large[p].ci), f0(TS.large[p].flight)]);
+  table(s, ["Planner", "F1 (9)", "95% CI", "m", "F1 (31)", "95% CI", "m"], rows,
+    { x: X0, y: 1.85, w: 7.9, colW: [1.9, 0.9, 1.3, 0.65, 0.95, 1.3, 0.9], fontSize: 12, rowH: 0.42, boldRow: 0 });
+  const ds = TS.small.ruckin_ipp.uwtig_minus, da = TS.small.alamdari_latency.uwtig_minus, dl = TS.large.alamdari_latency.uwtig_minus;
+  const rx = 8.75, rw = 3.98;
+  card(s, rx, 1.85, rw, 4.3, "Reading the numbers");
+  bullets(s, [
+    `9 walls: UW-TIG ahead of Alamdari by ${da.diff.toFixed(3)} (CI ${da.ci[0].toFixed(3)} to ${da.ci[1].toFixed(3)}, ${da.wins}/10 seeds) -- borderline; vs Rückin ${ds.diff.toFixed(3)}, CI includes 0.`,
+    `31 walls: Alamdari is ahead by ${(-dl.diff).toFixed(3)} (CI includes 0) at ${f0(TS.large.alamdari_latency.flight)} m vs ${f0(TS.large.uwtig.flight)} m.`,
+    "So UW-TIG is level with the best rivals, not clearly better, and flies less than most.",
+  ], { x: rx + 0.25, y: 2.7, w: rw - 0.45, h: 3.4, fontSize: 12, gap: 9 });
+  text(s, "An earlier ten-seed summary mixed two detectors and the wrong F1 column; these numbers replace it.",
+    { x: X0, y: 5.5, w: 7.9, h: 0.6, fontSize: 11, color: G3 });
+}
+
+// ============================================================ 9d. WHAT CARRIES THE RESULT
+{
+  const s = slide("What Carries the Result: Ablations, Oracle & Weights");
+  const v = [["uwtig", "UW-TIG (full)"], ["uwtig_no_coverage_first", "No coverage phase"], ["uwtig_no_uncertainty", "No uncertainty term"],
+    ["uwtig_no_temporal", "No growth term"], ["uwtig_no_staleness", "No staleness"], ["uwtig_no_lookahead", "No lookahead"]];
+  const rows = v.map(([p, l]) => [l, f3(TS.small[p].f1), f0(TS.small[p].flight), f3(TS.large[p].f1), f0(TS.large[p].flight)]);
+  table(s, ["Variant", "F1 (9)", "m", "F1 (31)", "m"], rows,
+    { x: X0, y: 1.4, w: 6.4, colW: [2.4, 1.0, 0.8, 1.2, 1.0], fontSize: 12.5, rowH: 0.46, boldRow: 0 });
+  text(s, "Ten seeds per yard, original detector.", { x: X0, y: 4.75, w: 6.4, h: 0.3, fontSize: 10.5, color: G3 });
+  const rx = 7.3, rw = 5.43;
+  card(s, rx, 1.4, rw, 4.9, "What the tests say");
+  bullets(s, [
+    { lead: "Coverage phase:", text: "removing it drops F1 to 0.679 (9 walls) and 0.658 (31 walls). It carries the result." },
+    { lead: "Uncertainty and growth terms:", text: "within 0.002 of full UW-TIG in both yards." },
+    { lead: "Oracle detector (perfect signals, planner-only):", text: "no-uncertainty and no-growth variants are identical to UW-TIG at 31 walls (F1 0.871 / 0.870 / 0.871)." },
+    { lead: "Weights 0 / 6 / 20:", text: "F1 unchanged (9 walls 0.918 for all three; 31 walls 0.822 / 0.821 / 0.820)." },
+    { lead: "Staleness and lookahead:", text: "shorter flights without them; F1 is a little higher at 9 walls (0.973) and tied at 31." },
+  ], { x: rx + 0.25, y: 2.25, w: rw - 0.5, h: 4.0, fontSize: 12, gap: 8 });
+  text(s, "Conclusion: the uncertainty and growth terms are unsupported extensions in these tests; the oracle is synthetic and says nothing about detection quality.",
+    { x: X0, y: 5.2, w: 6.4, h: 1.0, fontSize: 11.5, color: G2 });
+}
+
+// ============================================================ 9e. YOLOv8 SIZE COMPARISON
+{
+  const s = slide("Fair Detector Comparison: YOLOv8 n / s / m");
+  const Y = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "detector_compare", "results.json"), "utf8"));
+  const rows = [["yolov8n", "v8n"], ["yolov8s", "v8s (used)"], ["yolov8m", "v8m"]].map(([k, l]) =>
+    [l, `${Y[k].params_m.toFixed(1)} M`, f3(Y[k].map50), f3(Y[k].map5095), f3(Y[k].precision), f3(Y[k].recall)]);
+  table(s, ["Model", "Params", "mAP50", "mAP50-95", "Precision", "Recall"], rows,
+    { x: X0, y: 1.5, w: 7.6, colW: [1.7, 1.1, 1.2, 1.3, 1.2, 1.1], fontSize: 13, rowH: 0.55, boldRow: 1 });
+  text(s, "Identical settings: same 4,000-image MBDD2025 subset, 640 px, 30 epochs, batch 8, seed 0, RTX 5060; evaluated on the full 1,448-image test split. One run each; YOLOv8l was not trained (8 GB GPU).",
+    { x: X0, y: 3.9, w: 7.6, h: 1.0, fontSize: 11.5, color: G2 });
+  const rx = 8.5, rw = 4.23;
+  card(s, rx, 1.5, rw, 3.6, "Reading the table");
+  bullets(s, [
+    `v8s adds ${(Y.yolov8s.map50 - Y.yolov8n.map50).toFixed(3)} mAP50 over v8n.`,
+    `v8m adds only ${(Y.yolov8m.map50 - Y.yolov8s.map50).toFixed(3)} more for ${(Y.yolov8m.params_m / Y.yolov8s.params_m).toFixed(1)}x the parameters.`,
+    "Single seed: small gaps are not statistically established.",
+  ], { x: rx + 0.25, y: 2.35, w: rw - 0.45, h: 2.7, fontSize: 12.5, gap: 10 });
+}
+
+// ============================================================ 9f. LIVE DEMO
+{
+  const s = slide("Live Demo & Recorded Flights");
+  card(s, X0, 1.4, 6.5, 4.9, "Live run (PyBullet window)");
+  text(s, [
+    { text: "set UWTIG_MEMORY=inmem", options: { fontFace: "Courier New", breakLine: true } },
+    { text: "python demo_uwtig_flight.py", options: { fontFace: "Courier New", breakLine: true } },
+    { text: "    --planner uwtig --gui --missions 1", options: { fontFace: "Courier New" } },
+  ], { x: X0 + 0.25, y: 2.25, w: 6.0, h: 1.0, fontSize: 12.5 });
+  bullets(s, [
+    "The drone flies the yard in a 3-D window; the terminal prints the wall it picks and what the detector reports.",
+    "In-memory store: no Postgres or Docker needed.",
+    "Planners to compare: uwtig, isler_nbv, random (same scene and seed).",
+  ], { x: X0 + 0.25, y: 3.4, w: 6.0, h: 2.8, fontSize: 13, gap: 10 });
+  card(s, 7.35, 1.4, 5.38, 4.9, "Recorded flights (output/)");
+  bullets(s, [
+    "comparison_inspection_uwtig_vs_isler_nbv_vs_random.mp4 -- onboard view, three planners side by side.",
+    "comparison_flythrough_uwtig_vs_isler_nbv_vs_random.mp4 -- 3-D chase view of the same flights.",
+    "comparison_flythrough_uwtig_vs_isler_nbv.mp4 -- UW-TIG against the classical baseline.",
+    "Each planner also has its own flythrough and inspection video.",
+  ], { x: 7.6, y: 2.25, w: 4.9, h: 3.9, fontSize: 12.5, gap: 10 });
 }
 
 // ============================================================ 10. CONCLUSION & FUTURE WORK
@@ -462,15 +551,16 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   bullets(s, [
     `A working closed loop: detect, assess uncertainty, remember, replan, reinspect.`,
     `UW-TIG reaches precision ${f3(UW.p)}, recall ${f3(UW.r)}, F1 ${f3(UW.f)} on held-out test seeds.`,
-    "Matches the strongest published planners on detection at lower flight cost, in a 9-wall and a 31-wall yard.",
+    "Level with the strongest published planners on ten seeds in a 9-wall and a 31-wall yard (borderline ahead of Alamdari at 9 walls, behind it at 31, not significantly), usually with less flight.",
+    "Tests show the coverage phase and cost-aware routing carry the result; the uncertainty and growth terms add nothing measurable.",
     "Reported honestly: margins shrink at scale, and the fine-tuned detector was not adopted.",
     "Every design choice was fixed on separate development seeds before testing.",
-  ], { x: X0 + 0.25, y: 2.25, w: 5.45, h: 3.95, fontSize: 15, gap: 18 });
+  ], { x: X0 + 0.25, y: 2.25, w: 5.45, h: 3.95, fontSize: 14, gap: 10 });
 
   card(s, 6.78, 1.4, 5.95, 4.9, "Future work");
   bullets(s, [
     `Raise the "uncertain" scenario's precision (${f3(M("uwtig", "precision_confirmed", ["uncertain"]))}) above 0.90.`,
-    "Re-weight the utility so uncertainty and growth actually influence decisions.",
+    "Find a setting where uncertainty and growth matter (real growth data); weights up to 20 changed nothing.",
     "Replace TTA with a calibrated uncertainty (temperature scaling or MC-Dropout).",
     "Add real growth data so the growing-defect scenario can be detected.",
     "Re-implement published planners as full systems, not only their selection rules.",
