@@ -22,8 +22,8 @@ const THEME = {
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE"; // 13.33 x 7.5
 pres.theme = { headFontFace: THEME.headFontFace, bodyFontFace: THEME.bodyFontFace };
-pres.author = "Autonomous Drone Inspection Project";
-pres.title = "Autonomous Drone Utility Inspection -- UW-TIG";
+pres.author = "UW-TIG project team";
+pres.title = "UW-TIG: Closed-Loop Defect Inspection Planning";
 
 const BLACK = "000000", WHITE = "FFFFFF", G1 = "404040", G2 = "595959", G3 = "808080",
   G4 = "BFBFBF", G5 = "D9D9D9", CARD = "F3F3F3";
@@ -43,7 +43,7 @@ pres.defineSlideMaster({
     { line: { options: { x: X0, y: 1.12, w: 1.1, h: 0, line: { color: BLACK, width: 3 } } } },
     { text: {
         options: { x: X0, y: 7.05, w: 8, h: 0.3, margin: 0, fontFace: BODY, fontSize: 9, color: G3, align: "left" },
-        text: "UW-TIG  ·  Autonomous Drone Utility Inspection",
+        text: "UW-TIG  ·  Closed-Loop Defect Inspection Planning",
       } },
     { placeholder: {
         options: { name: "pageNum", type: "body", x: 12.13, y: 7.05, w: 0.6, h: 0.3, margin: 0,
@@ -72,6 +72,9 @@ const HAS = (p) => ROWS.some((r) => r.planner === p);
 const SC = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "scaleup_summary.json"), "utf8"));
 const DET = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "detector_extra.json"), "utf8"));
 const SP = (set, p, k) => SC[set].planners[p][k];
+const TS = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "ten_seed_summary.json"), "utf8"));
+const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
+
 
 // ---------------------------------------------------------------- helpers
 let N = 0;
@@ -150,7 +153,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 {
   const s = pres.addSlide({ masterName: "CONTENT" });
   N++;
-  text(s, "AUTONOMOUS DRONE UTILITY INSPECTION", { x: X0, y: 0.75, w: CW, h: 0.4, fontSize: 13, bold: true, color: G2, charSpacing: 3 });
+  text(s, "AUTONOMOUS DEFECT INSPECTION PLANNING", { x: X0, y: 0.75, w: CW, h: 0.4, fontSize: 13, bold: true, color: G2, charSpacing: 3 });
   text(s, "UW-TIG: Uncertainty-Weighted Temporal Information Gain for Closed-Loop Defect Inspection",
     { x: X0, y: 1.2, w: 11.2, h: 1.3, fontFace: HEAD, fontSize: 30, bold: true });
   s.addShape("line", { x: X0, y: 2.7, w: 1.4, h: 0, line: { color: BLACK, width: 3 } });
@@ -179,10 +182,10 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 // ============================================================ 2. PROBLEM STATEMENT
 {
   const s = slide("Problem Statement");
-  text(s, "Utility infrastructure -- buildings, pipelines, towers -- needs repeated inspection for cracks, corrosion and leakage. Today's drone inspection is largely open-loop:",
+  text(s, "Utility infrastructure -- buildings, pipelines, towers -- needs repeated inspection for cracks, corrosion and leakage. Today's aerial inspection is largely open-loop:",
     { x: X0, y: 1.4, w: CW, h: 0.7, fontSize: 15, color: G1 });
   const probs = [
-    ["Fixed routes", "The drone follows a pre-planned path; what it detects never changes where it flies next."],
+    ["Fixed routes", "The vehicle follows a pre-planned path; what it detects never changes where it goes next."],
     ["No memory", "Every flight starts from scratch -- a defect seen last month is not tracked or compared."],
     ["Uncertainty ignored", "A low-confidence detection is treated like a confident one; nothing triggers a second look."],
     ["Single-session planners", "Recent planners (R\u00fcckin 2023, GATSBI 2023/24, Moon 2026) work within one session; none tracks a defect across missions."],
@@ -194,7 +197,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     text(s, b, { x: x + 0.25, y: y + 0.58, w: 5.5, h: 0.7, fontSize: 13, color: G1 });
   });
   text(s, "Objective", { x: X0, y: 5.55, w: 3, h: 0.35, fontFace: HEAD, fontSize: 15, bold: true });
-  text(s, "Build a closed-loop drone that detects defects with a trained model, measures its own uncertainty, remembers defects across missions, and decides where to fly next -- and show it beats published planners on the same testbed.",
+  text(s, "A planner that picks each next viewpoint from what has been detected, how unsure the detector is, and what the memory already holds -- and an honest test of what in it actually helps, against published planners on the same testbed.",
     { x: X0, y: 5.92, w: CW, h: 0.9, fontSize: 14 });
 }
 
@@ -202,16 +205,19 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 {
   const s = slide("Abstract");
   text(s,
-    "This project builds a simulated autonomous drone (PyBullet, gym-pybullet-drones) that inspects an open-air utility yard for surface defects. " +
-    "A YOLOv8 detector trained on 14,471 real UAV photographs (MBDD2025) finds cracks, leakage, abscission, corrosion and bulging, and a test-time-augmentation ensemble estimates each detection's uncertainty. " +
-    "Detections are ray-cast to 3-D positions and stored in a persistent memory (PostgreSQL + pgvector, Neo4j) that tracks each defect across missions. " +
-    "The proposed planner, UW-TIG, builds on recent uncertainty-driven informative path planning (R\u00fcckin et al. 2023, Moon et al. 2026) and adds a coverage guarantee, detection uncertainty, defect growth, revisit staleness and a two-step lookahead. " +
-    "It is compared on held-out test seeds against random search and five re-implemented published planners.",
-    { x: X0, y: 1.4, w: CW, h: 3.0, fontSize: 15, color: G1, lineSpacingMultiple: 1.15 });
+    "Inspection planners usually choose where to look from geometry alone. We build UW-TIG, a closed-loop planner that scores each candidate viewpoint " +
+    "with detection uncertainty, defect growth from a persistent cross-mission memory, revisit staleness and a coverage guarantee, and compare it with " +
+    "random search and five re-implemented published planners in a PyBullet yard textured with real defect photographs (YOLOv8 trained on 14,471 MBDD2025 images). " +
+    "Over ten seeds on a 9-wall and a 31-wall yard, UW-TIG is level with the best published planners and flies less than most of them. " +
+    "Ablations show the coverage guarantee and cost-aware routing carry the result; the uncertainty and growth terms have no measurable effect.",
+    { x: X0, y: 1.4, w: CW, h: 2.8, fontSize: 15, color: G1, lineSpacingMultiple: 1.15 });
   const tw = 2.85, tg = 0.243;
-  [[f3(UW.p), "Precision"], [f3(UW.r), "Recall"], [f3(UW.f), "F1 score"], [`${FLY_LESS}%`, "less flight than the best published planner at equal F1"]]
+  const flyLess = Math.round(100 * (1 - TS.small.uwtig.flight / TS.small.ruckin_ipp.flight));
+  [[f3(TS.small.uwtig.f1), "F1, 9-wall yard"], [f3(TS.large.uwtig.f1), "F1, 31-wall yard"],
+   [f3(TS.small.uwtig_no_coverage_first.f1), "F1 without the coverage phase (9 walls)"],
+   [`${flyLess}%`, "less flight than Rückin 2023 at 9 walls; F1 not significantly different"]]
     .forEach(([v, l], i) => tile(s, X0 + i * (tw + tg), 4.3, tw, 1.65, v, l));
-  text(s, "Closed-loop results, mean over 3 scenarios x 5 test seeds x 3 missions", { x: X0, y: 6.05, w: CW, h: 0.3, fontSize: 11, color: G3 });
+  text(s, "Mean over 10 seeds per yard, confirmed F1, original detector", { x: X0, y: 6.05, w: CW, h: 0.3, fontSize: 11, color: G3 });
 }
 
 // ============================================================ 4. LITERATURE SURVEY
@@ -231,25 +237,23 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
     { x: X0, y: 1.32, w: CW, colW: [4.0, 2.85, 2.64, 2.64], fontSize: 10.5, rowH: 0.555, leftCols: [1, 2, 3] });
 }
 
-// ============================================================ 5. INFERENCES & NOVELTY
+// ============================================================ 5. GAPS & CONTRIBUTIONS
 {
-  const s = slide("Inferences & Proposed Novelty");
-  card(s, X0, 1.4, 5.7, 4.9, "Inferences from the survey");
+  const s = slide("Gaps & Contributions");
+  card(s, X0, 1.4, 5.7, 4.9, "Gaps in the 2023-2026 literature");
   bullets(s, [
-    "Recent planners (2023-2026) add risk, learning and adaptivity, but plan for coverage or information gain -- none plan around detected defects.",
-    "Uncertainty-driven planning (Rückin 2023, Li 2026) uses model or motion uncertainty within a single session.",
-    "No reviewed work re-inspects the same defect across missions; 2025 reviews (Nikkhah et al.; Vivaldini, Pěnička & Saska) still list perception-driven flight planning as open.",
-    "Recent YOLO detectors report 0.91-0.98 precision, mostly on single-class or private data.",
+    "Recent planners add risk, learning and adaptivity, but plan for coverage or information gain -- none plan around detected defects.",
+    "They plan within a single session; a defect found last month is not tracked or compared this month.",
+    "Results are reported on one scene size, so it is unclear that a planner that works on nine walls still works on thirty.",
+    "2025 reviews (Nikkhah et al.; Vivaldini, Pěnička & Saska) still list perception-driven planning as open.",
   ], { x: X0 + 0.25, y: 2.25, w: 5.2, h: 3.9, fontSize: 13.5, gap: 12 });
 
-  card(s, 6.53, 1.4, 6.2, 4.9, "UW-TIG: what is new");
+  card(s, 6.53, 1.4, 6.2, 4.9, "Our contributions (as in the paper)");
   bullets(s, [
-    { lead: "Coverage guarantee --", text: "every wall is seen once before anything else; fixes the recall ceiling of cost-normalised greedy planners." },
-    { lead: "Detector uncertainty --", text: "unsure detections earn a second look (TTA ensemble of a trained YOLO model)." },
-    { lead: "Cross-mission memory --", text: "Postgres + Neo4j track each defect's identity and growth over missions." },
-    { lead: "Staleness --", text: "areas not seen for a while gain priority (after Alamdari et al.)." },
-    { lead: "Two-step lookahead --", text: "plans one move ahead instead of pure greedy (after Bircher et al.)." },
-  ], { x: 6.78, y: 2.25, w: 5.75, h: 3.95, fontSize: 14, gap: 12 });
+    { lead: "1. UW-TIG planner --", text: "one score combining a coverage phase, detector uncertainty, defect growth from persistent memory, staleness and a two-step lookahead." },
+    { lead: "2. Reproducible testbed --", text: "real defect photographs as wall textures; 9-wall and 31-wall yards; four scenarios; separate development and test seeds." },
+    { lead: "3. Evidence-first evaluation --", text: "seven planners, six ablations, bootstrap intervals, ten seeds, a second yard size, an oracle-detector test. Several of our own mechanisms do not matter on the metrics measured, and we say so." },
+  ], { x: 6.78, y: 2.25, w: 5.75, h: 3.95, fontSize: 14, gap: 14 });
 }
 
 // ============================================================ 6. NOVELTY IN DETAIL
@@ -274,11 +278,11 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
      "Real but small next to the other terms: shifts the route by under 1 m, no metric changes."],
     ["3. Cross-mission memory & growth",
      "Each detection is ray-cast to 3-D and matched to a known defect (Postgres + pgvector); Neo4j keeps its history. Growth = size now − size last time.",
-     "A drone that forgets is re-learning every flight; worsening defects need tracking.",
+     "An inspector that forgets re-learns every flight; worsening defects need tracking.",
      "Looks count across missions: a defect is reported after 3 looks or one at confidence ≥ 0.45. Growth is ~0 here (test scenarios don't grow)."],
     ["4. Staleness",
      "Priority rises with time since a spot was last seen: 1 − e^(−0.15 · steps since last view). Adapted from Alamdari et al.",
-     "Keeps the drone from fixating on one wall while others go unchecked.",
+     "Keeps the planner from fixating on one wall while others go unchecked.",
      `Removing it: F1 ${f3(M("uwtig_no_staleness", "f1_confirmed"))}, ${pct("uwtig_no_staleness", "uwtig")}% less flight -- currently adds flying, not accuracy.`],
     ["5. Two-step lookahead",
      "Each view is scored with the best follow-up view after it (weight 0.5); only the first step is flown, then it replans. Adapted from Bircher et al.",
@@ -295,7 +299,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
 {
   const s = slide("System Architecture");
   const boxes = ["Planner", "Flight + Camera", "Detector", "Geometry", "Memory"];
-  const subs = ["UW-TIG utility", "PyBullet drone", "YOLOv8 + TTA", "Ray-cast to 3-D", "Postgres + Neo4j"];
+  const subs = ["UW-TIG utility", "PyBullet quadrotor", "YOLOv8 + TTA", "Ray-cast to 3-D", "Postgres + Neo4j"];
   const desc = [
     "Scores 54 candidate viewpoints and picks the next one",
     "Flies there (PID physics in demo, kinematic in sweeps) and captures a frame",
@@ -334,7 +338,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   card(s, X0, y, cw, h, "Software requirements");
   bullets(s, [
     "Python 3.12",
-    "PyBullet + gym-pybullet-drones (simulation, PID flight)",
+    "PyBullet quadrotor simulation (PID flight)",
     "Ultralytics YOLOv8 / YOLO11, OpenCV, NumPy",
     "PostgreSQL + pgvector (detection log, identity matching)",
     "Neo4j (defect graph across missions)",
@@ -398,66 +402,7 @@ const FLY_LESS = Math.round(100 * (1 - UW.fly / RK.fly));
   ], { x: X0, y: 6.0, w: CW, h: 0.9, fontSize: 11.5 });
 }
 
-// ============================================================ 9. PLANNER & CLOSED-LOOP RESULTS
-{
-  const s = slide("UW-TIG Planner & Closed-Loop Results");
-  s.addShape("rect", { x: X0, y: 1.35, w: CW, h: 0.62, fill: { color: CARD }, line: { color: CARD, width: 0 } });
-  text(s, [
-    { text: "Utility(v) = ", options: { bold: true } },
-    { text: "1.0·InfoGain + 1.5·Uncertainty + 2.0·Growth + 1.0·Staleness − 0.4·Cost" },
-    { text: "    (coverage phase first; 2-step lookahead)", options: { color: G2 } },
-  ], { x: X0 + 0.25, y: 1.35, w: CW - 0.5, h: 0.62, fontSize: 14, valign: "middle", fontFace: BODY });
-
-  const planners = [
-    ["random", "Random baseline"], ["isler_nbv", "Isler-NBV (classical, 2016)"], ["bircher_rhnbv", "Bircher et al. 2016"],
-    ["gatsbi_gtsp", "Dhami et al. (GATSBI)"], ["alamdari_latency", "Alamdari et al. 2014"], ["ruckin_ipp", "Rückin et al. 2023"],
-    ["uwtig", "UW-TIG (ours)"],
-  ].filter(([p]) => HAS(p));
-  const rows = planners.map(([p, l]) => [l, f3(M(p, "precision_confirmed")), f3(M(p, "recall_confirmed")),
-    f3(M(p, "f1_confirmed")), f0(M(p, "total_flight_dist_m")), f2(M(p, "coverage_frac"))]);
-  table(s, ["Planner", "Precision", "Recall", "F1", "Flight (m)", "Coverage"], rows,
-    { x: X0, y: 2.15, w: 7.6, colW: [2.85, 0.98, 0.95, 0.85, 1.02, 0.95], fontSize: 12, rowH: 0.42, boldRow: planners.length - 1 });
-
-  const rx = 8.45, rw = 4.28;
-  card(s, rx, 2.15, rw, 3.36, "What the results show");
-  bullets(s, [
-    `Ties the best published planner on F1 (${f3(UW.f)} vs ${f3(RK.f)}) while flying ${FLY_LESS}% less.`,
-    `Coverage phase is decisive: F1 ${f3(M("uwtig_no_coverage_first", "f1_confirmed"))} without it.`,
-    "Removing uncertainty or growth changes no metric: the coverage phase ignores both, and these scenarios have no real growth.",
-    `Rückin et al. has slightly higher precision (${f3(RK.p)}).`,
-  ], { x: rx + 0.25, y: 3.0, w: rw - 0.45, h: 2.45, fontSize: 12.5, gap: 8 });
-  text(s, "Mean over static, uncertain and multi-defect scenarios x 5 test seeds x 3 missions; each published planner's selection rule re-implemented on the same testbed.",
-    { x: X0, y: 5.6, w: 7.6, h: 0.7, fontSize: 10.5, color: G3 });
-}
-
-// ============================================================ 9b. SCALE-UP
-{
-  const s = slide("Scale-up: 31-Wall Yard & Statistics");
-  text(s, "Yard enlarged from 9 to 31 walls (186 viewpoints, budget 50). Same test seeds 0-4, 3 scored scenarios; F1 interval = 95% bootstrap over seeds.",
-    { x: X0, y: 1.3, w: CW, h: 0.55, fontSize: 13, color: G1 });
-  const order = [["uwtig", "UW-TIG (ours)"], ["alamdari_latency", "Alamdari 2014"], ["gatsbi_gtsp", "GATSBI"],
-    ["ruckin_ipp", "Rückin 2023"], ["random", "Random"], ["bircher_rhnbv", "Bircher 2016"], ["isler_nbv", "Isler-NBV"]];
-  const rows = order.map(([p, l]) => [l, f3(SP("large_old", p, "f1_confirmed")),
-    `${SP("large_old", p, "f1_ci")[0].toFixed(3)}-${SP("large_old", p, "f1_ci")[1].toFixed(3)}`,
-    f0(SP("large_old", p, "total_flight_dist_m")), f2(SP("large_old", p, "coverage_frac")), f3(SP("small_old", p, "f1_confirmed"))]);
-  table(s, ["Planner", "F1 (31 walls)", "95% CI", "Flight (m)", "Coverage", "F1 (9 walls)"], rows,
-    { x: X0, y: 1.95, w: 7.7, colW: [2.2, 1.25, 1.35, 1.0, 0.95, 0.95], fontSize: 12, rowH: 0.42, boldRow: 0 });
-  const d = (p) => SC.large_old.uwtig_vs[p];
-  const rx = 8.55, rw = 4.18;
-  card(s, rx, 1.95, rw, 3.9, "Reading the numbers");
-  bullets(s, [
-    `UW-TIG vs Alamdari: ${d("alamdari_latency").mean_diff.toFixed(3)} (CI ${d("alamdari_latency").ci[0].toFixed(3)} to ${d("alamdari_latency").ci[1].toFixed(3)}) -- a tie.`,
-    `vs Rückin: +${d("ruckin_ipp").mean_diff.toFixed(3)}, interval excludes 0; flies ${f0(SP("large_old", "uwtig", "total_flight_dist_m"))} m vs ${f0(SP("large_old", "ruckin_ipp", "total_flight_dist_m"))} m.`,
-    "Margins shrink as the yard grows; the coverage phase is still decisive.",
-    "Fine-tuned detector did not help the closed loop (UW-TIG F1 " + f3(SP("large_new", "uwtig", "f1_confirmed")) + " vs " + f3(SP("large_old", "uwtig", "f1_confirmed")) + ").",
-  ], { x: rx + 0.25, y: 2.8, w: rw - 0.45, h: 3.0, fontSize: 12, gap: 7 });
-  text(s, "Ablations repeat: removing uncertainty or growth changes F1 by <0.005; removing staleness/lookahead shortens the flight with no F1 loss (ten-seed detail on the next slides).",
-    { x: X0, y: 5.95, w: CW, h: 0.6, fontSize: 11.5, color: G2 });
-}
-
 // ============================================================ 9c. TEN SEEDS
-const TS = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "results", "ten_seed_summary.json"), "utf8"));
-const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
 {
   const s = slide("Ten Seeds, Both Yards (Corrected Statistics)");
   text(s, "Original detector, confirmed F1, seeds 0-9 on the 9-wall and 31-wall yards; interval = 95% bootstrap over seeds.",
@@ -531,7 +476,7 @@ const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
     { text: "    --planner uwtig --gui --missions 1", options: { fontFace: "Courier New" } },
   ], { x: X0 + 0.25, y: 2.25, w: 6.0, h: 1.0, fontSize: 12.5 });
   bullets(s, [
-    "The drone flies the yard in a 3-D window; the terminal prints the wall it picks and what the detector reports.",
+    "The agent flies the yard in a 3-D window; the terminal prints the wall it picks and what the detector reports.",
     "In-memory store: no Postgres or Docker needed.",
     "Planners to compare: uwtig, isler_nbv, random (same scene and seed).",
   ], { x: X0 + 0.25, y: 3.4, w: 6.0, h: 2.8, fontSize: 13, gap: 10 });
@@ -550,7 +495,7 @@ const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
   card(s, X0, 1.4, 5.95, 4.9, "Conclusion");
   bullets(s, [
     `A working closed loop: detect, assess uncertainty, remember, replan, reinspect.`,
-    `UW-TIG reaches precision ${f3(UW.p)}, recall ${f3(UW.r)}, F1 ${f3(UW.f)} on held-out test seeds.`,
+    `UW-TIG reaches F1 ${f3(TS.small.uwtig.f1)} (9 walls) and ${f3(TS.large.uwtig.f1)} (31 walls) over ten seeds.`,
     "Level with the strongest published planners on ten seeds in a 9-wall and a 31-wall yard (borderline ahead of Alamdari at 9 walls, behind it at 31, not significantly), usually with less flight.",
     "Tests show the coverage phase and cost-aware routing carry the result; the uncertainty and growth terms add nothing measurable.",
     "Reported honestly: margins shrink at scale, and the fine-tuned detector was not adopted.",
@@ -559,7 +504,7 @@ const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
 
   card(s, 6.78, 1.4, 5.95, 4.9, "Future work");
   bullets(s, [
-    `Raise the "uncertain" scenario's precision (${f3(M("uwtig", "precision_confirmed", ["uncertain"]))}) above 0.90.`,
+    "Raise precision in the \"uncertain\" scenario above 0.90.",
     "Find a setting where uncertainty and growth matter (real growth data); weights up to 20 changed nothing.",
     "Replace TTA with a calibrated uncertainty (temperature scaling or MC-Dropout).",
     "Add real growth data so the growing-defect scenario can be detected.",
@@ -568,7 +513,7 @@ const ci3 = (c) => (c ? `${c[0].toFixed(3)}-${c[1].toFixed(3)}` : "--");
 }
 
 // ---------------------------------------------------------------- write
-const OUT = process.env.DECK_OUT || path.join(__dirname, "..", "Autonomous_Drone_Inspection_Progress.pptx");
+const OUT = process.env.DECK_OUT || path.join(__dirname, "..", "UW-TIG_Review_Deck.pptx");
 pres.writeFile({ fileName: OUT }).then(async () => {
   const { applyTheme } = require(process.env.PPTX_SKILL_DIR + "/scripts/apply_theme.js");
   await applyTheme(OUT, THEME);
