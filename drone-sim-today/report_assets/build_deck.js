@@ -113,6 +113,21 @@ function table(s, header, rows, o) {
 }
 
 // Figures have white backgrounds, so they sit on a white panel like the reference deck's diagrams.
+function pngSize(file) {
+  const b = fs.readFileSync(file);
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+}
+
+// Fit a figure into a box (centred), on a white panel, with an IEEE-style caption below it.
+function figure(s, file, box, caption) {
+  const { w: pw, h: ph } = pngSize(file);
+  let w = box.w, h = w * ph / pw;
+  if (h > box.h) { h = box.h; w = h * pw / ph; }
+  const x = box.x + (box.w - w) / 2, y = box.y;
+  picture(s, file, x, y, w, h);
+  text(s, caption, { x, y: y + h + 0.18, w, h: 0.7, fontSize: 13, color: MUTED, align: "left" });
+}
+
 function picture(s, file, x, y, w, h) {
   s.addShape("rect", { x: x - 0.06, y: y - 0.06, w: w + 0.12, h: h + 0.12, fill: { color: WHITE }, line: { color: WHITE, width: 0 } });
   s.addImage({ path: file, x, y, w, h });
@@ -144,13 +159,31 @@ function picture(s, file, x, y, w, h) {
 // ============================================================ 2. ARCHITECTURAL DESIGN
 {
   const s = slide("Architectural Design");
-  picture(s, ASSET("paper_figs/loop.png"), 6.3, 1.7, 6.3, 3.2);
-  bullets(s, [
-    { lead: "Planner", text: "scores 54 candidate views (186 in the large yard) after every move" },
-    { lead: "Detector", text: "YOLOv8s with test-time augmentation gives a detection and an uncertainty" },
-    { lead: "Geometry", text: "ray-casts each detection onto the wall plane" },
-    { lead: "Memory", text: "matches defects across missions (Postgres + Neo4j) and feeds growth and staleness back" },
-  ], { x: X0, y: 1.7, w: 5.3, h: 4.8, fontSize: 18, gap: 14 });
+  figure(s, FIG("architecture_slide.png"), { x: 1.0, y: 1.5, w: 11.3, h: 4.95 },
+    "Fig. 1.  Architecture of the closed-loop inspection system. Bold borders mark the components contributed by this work.");
+}
+
+// ============================================================ 2b. COMPONENT DETAILS
+{
+  const s = slide("Architecture: Components");
+  const rows = [
+    ["Environment", "PyBullet yard with MBDD2025 wall textures, four scenarios, ground-truth defects; camera 320x240, 60 deg", "scene/, experiments/scenarios.py, kinematic_capture.py"],
+    ["Perception", "Square-pixel resample, YOLOv8s on five passes (original + 4 photometric variants); uncertainty = std of confidence", "perception/ml_detector.py"],
+    ["Localization", "Pixel ray intersected with the wall plane gives a 3-D position and defect size", "geometry.py"],
+    ["Defect memory", "PostgreSQL + pgvector log with 32-D embeddings and a 0.35 m spatial gate; Neo4j defect graph with growth chain", "memory/store.py, store_mem.py"],
+    ["Mission belief", "Per wall cell: view count, uncertainty, growth, last visit; seeded from memory at the start of later missions", "planning/planners.py"],
+    ["UW-TIG planner", "Coverage phase, then utility with two-step lookahead over the viewpoint graph (54 / 186 views)", "planning/planners.py, viewpoints.py"],
+    ["Evaluation", "Confirmed precision, recall and F1, flight distance, coverage; ten seeds with bootstrap intervals", "experiments/evaluate.py"],
+  ];
+  table(s, ["Block", "What it does", "Code"], rows,
+    { x: X0, y: 1.55, w: CW, colW: [1.9, 6.6, 3.43], fontSize: 13, rowH: [0.42, 0.66, 0.66, 0.56, 0.66, 0.66, 0.66, 0.56], leftCols: [1, 2] });
+}
+
+// ============================================================ 2c. DECISION FLOW
+{
+  const s = slide("UW-TIG Decision Flow");
+  figure(s, FIG("decision_flow.png"), { x: 1.3, y: 1.55, w: 10.7, h: 4.6 },
+    "Fig. 2.  Decision flow of UW-TIG at each step. IG, U, G, S and C are information gain, uncertainty, growth, staleness and cost; only the first step of the plan is flown.");
 }
 
 // ============================================================ 3. NOVELTY COMPLETION
@@ -191,23 +224,25 @@ function picture(s, file, x, y, w, h) {
 // ============================================================ 5. EVALUATION (CONTINUED): PLANNERS
 {
   const s = slide("Evaluation and Performance Metrics (Continued)");
-  picture(s, FIG("tradeoff.png"), 1.5, 1.55, 10.3, 4.18);
+  figure(s, FIG("tradeoff.png"), { x: 1.5, y: 1.5, w: 10.3, h: 3.95 },
+    "Fig. 3.  F1 against flight distance for seven planners, mean over ten seeds with 95% bootstrap intervals. (a) 9-wall yard. (b) 31-wall yard.");
   const da = TS.small.alamdari_latency.uwtig_minus, dl = TS.large.alamdari_latency.uwtig_minus;
   bullets(s, [
     { lead: "9 walls", text: `ahead of Alamdari by ${da.diff.toFixed(3)} (CI ${ci3(da.ci)}), borderline` },
     { lead: "31 walls", text: `Alamdari ahead by ${(-dl.diff).toFixed(3)}, within the noise`, leadColor: GREEN },
-  ], { x: X0, y: 6.0, w: CW, h: 0.9, fontSize: 17, gap: 6 });
+  ], { x: X0, y: 6.15, w: CW, h: 0.8, fontSize: 16, gap: 4 });
 }
 
 // ============================================================ 6. EVALUATION (CONTINUED): ABLATIONS
 {
   const s = slide("Evaluation and Performance Metrics (Continued)");
-  picture(s, FIG("ablation.png"), 1.5, 1.55, 10.3, 3.87);
+  figure(s, FIG("ablation.png"), { x: 1.5, y: 1.5, w: 10.3, h: 3.6 },
+    "Fig. 4.  Ablation of UW-TIG components, F1 over ten seeds. (a) 9-wall yard. (b) 31-wall yard.");
   bullets(s, [
     { lead: "Coverage phase", text: `carries the result: F1 falls to ${f3(TS.small.uwtig_no_coverage_first.f1)} and ${f3(TS.large.uwtig_no_coverage_first.f1)} without it` },
     { lead: "Uncertainty and growth", text: "change F1 by 0.002 at most, also with an oracle detector", leadColor: GREEN },
     { lead: "Staleness and lookahead", text: "cost extra flight but no F1" },
-  ], { x: X0, y: 5.65, w: CW, h: 1.3, fontSize: 17, gap: 6 });
+  ], { x: X0, y: 5.85, w: CW, h: 1.15, fontSize: 15, gap: 3 });
 }
 
 // ============================================================ 7. REFERENCES
@@ -249,8 +284,8 @@ function picture(s, file, x, y, w, h) {
 // ============================================================ 9. TEST ENVIRONMENT
 {
   const s = slide("Test Environment");
-  picture(s, ASSET("paper_figs/yard.png"), X0, 1.6, 5.6, 4.46);
-  text(s, "31-wall yard: walls in blue, candidate viewpoints in orange and red", { x: X0, y: 6.25, w: 5.6, h: 0.3, fontSize: 12, color: MUTED, align: "center" });
+  figure(s, ASSET("paper_figs/yard.png"), { x: X0, y: 1.6, w: 5.6, h: 4.46 },
+    "Fig. 5.  Plan view of the 31-wall test yard: walls (blue) and candidate viewpoints at the two standoff distances (orange, red).");
   bullets(s, [
     { lead: "Small yard", text: "9 walls, 54 viewpoints, budget of 16 views" },
     { lead: "Large yard", text: "31 walls, 186 viewpoints, budget of 50 views", leadColor: GREEN },
